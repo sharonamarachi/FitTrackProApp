@@ -1,26 +1,217 @@
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
+import { TimerScreenProps } from "../../navigation/types";
 
-type Props = {
-  route: {
-    params: {
-      workoutDuration: number;
-      restDuration: number;
-      cycles: number;
-    };
+export default function TimerScreen({ navigation, route }: TimerScreenProps) {
+  const { work, rest, rounds, exercises } = route.params;
+
+  const [timeLeft, setTimeLeft] = useState(work);
+  const [isWorkPhase, setIsWorkPhase] = useState(true);
+  const [currentRound, setCurrentRound] = useState(1);
+  const [currentExercise, setCurrentExercise] = useState(1);
+  const [isPaused, setIsPaused] = useState(false);
+
+  // Calculate total workout stats
+  const totalRounds = rounds * exercises;
+  const completedRounds = (currentExercise - 1) * rounds + (currentRound - 1) + (isWorkPhase ? 0 : 0.5);
+  const totalProgress = (completedRounds / totalRounds) * 100;
+  
+  const currentPhaseTotal = isWorkPhase ? work : rest;
+  const currentPhaseProgress = ((currentPhaseTotal - timeLeft) / currentPhaseTotal) * 100;
+
+  useEffect(() => {
+    if (isPaused) return;
+
+    if (timeLeft === 0) {
+      if (isWorkPhase) {
+        setIsWorkPhase(false);
+        setTimeLeft(rest);
+      } else {
+        if (currentRound < rounds) {
+          setIsWorkPhase(true);
+          setTimeLeft(work);
+          setCurrentRound(currentRound + 1);
+        } else if (currentExercise < exercises) {
+          setIsWorkPhase(true);
+          setTimeLeft(work);
+          setCurrentRound(1);
+          setCurrentExercise(currentExercise + 1);
+        } else {
+          // Workout complete
+          navigation.goBack();
+        }
+      }
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setTimeLeft(timeLeft - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [timeLeft, isPaused]);
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
-};
 
-export default function TimerScreen({ route }: Props) {
-  const { workoutDuration, restDuration, cycles } = route.params;
+  const DualRingProgress = () => {
+    const size = 320;
+    const outerRadius = 150;
+    const innerRadius = 130;
+    const strokeWidth = 12;
+    const centerX = size / 2;
+    const centerY = size / 2;
+
+    // Calculate circumferences
+    const outerCircumference = 2 * Math.PI * outerRadius;
+    const innerCircumference = 2 * Math.PI * innerRadius;
+
+    // Calculate stroke dash offsets
+    const outerStrokeDashoffset = outerCircumference - (totalProgress / 100) * outerCircumference;
+    const innerStrokeDashoffset = innerCircumference - (currentPhaseProgress / 100) * innerCircumference;
+
+    return (
+      <View style={styles.circularContainer}>
+        <Svg width={size} height={size} style={styles.svg}>
+          <Defs>
+            <LinearGradient id="outerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor="#3b82f6" />
+              <Stop offset="100%" stopColor="#60a5fa" />
+            </LinearGradient>
+            <LinearGradient id="innerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor={isWorkPhase ? "#10b981" : "#f97316"} />
+              <Stop offset="100%" stopColor={isWorkPhase ? "#34d399" : "#fb923c"} />
+            </LinearGradient>
+          </Defs>
+
+          {/* Outer ring background */}
+          <Circle
+            cx={centerX}
+            cy={centerY}
+            r={outerRadius}
+            stroke="#1f2937"
+            strokeWidth={strokeWidth}
+            fill="none"
+          />
+
+          {/* Outer ring progress (total workout) */}
+          <Circle
+            cx={centerX}
+            cy={centerY}
+            r={outerRadius}
+            stroke="url(#outerGrad)"
+            strokeWidth={strokeWidth}
+            fill="none"
+            strokeDasharray={outerCircumference}
+            strokeDashoffset={outerStrokeDashoffset}
+            strokeLinecap="round"
+            rotation="-90"
+            origin={`${centerX}, ${centerY}`}
+          />
+
+          {/* Inner ring background */}
+          <Circle
+            cx={centerX}
+            cy={centerY}
+            r={innerRadius}
+            stroke="#1f2937"
+            strokeWidth={strokeWidth}
+            fill="none"
+          />
+
+          {/* Inner ring progress (current interval) */}
+          <Circle
+            cx={centerX}
+            cy={centerY}
+            r={innerRadius}
+            stroke="url(#innerGrad)"
+            strokeWidth={strokeWidth}
+            fill="none"
+            strokeDasharray={innerCircumference}
+            strokeDashoffset={innerStrokeDashoffset}
+            strokeLinecap="round"
+            rotation="-90"
+            origin={`${centerX}, ${centerY}`}
+          />
+        </Svg>
+
+        <View style={styles.circularContent}>
+          <Text style={styles.timeText}>{formatTime(timeLeft)}</Text>
+          <Text style={[
+            styles.phaseText,
+            { color: isWorkPhase ? "#10b981" : "#f97316" }
+          ]}>
+            {isWorkPhase ? "WORK" : "REST"}
+          </Text>
+          <Text style={styles.roundText}>
+            Round {currentRound}/{rounds}
+          </Text>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Timer Screen</Text>
-      <Text style={styles.subtitle}>
-        Workout: {workoutDuration}s, Rest: {restDuration}s, Cycles: {cycles}
-      </Text>
-      <Text style={styles.subtitle}>(Timer logic coming soon)</Text>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
+          <Ionicons name="close" size={28} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
+      <DualRingProgress />
+
+      <View style={styles.statsContainer}>
+        <View style={[styles.statBadge, { backgroundColor: "#3b82f6" }]}>
+          <Text style={styles.statLabel}>Total Progress</Text>
+          <Text style={styles.statValue}>{totalProgress.toFixed(0)}%</Text>
+        </View>
+        <View style={[styles.statBadge, { backgroundColor: isWorkPhase ? "#10b981" : "#f97316" }]}>
+          <Text style={styles.statLabel}>Exercise</Text>
+          <Text style={styles.statValue}>{currentExercise}/{exercises}</Text>
+        </View>
+      </View>
+
+      <View style={styles.controls}>
+        <TouchableOpacity 
+          style={styles.skipButton}
+          onPress={() => {
+            if (isWorkPhase) {
+              setIsWorkPhase(false);
+              setTimeLeft(rest);
+            } else {
+              if (currentRound < rounds) {
+                setIsWorkPhase(true);
+                setTimeLeft(work);
+                setCurrentRound(currentRound + 1);
+              } else if (currentExercise < exercises) {
+                setIsWorkPhase(true);
+                setTimeLeft(work);
+                setCurrentRound(1);
+                setCurrentExercise(currentExercise + 1);
+              }
+            }
+          }}
+        >
+          <Ionicons name="play-skip-forward" size={24} color="#fff" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.pauseButton}
+          onPress={() => setIsPaused(!isPaused)}
+        >
+          <Text style={styles.pauseText}>{isPaused ? "RESUME" : "PAUSE"}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.closeButtonBottom} onPress={() => navigation.goBack()}>
+          <Ionicons name="close" size={24} color="#fff" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -28,22 +219,110 @@ export default function TimerScreen({ route }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
+    backgroundColor: "#000",
+    paddingTop: 60,
+  },
+  header: {
+    paddingHorizontal: 24,
+    marginBottom: 40,
+  },
+  closeButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#1f2937",
     alignItems: "center",
-    backgroundColor: "#f8f9fa",
-    padding: 20,
+    justifyContent: "center",
   },
-  title: {
-    fontSize: 24,
+  circularContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 40,
+    marginTop: 60,
+    height: 320,
+  },
+  svg: {
+    position: "absolute",
+  },
+  circularContent: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  timeText: {
+    fontSize: 72,
     fontWeight: "bold",
-    marginBottom: 10,
-    color: "#333",
+    color: "#fff",
+    marginBottom: 8,
   },
-  subtitle: {
+  phaseText: {
+    fontSize: 24,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  roundText: {
+    fontSize: 14,
+    color: "#6b7280",
+  },
+  statsContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 12,
+    marginTop: 10,
+    marginBottom: 60,
+    paddingHorizontal: 24,
+  },
+  statBadge: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 20,
+    alignItems: "center",
+    minWidth: 140,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: "rgba(255, 255, 255, 0.8)",
+    marginBottom: 4,
+  },
+  statValue: {
     fontSize: 16,
-    color: "#666",
-    textAlign: "center",
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  controls: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
+    paddingHorizontal: 24,
+  },
+  skipButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#1f2937",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pauseButton: {
+    flex: 1,
+    maxWidth: 240,
+    paddingVertical: 20,
+    borderRadius: 9999,
+    backgroundColor: "#10b981",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pauseText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#000",
+  },
+  closeButtonBottom: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#1f2937",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
-
-

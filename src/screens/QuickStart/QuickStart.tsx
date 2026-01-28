@@ -2,8 +2,9 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { QuickStartScreenProps } from "../../navigation/types";
 
-export default function QuickStart({ navigation }: any) {
+export default function QuickStart({ navigation }: QuickStartScreenProps) {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedOption, setSelectedOption] = useState("");
 

@@ -1,36 +1,540 @@
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Animated,
+  PanResponder,
+  Dimensions,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { QuickTimerScreenProps } from '../../navigation/types';
 
-export default function QuickTimer() {
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SLIDER_WIDTH = SCREEN_WIDTH - 48;
+
+type MetricKey = 'work' | 'rest' | 'rounds' | 'exercises';
+
+interface Metric {
+  value: number;
+  setter: (value: number) => void;
+  max: number;
+  step: number;
+  label: string;
+  startColor: string;
+  endColor: string;
+  icon: string;
+}
+
+export default function CircularTimerSetup({ navigation }: QuickTimerScreenProps) {
+  const [selectedMetric, setSelectedMetric] = useState<MetricKey>('work');
+  const [work, setWork] = useState(95);
+  const [rest, setRest] = useState(15);
+  const [rounds, setRounds] = useState(8);
+  const [exercises, setExercises] = useState(4);
+
+  const metrics: Record<MetricKey, Metric> = {
+    work: {
+      value: work,
+      setter: setWork,
+      max: 300,
+      step: 5,
+      label: 'Work',
+      startColor: '#10b981',
+      endColor: '#34d399',
+      icon: 'pulse',
+    },
+    rest: {
+      value: rest,
+      setter: setRest,
+      max: 180,
+      step: 5,
+      label: 'Rest',
+      startColor: '#f97316',
+      endColor: '#fb923c',
+      icon: 'pause',
+    },
+    rounds: {
+      value: rounds,
+      setter: setRounds,
+      max: 50,
+      step: 1,
+      label: 'Rounds',
+      startColor: '#3b82f6',
+      endColor: '#60a5fa',
+      icon: 'repeat',
+    },
+    exercises: {
+      value: exercises,
+      setter: setExercises,
+      max: 20,
+      step: 1,
+      label: 'Exercises',
+      startColor: '#a855f7',
+      endColor: '#c084fc',
+      icon: 'flash',
+    },
+  };
+
+  const currentMetric = metrics[selectedMetric];
+  const percentage = (currentMetric.value / currentMetric.max) * 100;
+
+  const formatTime = (seconds: number): string => {
+    if (seconds < 60) return `${seconds}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return secs > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : `${mins}m`;
+  };
+
+  const formatValue = (key: MetricKey, value: number): string => {
+    if (key === 'work' || key === 'rest') return formatTime(value);
+    return `${value}x`;
+  };
+
+  const calculateTotal = (): string => {
+    const totalSeconds = (work + rest) * rounds * exercises;
+    return formatTime(totalSeconds);
+  };
+
+  const CircularProgress = () => {
+    const size = 280;
+    const strokeWidth = 24;
+    const radius = (size - strokeWidth) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+    return (
+      <View style={styles.circularContainer}>
+        <Svg width={size} height={size} style={styles.svg}>
+          <Defs>
+            <LinearGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor={currentMetric.startColor} />
+              <Stop offset="100%" stopColor={currentMetric.endColor} />
+            </LinearGradient>
+          </Defs>
+          
+          <Circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke="#1f2937"
+            strokeWidth={strokeWidth}
+            fill="none"
+          />
+          
+          <Circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke="url(#progressGrad)"
+            strokeWidth={strokeWidth}
+            fill="none"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            rotation="-90"
+            origin={`${size / 2}, ${size / 2}`}
+          />
+        </Svg>
+
+        <View style={styles.circularContent}>
+          <Ionicons
+            name={currentMetric.icon as any}
+            size={50}
+            color="#fff"
+            style={styles.icon}
+          />
+          <Text style={styles.metricLabel}>{currentMetric.label.toUpperCase()}</Text>
+          <Text style={styles.metricValue}>
+            {formatValue(selectedMetric, currentMetric.value)}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
+  const SmoothSlider = () => {
+    const sliderPosition = useRef(
+      new Animated.Value((currentMetric.value / currentMetric.max) * SLIDER_WIDTH)
+    ).current;
+    const startX = useRef(0);
+
+    // Keep thumb synced when switching metrics or when the value changes programmatically
+    useEffect(() => {
+      const targetX = (currentMetric.value / currentMetric.max) * SLIDER_WIDTH;
+      Animated.timing(sliderPosition, {
+        toValue: targetX,
+        duration: 150,
+        useNativeDriver: false,
+      }).start();
+    }, [currentMetric.value, currentMetric.max, sliderPosition]);
+
+    const panResponder = PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        startX.current = (currentMetric.value / currentMetric.max) * SLIDER_WIDTH;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const newX = Math.max(
+          0,
+          Math.min(SLIDER_WIDTH, startX.current + gestureState.dx)
+        );
+        sliderPosition.setValue(newX);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const newX = Math.max(
+          0,
+          Math.min(SLIDER_WIDTH, startX.current + gestureState.dx)
+        );
+        const newPercentage = (newX / SLIDER_WIDTH) * 100;
+        const rawValue = (newPercentage / 100) * currentMetric.max;
+        const steppedValue =
+          Math.round(rawValue / currentMetric.step) * currentMetric.step;
+        const finalValue = Math.max(
+          currentMetric.step,
+          Math.min(currentMetric.max, steppedValue)
+        );
+
+        currentMetric.setter(finalValue);
+
+        Animated.spring(sliderPosition, {
+          toValue: (finalValue / currentMetric.max) * SLIDER_WIDTH,
+          useNativeDriver: false,
+          friction: 7,
+          tension: 40,
+        }).start();
+      },
+    });
+
+    const thumbPosition = sliderPosition.interpolate({
+      inputRange: [0, SLIDER_WIDTH],
+      outputRange: [0, SLIDER_WIDTH],
+      extrapolate: 'clamp',
+    });
+
+    return (
+      <View style={styles.sliderContainer}>
+        <View style={styles.sliderTrack}>
+          <Animated.View
+            style={[
+              styles.sliderFill,
+              {
+                width: thumbPosition,
+                backgroundColor: currentMetric.startColor,
+              },
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.sliderThumb,
+              {
+                left: thumbPosition,
+                backgroundColor: currentMetric.startColor,
+                shadowColor: currentMetric.startColor,
+              },
+            ]}
+            {...panResponder.panHandlers}
+          />
+        </View>
+      </View>
+    );
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Quick Timer</Text>
-      <Text style={styles.subtitle}>
-        Start a simple interval timer (coming soon).
-      </Text>
-    </View>
+    <ScrollView
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.contentContainer}
+    >
+      <View style={styles.header}>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="chevron-back" size={22} color="#e5e7eb" />
+          </TouchableOpacity>
+          <Text style={styles.title}>Interval Setup</Text>
+        </View>
+        <Text style={styles.subtitle}>Select and adjust each metric</Text>
+      </View>
+
+      <CircularProgress />
+
+      <View style={styles.pillContainer}>
+        {(Object.keys(metrics) as MetricKey[]).map((key) => {
+          const metric = metrics[key];
+          const isSelected = selectedMetric === key;
+          return (
+            <TouchableOpacity
+              key={key}
+              style={[
+                styles.pill,
+                isSelected && {
+                  backgroundColor: metric.startColor,
+                },
+              ]}
+              onPress={() => setSelectedMetric(key)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={metric.icon as any}
+                size={20}
+                color={isSelected ? '#fff' : '#6b7280'}
+              />
+              <Text
+                style={[styles.pillLabel, isSelected && styles.pillLabelActive]}
+              >
+                {metric.label}
+              </Text>
+              <Text
+                style={[styles.pillValue, isSelected && styles.pillValueActive]}
+              >
+                {formatValue(key, metric.value)}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <SmoothSlider />
+
+      <View style={styles.summaryCard}>
+        <View style={styles.summaryHeader}>
+          <Text style={styles.summaryTitle}>Total Workout</Text>
+          <Text style={styles.summaryTotal}>{calculateTotal()}</Text>
+        </View>
+        <View style={styles.summaryDivider} />
+        <View style={styles.summaryGrid}>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>Per Round</Text>
+            <Text style={styles.summaryValue}>{formatTime(work + rest)}</Text>
+          </View>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>Per Exercise</Text>
+            <Text style={styles.summaryValue}>
+              {formatTime((work + rest) * rounds)}
+            </Text>
+          </View>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>Total Sets</Text>
+            <Text style={styles.summaryValue}>{rounds * exercises}</Text>
+          </View>
+        </View>
+      </View>
+
+      <TouchableOpacity
+        style={[styles.startButton, { backgroundColor: currentMetric.startColor }]}
+        activeOpacity={0.8}
+        onPress={() => {
+          navigation.navigate('TimerScreen', {
+            work,
+            rest,
+            rounds,
+            exercises,
+          });
+        }}
+      >
+        <Ionicons name="play" size={24} color="#fff" />
+        <Text style={styles.startButtonText}>Start Training</Text>
+      </TouchableOpacity>
+
+      <View style={{ height: 100 }} />
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f8f9fa",
-    padding: 20,
+    backgroundColor: '#000',
+  },
+  contentContainer: {
+    paddingBottom: 120,
+  },
+  header: {
+    paddingBottom: 30,
+    paddingHorizontal: 24,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#111827',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 10,
-    color: "#333",
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: "#666",
-    textAlign: "center",
+    color: '#6b7280',
+  },
+  circularContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 32,
+    height: 280,
+  },
+  svg: {
+    position: 'absolute',
+  },
+  circularContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  icon: {
+    marginBottom: 16,
+  },
+  metricLabel: {
+    fontSize: 12,
+    color: '#9ca3af',
+    letterSpacing: 1.5,
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  metricValue: {
+    fontSize: 64,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  pillContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginBottom: 32,
+    gap: 12,
+  },
+  pill: {
+    flex: 1,
+    backgroundColor: '#1e293b',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+  },
+  pillLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#6b7280',
+    marginTop: 4,
+  },
+  pillLabelActive: {
+    color: '#fff',
+  },
+  pillValue: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#6b7280',
+    marginTop: 4,
+  },
+  pillValueActive: {
+    color: '#fff',
+  },
+  sliderContainer: {
+    paddingHorizontal: 24,
+    marginBottom: 32,
+  },
+  sliderTrack: {
+    height: 12,
+    backgroundColor: '#1e293b',
+    borderRadius: 6,
+    position: 'relative',
+  },
+  sliderFill: {
+    height: '100%',
+    borderRadius: 6,
+    position: 'absolute',
+  },
+  sliderThumb: {
+    position: 'absolute',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    top: -10,
+    marginLeft: -16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  summaryCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: 24,
+    padding: 24,
+    marginHorizontal: 24,
+    marginBottom: 24,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  summaryTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  summaryTotal: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: '#334155',
+    marginBottom: 16,
+  },
+  summaryGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  summaryItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  summaryLabel: {
+    fontSize: 11,
+    color: '#6b7280',
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  startButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 24,
+    paddingVertical: 20,
+    borderRadius: 9999,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  startButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
   },
 });
-
-

@@ -30,10 +30,23 @@ export type QuickStartStackParamList = {
   QuickTimer: undefined;
   CustomWorkout: undefined;
   YouTubeImport: undefined;
-  TimerScreen: { workoutDuration: number; restDuration: number; cycles: number };
+  TimerScreen: { work: number; rest: number; rounds: number; exercises: number };
 };
 
 
 export type LoginScreenProps = NativeStackScreenProps<RootStackParamList, 'Login'>;
 export type SignUpScreenProps = NativeStackScreenProps<RootStackParamList, 'SignUp'>;
 export type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
+
+export type QuickStartScreenProps = NativeStackScreenProps<
+  QuickStartStackParamList,
+  'QuickStart'
+>;
+export type QuickTimerScreenProps = NativeStackScreenProps<
+  QuickStartStackParamList,
+  'QuickTimer'
+>;
+export type TimerScreenProps = NativeStackScreenProps<
+  QuickStartStackParamList,
+  'TimerScreen'
+>;
