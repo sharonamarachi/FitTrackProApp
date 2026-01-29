@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { QuickTimerScreenProps } from '../../navigation/types';
+import Header from '../../components/Header';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SLIDER_WIDTH = SCREEN_WIDTH - 48;
@@ -60,7 +61,7 @@ export default function CircularTimerSetup({ navigation }: QuickTimerScreenProps
     rounds: {
       value: rounds,
       setter: setRounds,
-      max: 50,
+      max: 20,
       step: 1,
       label: 'Rounds',
       startColor: '#3b82f6',
@@ -120,7 +121,7 @@ export default function CircularTimerSetup({ navigation }: QuickTimerScreenProps
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke="#1f2937"
+            stroke="#e5e7eb"
             strokeWidth={strokeWidth}
             fill="none"
           />
@@ -144,7 +145,7 @@ export default function CircularTimerSetup({ navigation }: QuickTimerScreenProps
           <Ionicons
             name={currentMetric.icon as any}
             size={50}
-            color="#fff"
+            color={currentMetric.startColor}
             style={styles.icon}
           />
           <Text style={styles.metricLabel}>{currentMetric.label.toUpperCase()}</Text>
@@ -162,7 +163,6 @@ export default function CircularTimerSetup({ navigation }: QuickTimerScreenProps
     ).current;
     const startX = useRef(0);
 
-    // Keep thumb synced when switching metrics or when the value changes programmatically
     useEffect(() => {
       const targetX = (currentMetric.value / currentMetric.max) * SLIDER_WIDTH;
       Animated.timing(sliderPosition, {
@@ -245,150 +245,116 @@ export default function CircularTimerSetup({ navigation }: QuickTimerScreenProps
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.contentContainer}
-    >
-      <View style={styles.header}>
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="chevron-back" size={22} color="#e5e7eb" />
-          </TouchableOpacity>
-          <Text style={styles.title}>Interval Setup</Text>
-        </View>
-        <Text style={styles.subtitle}>Select and adjust each metric</Text>
-      </View>
-
-      <CircularProgress />
-
-      <View style={styles.pillContainer}>
-        {(Object.keys(metrics) as MetricKey[]).map((key) => {
-          const metric = metrics[key];
-          const isSelected = selectedMetric === key;
-          return (
-            <TouchableOpacity
-              key={key}
-              style={[
-                styles.pill,
-                isSelected && {
-                  backgroundColor: metric.startColor,
-                },
-              ]}
-              onPress={() => setSelectedMetric(key)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={metric.icon as any}
-                size={20}
-                color={isSelected ? '#fff' : '#6b7280'}
-              />
-              <Text
-                style={[styles.pillLabel, isSelected && styles.pillLabelActive]}
-              >
-                {metric.label}
-              </Text>
-              <Text
-                style={[styles.pillValue, isSelected && styles.pillValueActive]}
-              >
-                {formatValue(key, metric.value)}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      <SmoothSlider />
-
-      <View style={styles.summaryCard}>
-        <View style={styles.summaryHeader}>
-          <Text style={styles.summaryTitle}>Total Workout</Text>
-          <Text style={styles.summaryTotal}>{calculateTotal()}</Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryGrid}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Per Round</Text>
-            <Text style={styles.summaryValue}>{formatTime(work + rest)}</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Per Exercise</Text>
-            <Text style={styles.summaryValue}>
-              {formatTime((work + rest) * rounds)}
-            </Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Total Sets</Text>
-            <Text style={styles.summaryValue}>{rounds * exercises}</Text>
-          </View>
-        </View>
-      </View>
-
-      <TouchableOpacity
-        style={[styles.startButton, { backgroundColor: currentMetric.startColor }]}
-        activeOpacity={0.8}
-        onPress={() => {
-          navigation.navigate('TimerScreen', {
-            work,
-            rest,
-            rounds,
-            exercises,
-          });
-        }}
+    <View style={styles.container}>
+      <Header 
+        title="Interval Setup" 
+        subtitle="Select and adjust each metric"
+      />
+      
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.contentContainer}
       >
-        <Ionicons name="play" size={24} color="#fff" />
-        <Text style={styles.startButtonText}>Start Training</Text>
-      </TouchableOpacity>
+        <CircularProgress />
 
-      <View style={{ height: 100 }} />
-    </ScrollView>
+        <View style={styles.pillContainer}>
+          {(Object.keys(metrics) as MetricKey[]).map((key) => {
+            const metric = metrics[key];
+            const isSelected = selectedMetric === key;
+            return (
+              <TouchableOpacity
+                key={key}
+                style={[
+                  styles.pill,
+                  isSelected && {
+                    backgroundColor: metric.startColor,
+                  },
+                ]}
+                onPress={() => setSelectedMetric(key)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={metric.icon as any}
+                  size={20}
+                  color={isSelected ? '#fff' : '#6b7280'}
+                />
+                <Text
+                  style={[styles.pillLabel, isSelected && styles.pillLabelActive]}
+                >
+                  {metric.label}
+                </Text>
+                <Text
+                  style={[styles.pillValue, isSelected && styles.pillValueActive]}
+                >
+                  {formatValue(key, metric.value)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <SmoothSlider />
+
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryHeader}>
+            <Text style={styles.summaryTitle}>Total Workout</Text>
+            <Text style={styles.summaryTotal}>{calculateTotal()}</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryGrid}>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Per Round</Text>
+              <Text style={styles.summaryValue}>{formatTime(work + rest)}</Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Per Exercise</Text>
+              <Text style={styles.summaryValue}>
+                {formatTime((work + rest) * rounds)}
+              </Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Total Sets</Text>
+              <Text style={styles.summaryValue}>{rounds * exercises}</Text>
+            </View>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.startButton, { backgroundColor: currentMetric.startColor }]}
+          activeOpacity={0.8}
+          onPress={() => {
+            navigation.navigate('TimerScreen', {
+              work,
+              rest,
+              rounds,
+              exercises,
+            });
+          }}
+        >
+          <Ionicons name="play" size={24} color="#fff" />
+          <Text style={styles.startButtonText}>Start Training</Text>
+        </TouchableOpacity>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#f8f9fa',
   },
   contentContainer: {
-    paddingBottom: 120,
-  },
-  header: {
-    paddingBottom: 30,
-    paddingHorizontal: 24,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#111827',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6b7280',
+    paddingBottom: 40,
+    paddingTop: 20,
   },
   circularContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 32,
+    marginTop: 20,
     height: 280,
   },
   svg: {
@@ -411,7 +377,7 @@ const styles = StyleSheet.create({
   metricValue: {
     fontSize: 64,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#333',
   },
   pillContainer: {
     flexDirection: 'row',
@@ -421,11 +387,15 @@ const styles = StyleSheet.create({
   },
   pill: {
     flex: 1,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#fff',
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 8,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   pillLabel: {
     fontSize: 10,
@@ -451,7 +421,7 @@ const styles = StyleSheet.create({
   },
   sliderTrack: {
     height: 12,
-    backgroundColor: '#1e293b',
+    backgroundColor: '#e5e7eb',
     borderRadius: 6,
     position: 'relative',
   },
@@ -468,16 +438,20 @@ const styles = StyleSheet.create({
     top: -10,
     marginLeft: -16,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
     elevation: 8,
   },
   summaryCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: '#fff',
     borderRadius: 24,
     padding: 24,
     marginHorizontal: 24,
     marginBottom: 24,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   summaryHeader: {
     flexDirection: 'row',
@@ -488,16 +462,16 @@ const styles = StyleSheet.create({
   summaryTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#fff',
+    color: '#333',
   },
   summaryTotal: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#333',
   },
   summaryDivider: {
     height: 1,
-    backgroundColor: '#334155',
+    backgroundColor: '#e5e7eb',
     marginBottom: 16,
   },
   summaryGrid: {
@@ -516,7 +490,7 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: '#333',
   },
   startButton: {
     flexDirection: 'row',
@@ -527,10 +501,10 @@ const styles = StyleSheet.create({
     borderRadius: 9999,
     gap: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
   startButtonText: {
     fontSize: 18,
