@@ -11,11 +11,11 @@ import {
   Alert,
   Platform,
   KeyboardAvoidingView,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '../../api/supabaseClient';
+import Header from '../../components/Header';
 
 interface Profile {
   username: string;
@@ -175,130 +175,132 @@ export default function EditProfile({ navigation }: any) {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Profile</Text>
-          <TouchableOpacity onPress={handleSave} disabled={loading}>
-            {loading ? (
-              <ActivityIndicator color="#4438c3" />
-            ) : (
-              <Text style={styles.saveText}>Save</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Avatar */}
-        <View style={styles.avatarContainer}>
-          <Ionicons name="person-circle" size={100} color="#aaa" />
-        </View>
-
-        {/* Username */}
-        <FormField
-          label="Username *"
-          value={profile.username}
-          onChangeText={(value: string) => updateProfile('username', value)}
-          error={errors.username}
-          placeholder="Enter your username"
-          maxLength={30}
-          showCharCount
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={styles.screen}>
+        <Header
+          title="Edit Profile"
+          subtitle="Update your personal details"
+          rightAction={{
+            icon: 'checkmark',
+            onPress: () => {
+              if (!loading) handleSave();
+            },
+          }}
         />
 
-        {/* Bio */}
-        <FormField
-          label="Bio"
-          value={profile.bio}
-          onChangeText={(value: string) => updateProfile('bio', value)}
-          error={errors.bio}
-          placeholder="Tell us about yourself"
-          multiline
-          maxLength={500}
-          showCharCount
-          
-        />
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Avatar */}
+          <View style={styles.avatarContainer}>
+            <Ionicons name="person-circle" size={100} color="#aaa" />
+          </View>
 
-        {/* Gender */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Gender</Text>
-          <TouchableOpacity
-            style={[styles.dropdown, errors.gender && styles.errorInput]}
-            onPress={() => setShowGenderModal(true)}
-          >
-            <Text style={profile.gender ? styles.dropdownText : styles.placeholderText}>
-              {profile.gender || 'Select Gender'}
-            </Text>
-            <Ionicons name="chevron-down" size={20} color="#333" />
-          </TouchableOpacity>
-          {errors.gender && <Text style={styles.errorText}>{errors.gender}</Text>}
-        </View>
+          {/* Username */}
+          <FormField
+            label="Username *"
+            value={profile.username}
+            onChangeText={(value: string) => updateProfile('username', value)}
+            error={errors.username}
+            placeholder="Enter your username"
+            maxLength={30}
+            showCharCount
+          />
 
-        <Modal visible={showGenderModal} transparent animationType="slide">
-          <TouchableWithoutFeedback onPress={() => setShowGenderModal(false)}>
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                {genderOptions.map((option) => (
-                  <TouchableOpacity
-                    key={option}
-                    style={[
-                      styles.option,
-                      profile.gender === option && { backgroundColor: '#eee' },
-                    ]}
-                    onPress={() => {
-                      updateProfile('gender', option);
-                      setShowGenderModal(false);
-                    }}
-                  >
-                    <Text>{option}</Text>
-                    {profile.gender === option && <Ionicons name="checkmark" size={18} color="#4438c3" />}
-                  </TouchableOpacity>
-                ))}
+          {/* Bio */}
+          <FormField
+            label="Bio"
+            value={profile.bio}
+            onChangeText={(value: string) => updateProfile('bio', value)}
+            error={errors.bio}
+            placeholder="Tell us about yourself"
+            multiline
+            maxLength={500}
+            showCharCount
+          />
+
+          {/* Gender */}
+          <View style={styles.field}>
+            <Text style={styles.label}>Gender</Text>
+            <TouchableOpacity
+              style={[styles.dropdown, errors.gender && styles.errorInput]}
+              onPress={() => setShowGenderModal(true)}
+            >
+              <Text style={profile.gender ? styles.dropdownText : styles.placeholderText}>
+                {profile.gender || 'Select Gender'}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color="#333" />
+            </TouchableOpacity>
+            {errors.gender && <Text style={styles.errorText}>{errors.gender}</Text>}
+          </View>
+
+          <Modal visible={showGenderModal} transparent animationType="slide">
+            <TouchableWithoutFeedback onPress={() => setShowGenderModal(false)}>
+              <View style={styles.modalOverlay}>
+                <View style={styles.modalContent}>
+                  {genderOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={[
+                        styles.option,
+                        profile.gender === option && { backgroundColor: '#eee' },
+                      ]}
+                      onPress={() => {
+                        updateProfile('gender', option);
+                        setShowGenderModal(false);
+                      }}
+                    >
+                      <Text>{option}</Text>
+                      {profile.gender === option && (
+                        <Ionicons name="checkmark" size={18} color="#4438c3" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
-            </View>
-          </TouchableWithoutFeedback>
-        </Modal>
+            </TouchableWithoutFeedback>
+          </Modal>
 
-        {/* Date of Birth */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Date of Birth</Text>
-          <TouchableOpacity
-            style={[styles.dropdown, errors.date_of_birth && styles.errorInput]}
-            onPress={() => setShowDatePicker(true)}
-          >
-            <Text style={birthday ? styles.dropdownText : styles.placeholderText}>
-              {birthday ? birthday.toDateString() : 'Select Date'}
-            </Text>
-            <Ionicons name="calendar-outline" size={20} color="#333" />
-          </TouchableOpacity>
-          {errors.date_of_birth && <Text style={styles.errorText}>{errors.date_of_birth}</Text>}
-          {showDatePicker && (
-            <DateTimePicker
-              value={birthday || new Date()}
-              mode="date"
-              display="spinner"
-              maximumDate={new Date()}
-              onChange={handleDateChange}
-            />
-          )}
-        </View>
+          {/* Date of Birth */}
+          <View style={styles.field}>
+            <Text style={styles.label}>Date of Birth</Text>
+            <TouchableOpacity
+              style={[styles.dropdown, errors.date_of_birth && styles.errorInput]}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={birthday ? styles.dropdownText : styles.placeholderText}>
+                {birthday ? birthday.toDateString() : 'Select Date'}
+              </Text>
+              <Ionicons name="calendar-outline" size={20} color="#333" />
+            </TouchableOpacity>
+            {errors.date_of_birth && <Text style={styles.errorText}>{errors.date_of_birth}</Text>}
+            {showDatePicker && (
+              <DateTimePicker
+                value={birthday || new Date()}
+                mode="date"
+                display="spinner"
+                maximumDate={new Date()}
+                onChange={handleDateChange}
+              />
+            )}
+          </View>
 
-        {/* Weight */}
-        <FormField
-          label="Weight (kg)"
-          value={weightInput}
-          onChangeText={handleWeightChange}
-          error={errors.weight}
-          placeholder="Enter your weight"
-          keyboardType="decimal-pad"
-        />
-      </ScrollView>
+          {/* Weight */}
+          <FormField
+            label="Weight (kg)"
+            value={weightInput}
+            onChangeText={handleWeightChange}
+            error={errors.weight}
+            placeholder="Enter your weight"
+            keyboardType="decimal-pad"
+          />
+        </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -337,16 +339,14 @@ const FormField: React.FC<FormFieldProps> = ({
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa', paddingHorizontal: 20 },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 15,
-    marginTop: 60,
+  screen: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
   },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-  saveText: { fontSize: 16, fontWeight: '600', color: '#4438c3' },
+  container: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
   avatarContainer: { alignItems: 'center', marginVertical: 20 },
   field: { marginBottom: 20 },
   label: { fontSize: 14, color: '#666', marginBottom: 5 },

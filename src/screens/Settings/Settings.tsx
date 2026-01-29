@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../api/supabaseClient';
 import { useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
+import Header from '../../components/Header';
 
 export default function Settings({ navigation }: any) {
   const [user, setUser] = useState<User | null>(null);
@@ -42,47 +43,43 @@ export default function Settings({ navigation }: any) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 30 }}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
+    <View style={styles.container}>
+      <Header title="Settings" />
+      
+      <ScrollView contentContainerStyle={{ paddingBottom: 30, paddingHorizontal: 20 }}>
+        {/* Account Section */}
+        <Text style={styles.sectionTitle}>Account</Text>
+        <SettingItem 
+          label="Email" 
+          value={user?.email} 
+          icon="mail-outline" 
+        />
+        <SettingItem 
+          label="Edit Profile" 
+          icon="person-circle-outline" 
+          onPress={() => navigation.navigate("EditProfile")} 
+        />
+
+        {/* App Section */}
+        <Text style={styles.sectionTitle}>App</Text>
+        <SettingItem label="Display & Audio" icon="tv-outline" />
+        <SettingItem label="Notifications" icon="notifications-outline" />
+
+        {/* Legal Section */}
+        <Text style={styles.sectionTitle}>Legal</Text>
+        <SettingItem label="Terms of Use" icon="document-text-outline" />
+        <SettingItem label="Privacy Policy" icon="shield-checkmark-outline" />
+
+        {/* Support Section */}
+        <Text style={styles.sectionTitle}>Support</Text>
+        <SettingItem label="Contact Us" icon="help-circle-outline" />
+
+        {/* Delete Account */}
+        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteUser}>
+          <Text style={styles.deleteText}>Delete Account</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
-      </View>
-
-      {/* Account Section */}
-      <Text style={styles.sectionTitle}>Account</Text>
-      <SettingItem 
-        label="Email" 
-        value={user?.email} 
-        icon="mail-outline" 
-      />
-      <SettingItem 
-        label="Edit Profile" 
-        icon="person-circle-outline" 
-        onPress={() => navigation.navigate("EditProfile")} 
-      />
-
-      {/* App Section */}
-      <Text style={styles.sectionTitle}>App</Text>
-      <SettingItem label="Display & Audio" icon="tv-outline" />
-      <SettingItem label="Notifications" icon="notifications-outline" />
-
-      {/* Legal Section */}
-      <Text style={styles.sectionTitle}>Legal</Text>
-      <SettingItem label="Terms of Use" icon="document-text-outline" />
-      <SettingItem label="Privacy Policy" icon="shield-checkmark-outline" />
-
-      {/* Support Section */}
-      <Text style={styles.sectionTitle}>Support</Text>
-      <SettingItem label="Contact Us" icon="help-circle-outline" />
-
-      {/* Delete Account */}
-      <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteUser}>
-        <Text style={styles.deleteText}>Delete Account</Text>
-      </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -104,19 +101,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f8f9fa",
-    paddingHorizontal: 15,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 15,
-    marginTop: 50,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    marginLeft: 10,
-    color: "#333",
   },
   sectionTitle: {
     fontSize: 14,
@@ -130,8 +114,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    paddingHorizontal: 16,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
   },
   itemLabel: {
     fontSize: 16,
@@ -144,6 +134,7 @@ const styles = StyleSheet.create({
   deleteButton: {
     marginTop: 50,
     alignItems: "center",
+    paddingVertical: 16,
   },
   deleteText: {
     color: "red",

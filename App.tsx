@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ActivityIndicator, View, StyleSheet, Text } from 'react-native';
 
 import Login from './src/screens/Auth/Login';
 import SignUp from './src/screens/Auth/SignUp';
@@ -13,48 +14,76 @@ import SettingsStack from './src/navigation/SettingsStack';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
-  const [initialRoute, setInitialRoute] =
-    useState<keyof RootStackParamList | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(true);
+  const [initialRoute, setInitialRoute] = useState<keyof RootStackParamList>('Login');
 
   useEffect(() => {
-    const checkSession = async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      setInitialRoute(token ? 'Home' : 'Login');
-    };
     checkSession();
   }, []);
 
-  if (!initialRoute) return null;
+  const checkSession = async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      setInitialRoute(token ? 'Home' : 'Login');
+    } catch (error) {
+      console.error('Error checking session:', error);
+      setInitialRoute('Login');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4438c3ff" />
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName={initialRoute}>
-        <Stack.Screen
-          name="Login"
-          component={Login}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="SignUp"
-          component={SignUp}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Home"
-          component={TabNavigator}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="SettingsStack"
+      <Stack.Navigator 
+        initialRouteName={initialRoute}
+        screenOptions={{
+          headerShown: false,
+          animation: 'slide_from_right',
+        }}
+      >
+        <Stack.Screen name="Login" component={Login} />
+        <Stack.Screen name="SignUp" component={SignUp} />
+        <Stack.Screen name="Home" component={TabNavigator} />
+        <Stack.Screen 
+          name="SettingsStack" 
           component={SettingsStack}
-          options={{ headerShown: false }}
+          options={{
+            presentation: 'modal',
+            animation: 'slide_from_bottom',
+          }}
         />
-        <Stack.Screen
-          name="EditProfile"
+        <Stack.Screen 
+          name="EditProfile" 
           component={EditProfile}
-          options={{ headerShown: false }}
+          options={{
+            animation: 'slide_from_right',
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+});

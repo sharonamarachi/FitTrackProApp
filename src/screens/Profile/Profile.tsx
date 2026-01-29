@@ -43,16 +43,6 @@ export default function Profile({ navigation }: any) {
       {/* Action buttons */}
       <View style={styles.actions}>
         <ActionButton
-          label="Edit Profile"
-          icon="create-outline"
-          onPress={() => navigation.navigate('EditProfile')}
-        />
-        <ActionButton
-          label="Analytics"
-          icon="bar-chart-outline"
-          onPress={() => navigation.navigate('Progress')}
-        />
-        <ActionButton
           label="Settings"
           icon="settings-outline"
           onPress={() => navigation.navigate('SettingsStack')}
