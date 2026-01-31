@@ -8,9 +8,7 @@ export type RootStackParamList = {
   Home: undefined;
   SettingsStack: undefined; 
   EditProfile: undefined; 
-  CreateWorkout: undefined;
-  EditWorkout: { workoutId: string };
-  WorkoutDetail: { workoutId: string };
+  WorkoutStack: undefined;
 };
 
 export type TabParamList = {
@@ -34,6 +32,11 @@ export type QuickStartStackParamList = {
   CustomWorkout: undefined;
   YouTubeImport: undefined;
   TimerScreen: { work: number; rest: number; rounds: number; exercises: number };
+};
+
+export type WorkoutsStackParamList = {
+  Workouts: undefined;
+  CreateWorkout: undefined;
 };
 
 

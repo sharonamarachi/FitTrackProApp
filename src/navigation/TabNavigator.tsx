@@ -6,10 +6,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { TabParamList } from "./types";
 
 import Home from "../screens/Home/Home";
-import Workouts from "../screens/Workouts/Workouts";
 import Progress from "../screens/Progress/Progress";
 import Profile from "../screens/Profile/Profile";
 import QuickStartStack from "./QuickStartStack";
+import WorkoutStack from "./WorkoutStack";
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
@@ -44,7 +44,7 @@ export default function TabNavigator() {
       {/* Workouts Library */}
       <Tab.Screen
         name="Workouts"
-        component={Workouts}
+        component={WorkoutStack}
         options={{
           tabBarLabel: "Workouts",
           tabBarIcon: ({ color, focused }) => (
@@ -74,17 +74,17 @@ export default function TabNavigator() {
         listeners={({ navigation }) => ({
           tabPress: (e) => {
             e.preventDefault();
-            
+
             // Reset the stack by navigating to QuickStart and reset method to clear the navigation stack
             navigation.reset({
               index: 0,
               routes: [
-                { 
-                  name: 'QuickStartStack',
+                {
+                  name: "QuickStartStack",
                   state: {
-                    routes: [{ name: 'QuickStart' }]
-                  }
-                }
+                    routes: [{ name: "QuickStart" }],
+                  },
+                },
               ],
             });
           },
