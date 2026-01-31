@@ -8,6 +8,9 @@ export type RootStackParamList = {
   Home: undefined;
   SettingsStack: undefined; 
   EditProfile: undefined; 
+  CreateWorkout: undefined;
+  EditWorkout: { workoutId: string };
+  WorkoutDetail: { workoutId: string };
 };
 
 export type TabParamList = {
@@ -32,6 +35,7 @@ export type QuickStartStackParamList = {
   YouTubeImport: undefined;
   TimerScreen: { work: number; rest: number; rounds: number; exercises: number };
 };
+
 
 
 export type LoginScreenProps = NativeStackScreenProps<RootStackParamList, 'Login'>;
