@@ -1,73 +1,114 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   View,
   TextInput,
   Button,
   StyleSheet,
-} from 'react-native';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { WorkoutsStackParamList } from '../../navigation/WorkoutStack';
+  Alert,
+  ActivityIndicator,
+} from "react-native";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { WorkoutsStackParamList } from "../../navigation/WorkoutStack";
 import {
   fetchWorkoutById,
   updateWorkout,
   createWorkout,
-} from '../../services/workoutService';
-import { Workout } from '../../domain/workout';
-import * as Crypto from 'expo-crypto';
-import { supabase } from '../../api/supabaseClient';
+} from "../../services/WorkoutService";
+import { Workout } from "../../domain/workout";
+import { supabase } from "../../api/supabaseClient";
 
-type Props = NativeStackScreenProps<
-  WorkoutsStackParamList,
-  'EditWorkout'
->;
+type Props = NativeStackScreenProps<WorkoutsStackParamList, "EditWorkout">;
 
 export default function EditWorkout({ route, navigation }: Props) {
   const workoutId = route.params?.workoutId;
-  const [title, setTitle] = useState('');
-
-  // Fetch user ID asynchronously in useEffect
-    const [USER_ID, setUSER_ID] = useState<string | null>(null);
-  
-    useEffect(() => {
-      async function fetchUserId() {
-        const { data, error } = await supabase.auth.getUser();
-        if (data?.user) {
-          setUSER_ID(data.user.id);
-        }
-      }
-      fetchUserId();
-      if (workoutId) loadWorkout();
-    }, []);
+  const [title, setTitle] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
-    if (workoutId) loadWorkout();
-  }, []);
+    async function init() {
+      if (workoutId) {
+        await loadWorkout();
+      }
+      setInitialLoading(false);
+    }
+    init();
+  }, [workoutId]);
 
   async function loadWorkout() {
-    const { data } = await fetchWorkoutById(workoutId!);
-    if (data) setTitle(data.title);
+    if (!workoutId) return;
+
+    const { data, error } = await fetchWorkoutById(workoutId);
+    if (error) {
+      Alert.alert("Error", "Failed to load workout: " + error.message);
+    } else if (data) {
+      setTitle(data.title);
+    }
   }
 
   async function handleSave() {
-    if (workoutId) {
-      await updateWorkout(workoutId, { title });
-    } else {
-      if (!USER_ID) {
-        // Optionally, show an error or return early
-        return;
-      }
-      const newWorkout: Workout = {
-        id: Crypto.randomUUID(),
-        user_id: USER_ID,
-        title,
-        exercises: [],
-        createdAt: new Date().toISOString(),
-      };
-
-      await createWorkout(USER_ID, newWorkout);
+    if (!title.trim()) {
+      Alert.alert("Validation Error", "Please enter a workout title");
+      return;
     }
 
-    navigation.goBack();
+    setLoading(true);
+
+    try {
+      if (workoutId) {
+        // Update existing workout
+        const { error } = await updateWorkout(workoutId, {
+          title: title.trim(),
+        });
+
+        if (error) {
+          Alert.alert("Error", "Failed to update workout: " + error.message);
+        } else {
+          Alert.alert("Success", "Workout updated successfully");
+          navigation.goBack();
+        }
+      } else {
+        // Create new workout
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError || !user) {
+          Alert.alert("Error", "You must be logged in to create a workout");
+          setLoading(false);
+          return;
+        }
+
+        const newWorkout: Partial<Workout> = {
+          title: title.trim(),
+          exercises: [],
+        };
+
+        const { error } = await createWorkout(user.id, newWorkout);
+
+        if (error) {
+          console.error("Create workout error:", error);
+          Alert.alert("Error", "Failed to create workout: " + error.message);
+        } else {
+          Alert.alert("Success", "Workout created successfully");
+          navigation.goBack();
+        }
+      }
+    } catch (err) {
+      console.error("Error saving workout:", err);
+      Alert.alert("Error", "An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (initialLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
   }
 
   return (
@@ -77,8 +118,14 @@ export default function EditWorkout({ route, navigation }: Props) {
         value={title}
         onChangeText={setTitle}
         style={styles.input}
+        editable={!loading}
       />
-      <Button title="Save Workout" onPress={handleSave} />
+
+      {loading ? (
+        <ActivityIndicator size="large" color="#007AFF" />
+      ) : (
+        <Button title="Save Workout" onPress={handleSave} />
+      )}
     </View>
   );
 }
@@ -87,11 +134,17 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
     padding: 12,
     borderRadius: 8,
     marginBottom: 20,
+    fontSize: 16,
   },
 });

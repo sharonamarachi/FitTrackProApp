@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Workout } from '../domain/workout';
-import * as service from '../services/workoutService';
+import * as service from '../services/WorkoutService';
 import { supabase } from '../api/supabaseClient';
 
 export function useWorkouts() {

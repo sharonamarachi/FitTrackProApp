@@ -13,5 +13,8 @@ export type Workout = {
   description?: string;
   category?: string;
   exercises: Exercise[];
-  createdAt: string;
+  created_at: string;  
+  updated_at?: string; 
+  source?: string;    
+  source_url?: string;
 };

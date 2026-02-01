@@ -1,14 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Button } from 'react-native';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { WorkoutsStackParamList } from '../../navigation/WorkoutStack';
-import { fetchWorkoutById } from '../../services/workoutService';
-import { Workout } from '../../domain/workout';
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, Button } from "react-native";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { WorkoutsStackParamList } from "../../navigation/WorkoutStack";
+import { fetchWorkoutById } from "../../services/WorkoutService";
+import { Workout } from "../../domain/workout";
 
-type Props = NativeStackScreenProps<
-  WorkoutsStackParamList,
-  'WorkoutDetails'
->;
+type Props = NativeStackScreenProps<WorkoutsStackParamList, "WorkoutDetails">;
 
 export default function WorkoutDetails({ route, navigation }: Props) {
   const { workoutId } = route.params;
@@ -38,7 +35,7 @@ export default function WorkoutDetails({ route, navigation }: Props) {
       <Button
         title="Edit Workout"
         onPress={() =>
-          navigation.navigate('EditWorkout', {
+          navigation.navigate("EditWorkout", {
             workoutId,
           })
         }
@@ -53,7 +50,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 22,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 10,
   },
   exercise: {
