@@ -1,20 +1,35 @@
-// WorkoutStack.tsx
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import Workouts from "../screens/Workouts/Workouts";
-import CreateWorkout from "../screens/Workouts/CreateWorkout";
+import React from 'react';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import WorkoutLibrary from '../screens/Workout/WorkoutLibrary';
+import WorkoutDetails from '../screens/Workout/WorkoutDetails';
+import EditWorkout from '../screens/Workout/EditWorkout';
 
 export type WorkoutsStackParamList = {
-  Workouts: undefined;
-  CreateWorkout: undefined;
+  WorkoutLibrary: undefined;
+  WorkoutDetails: { workoutId: string };
+  EditWorkout: { workoutId?: string };
 };
 
 const Stack = createNativeStackNavigator<WorkoutsStackParamList>();
 
-export default function WorkoutsStack() {
+export default function WorkoutStack() {
   return (
     <Stack.Navigator>
-      <Stack.Screen name="Workouts" component={Workouts} />
-      <Stack.Screen name="CreateWorkout" component={CreateWorkout} />
+      <Stack.Screen
+        name="WorkoutLibrary"
+        component={WorkoutLibrary}
+        options={{ title: 'Workouts' }}
+      />
+      <Stack.Screen
+        name="WorkoutDetails"
+        component={WorkoutDetails}
+        options={{ title: 'Workout Details' }}
+      />
+      <Stack.Screen
+        name="EditWorkout"
+        component={EditWorkout}
+        options={{ title: 'Edit Workout' }}
+      />
     </Stack.Navigator>
   );
 }

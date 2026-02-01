@@ -43,7 +43,7 @@ export default function TabNavigator() {
 
       {/* Workouts Library */}
       <Tab.Screen
-        name="Workouts"
+        name="WorkoutStack"
         component={WorkoutStack}
         options={{
           tabBarLabel: "Workouts",
