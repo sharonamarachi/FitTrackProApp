@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../api/supabaseClient";
 import { useTheme } from "../../context/ThemeContext";
 
+
 type Props = NativeStackScreenProps<WorkoutsStackParamList, "WorkoutLibrary">;
 
 export default function WorkoutLibrary({ navigation }: Props) {
@@ -290,7 +291,7 @@ export default function WorkoutLibrary({ navigation }: Props) {
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.primary }]}
         onPress={() =>
-          navigation.navigate("EditWorkout", { workoutId: undefined })
+          navigation.navigate("CreateWorkoutTemplate")
         }
         activeOpacity={0.8}
       >

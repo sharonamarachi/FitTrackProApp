@@ -1,0 +1,728 @@
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  TextInput,
+  Alert,
+  StatusBar,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "../../context/ThemeContext";
+import Header from "../../components/Header";
+import { supabase } from "../../api/supabaseClient";
+import { createWorkout } from "../../services/WorkoutService";
+
+type WorkoutTemplate = "reps" | "timer";
+
+interface Exercise {
+  id: string;
+  name: string;
+  sets?: number;
+  reps?: number;
+  duration?: number;
+  restTime?: number;
+}
+
+export default function CreateWorkoutTemplate({ navigation }: any) {
+  const { theme, colors } = useTheme();
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<WorkoutTemplate | null>(null);
+  const [workoutName, setWorkoutName] = useState("");
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [currentExercise, setCurrentExercise] = useState({
+    name: "",
+    sets: "",
+    reps: "",
+    duration: "",
+    restTime: "",
+  });
+
+  const addExercise = () => {
+    if (!currentExercise.name.trim()) {
+      Alert.alert("Error", "Please enter an exercise name");
+      return;
+    }
+
+    const newExercise: Exercise = {
+      id: Date.now().toString(),
+      name: currentExercise.name.trim(),
+    };
+
+    if (selectedTemplate === "reps") {
+      if (currentExercise.sets)
+        newExercise.sets = parseInt(currentExercise.sets);
+      if (currentExercise.reps)
+        newExercise.reps = parseInt(currentExercise.reps);
+    } else {
+      if (currentExercise.duration)
+        newExercise.duration = parseInt(currentExercise.duration);
+      if (currentExercise.restTime)
+        newExercise.restTime = parseInt(currentExercise.restTime);
+    }
+
+    setExercises([...exercises, newExercise]);
+    setCurrentExercise({
+      name: "",
+      sets: "",
+      reps: "",
+      duration: "",
+      restTime: "",
+    });
+  };
+
+  const removeExercise = (id: string) => {
+    setExercises(exercises.filter((ex) => ex.id !== id));
+  };
+
+  const saveWorkout = async () => {
+    if (!workoutName.trim()) {
+      Alert.alert("Error", "Please enter a workout name");
+      return;
+    }
+    if (exercises.length === 0) {
+      Alert.alert("Error", "Please add at least one exercise");
+      return;
+    }
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert("Error", "You must be logged in");
+        return;
+      }
+
+      const newWorkout = {
+        title: workoutName,
+        exercises: exercises,
+        category: selectedTemplate === "reps" ? "strength" : "cardio",
+      };
+
+      const { error } = await createWorkout(user.id, newWorkout);
+
+      if (error) throw error;
+
+      Alert.alert("Success", "Workout saved!", [
+        { text: "OK", onPress: () => navigation.goBack() },
+      ]);
+    } catch (error) {
+      Alert.alert("Error", "Failed to save workout");
+    }
+  };
+
+  if (!selectedTemplate) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <StatusBar
+          barStyle={theme === "dark" ? "light-content" : "dark-content"}
+        />
+        <Header title="Create Workout" subtitle="Choose your template" />
+
+        <View style={styles.templateSelection}>
+          <TouchableOpacity
+            style={[styles.templateCard, { backgroundColor: colors.card }]}
+            onPress={() => setSelectedTemplate("reps")}
+            activeOpacity={0.7}
+          >
+            <View
+              style={[styles.templateIcon, { backgroundColor: "#10b98120" }]}
+            >
+              <Ionicons name="barbell" size={40} color="#10b981" />
+            </View>
+            <Text style={[styles.templateTitle, { color: colors.text }]}>
+              Sets & Reps
+            </Text>
+            <Text
+              style={[
+                styles.templateDescription,
+                { color: colors.textSecondary },
+              ]}
+            >
+              Traditional strength training with sets and repetitions
+            </Text>
+            <View style={styles.templateFeatures}>
+              <FeatureTag
+                icon="checkmark-circle"
+                text="Set Name"
+                colors={colors}
+              />
+              <FeatureTag icon="refresh" text="Sets × Reps" colors={colors} />
+              <FeatureTag icon="list" text="Exercise Order" colors={colors} />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.templateCard, { backgroundColor: colors.card }]}
+            onPress={() => setSelectedTemplate("timer")}
+            activeOpacity={0.7}
+          >
+            <View
+              style={[styles.templateIcon, { backgroundColor: "#f9731620" }]}
+            >
+              <Ionicons name="timer" size={40} color="#f97316" />
+            </View>
+            <Text style={[styles.templateTitle, { color: colors.text }]}>
+              Interval Timer
+            </Text>
+            <Text
+              style={[
+                styles.templateDescription,
+                { color: colors.textSecondary },
+              ]}
+            >
+              Time-based workouts with intervals and rest periods
+            </Text>
+            <View style={styles.templateFeatures}>
+              <FeatureTag icon="play" text="Play Timer" colors={colors} />
+              <FeatureTag icon="time" text="Work/Rest" colors={colors} />
+              <FeatureTag icon="repeat" text="Auto Loop" colors={colors} />
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle={theme === "dark" ? "light-content" : "dark-content"}
+      />
+      <Header
+        title={
+          selectedTemplate === "reps"
+            ? "Sets & Reps Workout"
+            : "Interval Timer Workout"
+        }
+        subtitle="Build your workout"
+        rightAction={{
+          icon: "checkmark",
+          onPress: saveWorkout,
+        }}
+      />
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Workout Name */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+            WORKOUT NAME
+          </Text>
+          <TextInput
+            style={[
+              styles.workoutNameInput,
+              {
+                backgroundColor: colors.card,
+                color: colors.text,
+                borderColor: colors.border,
+              },
+            ]}
+            placeholder="e.g., Upper Body Strength"
+            placeholderTextColor={colors.textTertiary}
+            value={workoutName}
+            onChangeText={setWorkoutName}
+          />
+        </View>
+
+        {/* Exercise List */}
+        {exercises.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text
+                style={[styles.sectionLabel, { color: colors.textSecondary }]}
+              >
+                EXERCISES ({exercises.length})
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.playAllButton,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={() => {
+                  if (selectedTemplate === "timer" && exercises.length > 0) {
+                    navigation.navigate("IntervalTimerPlayback", {
+                      exercises: exercises,
+                      workoutName: workoutName || "Interval Workout",
+                    });
+                  }
+                }}
+              >
+                <Ionicons name="play" size={16} color="#fff" />
+                <Text style={styles.playAllText}>Play All</Text>
+              </TouchableOpacity>
+            </View>
+
+            {exercises.map((exercise, index) => (
+              <View
+                key={exercise.id}
+                style={[
+                  styles.exerciseItem,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <View style={styles.exerciseItemLeft}>
+                  <View
+                    style={[
+                      styles.exerciseNumber,
+                      { backgroundColor: colors.primary + "20" },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.exerciseNumberText,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      {index + 1}
+                    </Text>
+                  </View>
+                  <View style={styles.exerciseInfo}>
+                    <Text style={[styles.exerciseName, { color: colors.text }]}>
+                      {exercise.name}
+                    </Text>
+                    {selectedTemplate === "reps" ? (
+                      <Text
+                        style={[
+                          styles.exerciseMeta,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {exercise.sets} sets × {exercise.reps} reps
+                      </Text>
+                    ) : (
+                      <Text
+                        style={[
+                          styles.exerciseMeta,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {exercise.duration}s work · {exercise.restTime}s rest
+                      </Text>
+                    )}
+                  </View>
+                </View>
+                <TouchableOpacity
+                  onPress={() => removeExercise(exercise.id)}
+                  style={styles.deleteButton}
+                >
+                  <Ionicons
+                    name="close-circle"
+                    size={24}
+                    color={colors.error}
+                  />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Add Exercise Form */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+            ADD EXERCISE
+          </Text>
+
+          <View
+            style={[
+              styles.addExerciseCard,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.surface,
+                  color: colors.text,
+                  borderColor: colors.border,
+                },
+              ]}
+              placeholder="Exercise name"
+              placeholderTextColor={colors.textTertiary}
+              value={currentExercise.name}
+              onChangeText={(text) =>
+                setCurrentExercise({ ...currentExercise, name: text })
+              }
+            />
+
+            {selectedTemplate === "reps" ? (
+              <View style={styles.inputRow}>
+                <View style={styles.inputGroup}>
+                  <Text
+                    style={[styles.inputLabel, { color: colors.textSecondary }]}
+                  >
+                    Sets
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      styles.smallInput,
+                      {
+                        backgroundColor: colors.surface,
+                        color: colors.text,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    placeholder="0"
+                    placeholderTextColor={colors.textTertiary}
+                    keyboardType="numeric"
+                    value={currentExercise.sets}
+                    onChangeText={(text) =>
+                      setCurrentExercise({ ...currentExercise, sets: text })
+                    }
+                  />
+                </View>
+
+                <Text
+                  style={[styles.separator, { color: colors.textTertiary }]}
+                >
+                  ×
+                </Text>
+
+                <View style={styles.inputGroup}>
+                  <Text
+                    style={[styles.inputLabel, { color: colors.textSecondary }]}
+                  >
+                    Reps
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      styles.smallInput,
+                      {
+                        backgroundColor: colors.surface,
+                        color: colors.text,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    placeholder="0"
+                    placeholderTextColor={colors.textTertiary}
+                    keyboardType="numeric"
+                    value={currentExercise.reps}
+                    onChangeText={(text) =>
+                      setCurrentExercise({ ...currentExercise, reps: text })
+                    }
+                  />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.inputRow}>
+                <View style={styles.inputGroup}>
+                  <Text
+                    style={[styles.inputLabel, { color: colors.textSecondary }]}
+                  >
+                    Work (sec)
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      styles.smallInput,
+                      {
+                        backgroundColor: colors.surface,
+                        color: colors.text,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    placeholder="0"
+                    placeholderTextColor={colors.textTertiary}
+                    keyboardType="numeric"
+                    value={currentExercise.duration}
+                    onChangeText={(text) =>
+                      setCurrentExercise({ ...currentExercise, duration: text })
+                    }
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text
+                    style={[styles.inputLabel, { color: colors.textSecondary }]}
+                  >
+                    Rest (sec)
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      styles.smallInput,
+                      {
+                        backgroundColor: colors.surface,
+                        color: colors.text,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    placeholder="0"
+                    placeholderTextColor={colors.textTertiary}
+                    keyboardType="numeric"
+                    value={currentExercise.restTime}
+                    onChangeText={(text) =>
+                      setCurrentExercise({ ...currentExercise, restTime: text })
+                    }
+                  />
+                </View>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[styles.addButton, { backgroundColor: colors.primary }]}
+              onPress={addExercise}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="add" size={20} color="#fff" />
+              <Text style={styles.addButtonText}>Add Exercise</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Bottom Spacing */}
+        <View style={{ height: 40 }} />
+      </ScrollView>
+
+      {/* Save Button */}
+      {exercises.length > 0 && (
+        <View
+          style={[
+            styles.footer,
+            {
+              backgroundColor: colors.background,
+              borderTopColor: colors.border,
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={[styles.saveButton, { backgroundColor: colors.primary }]}
+            onPress={saveWorkout}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="checkmark-circle" size={24} color="#fff" />
+            <Text style={styles.saveButtonText}>Save Workout</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const FeatureTag = ({ icon, text, colors }: any) => (
+  <View style={styles.featureTag}>
+    <Ionicons name={icon} size={14} color={colors.textSecondary} />
+    <Text style={[styles.featureTagText, { color: colors.textSecondary }]}>
+      {text}
+    </Text>
+  </View>
+);
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  templateSelection: {
+    flex: 1,
+    padding: 20,
+    gap: 20,
+  },
+  templateCard: {
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  templateIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+  },
+  templateTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  templateDescription: {
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  templateFeatures: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  featureTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "rgba(0,0,0,0.05)",
+    borderRadius: 12,
+    gap: 4,
+  },
+  featureTagText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
+  workoutNameInput: {
+    borderRadius: 16,
+    padding: 16,
+    fontSize: 18,
+    fontWeight: "600",
+    borderWidth: 2,
+  },
+  playAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  playAllText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  exerciseItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  exerciseItemLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  exerciseNumber: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  exerciseNumberText: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  exerciseInfo: {
+    flex: 1,
+  },
+  exerciseName: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  exerciseMeta: {
+    fontSize: 14,
+  },
+  deleteButton: {
+    padding: 4,
+  },
+  addExerciseCard: {
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 2,
+    borderStyle: "dashed",
+  },
+  input: {
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 12,
+    marginBottom: 12,
+  },
+  inputGroup: {
+    flex: 1,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 6,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  smallInput: {
+    textAlign: "center",
+    marginBottom: 0,
+  },
+  separator: {
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 14,
+  },
+  addButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  addButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  footer: {
+    padding: 20,
+    borderTopWidth: 1,
+  },
+  saveButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 18,
+    borderRadius: 16,
+    gap: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  saveButtonText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+});

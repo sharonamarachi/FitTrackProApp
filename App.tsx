@@ -45,19 +45,33 @@ export default function App() {
   return (
     <ThemeProvider>
       <NavigationContainer>
-        <Stack.Navigator
-          initialRouteName="Login"
-          screenOptions={{
-            headerShown: false,
+      <Stack.Navigator 
+        initialRouteName={initialRoute}
+        screenOptions={{
+          headerShown: false,
+          animation: 'slide_from_right',
+        }}
+      >
+        <Stack.Screen name="Login" component={Login} />
+        <Stack.Screen name="SignUp" component={SignUp} />
+        <Stack.Screen name="Home" component={TabNavigator} />
+        <Stack.Screen 
+          name="SettingsStack" 
+          component={SettingsStack}
+          options={{
+            presentation: 'modal',
+            animation: 'slide_from_bottom',
           }}
-        >
-          <Stack.Screen name="Login" component={Login} />
-          <Stack.Screen name="SignUp" component={SignUp} />
-          <Stack.Screen name="Home" component={TabNavigator} />
-          <Stack.Screen name="SettingsStack" component={SettingsStack} />
-          <Stack.Screen name="EditProfile" component={EditProfile} />
-        </Stack.Navigator>
-      </NavigationContainer>
+        />
+        <Stack.Screen 
+          name="EditProfile" 
+          component={EditProfile}
+          options={{
+            animation: 'slide_from_right',
+          }}
+        />
+      </Stack.Navigator>
+    </NavigationContainer>
     </ThemeProvider>
   );
 }

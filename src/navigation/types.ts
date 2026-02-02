@@ -35,6 +35,17 @@ export type QuickStartStackParamList = {
 
 export type WorkoutsStackParamList = {
   WorkoutLibrary: undefined;
+  WorkoutDetails: { workoutId: string };
+  EditWorkout: { workoutId?: string };
+  CreateWorkoutTemplate: undefined;
+  IntervalTimerPlayback: {
+    exercises: Array<{
+      name: string;
+      duration: number;
+      restTime: number;
+    }>;
+    workoutName: string;
+  };
 };
 
 
