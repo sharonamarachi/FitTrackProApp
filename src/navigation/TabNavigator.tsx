@@ -4,6 +4,7 @@ import { View, StyleSheet } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { TabParamList } from "./types";
+import { useTheme } from "../context/ThemeContext";
 
 import Home from "../screens/Home/Home";
 import Progress from "../screens/Progress/Progress";
@@ -14,14 +15,20 @@ import WorkoutStack from "./WorkoutStack";
 const Tab = createBottomTabNavigator<TabParamList>();
 
 export default function TabNavigator() {
+  const { theme, colors } = useTheme();
+
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: true,
-        tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: "#007AFF",
-        tabBarInactiveTintColor: "#999",
+        tabBarStyle: {
+          ...styles.tabBar,
+          backgroundColor: colors.card,
+          borderTopColor: colors.divider,
+        },
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textTertiary,
         tabBarLabelStyle: styles.tabBarLabel,
       }}
     >
@@ -57,7 +64,7 @@ export default function TabNavigator() {
         }}
       />
 
-      {/* (Quick Start) */}
+      {/* Quick Start */}
       <Tab.Screen
         name="QuickStartStack"
         component={QuickStartStack}
@@ -65,7 +72,14 @@ export default function TabNavigator() {
           tabBarLabel: "Add",
           tabBarIcon: ({ focused }) => (
             <View
-              style={[styles.plusButton, focused && styles.plusButtonActive]}
+              style={[
+                styles.plusButton,
+                { 
+                  backgroundColor: colors.primary,
+                  shadowColor: colors.primary,
+                },
+                focused && styles.plusButtonActive
+              ]}
             >
               <Ionicons name="flash" size={24} color="#fff" />
             </View>
@@ -131,14 +145,12 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 20,
     right: 20,
-    backgroundColor: "#fff",
     borderRadius: 25,
     height: 90,
     paddingTop: 10,
     paddingBottom: 10,
     flexDirection: "row",
     justifyContent: "space-around",
-    shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 5 },
     elevation: 8,
@@ -153,11 +165,9 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 35,
-    backgroundColor: "#007AFF",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 0,
-    shadowColor: "#007AFF",
     shadowOpacity: 0.3,
     shadowOffset: { width: 0, height: 5 },
     shadowRadius: 10,
@@ -165,7 +175,6 @@ const styles = StyleSheet.create({
     transform: [{ translateY: -25 }],
   },
   plusButtonActive: {
-    backgroundColor: "#0056CC",
     transform: [{ translateY: -25 }],
   },
 });

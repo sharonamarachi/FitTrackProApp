@@ -6,27 +6,31 @@ import {
   StyleSheet,
   Alert,
   TouchableOpacity,
+  ScrollView,
+  StatusBar,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { WorkoutsStackParamList } from "../../navigation/WorkoutStack";
 import { fetchWorkouts, deleteWorkout } from "../../services/WorkoutService";
 import { Workout } from "../../domain/workout";
-import WorkoutCard from "./components/WorkoutCard";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../api/supabaseClient";
+import { useTheme } from "../../context/ThemeContext";
 
 type Props = NativeStackScreenProps<WorkoutsStackParamList, "WorkoutLibrary">;
 
 export default function WorkoutLibrary({ navigation }: Props) {
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState<string>("all");
+  const { theme, colors } = useTheme();
+
+  const categories = ["all", "core", "glutes", "upper", "lower", "cardio"];
 
   useEffect(() => {
     loadWorkouts();
-    
-    // Set up a listener for when the screen comes into focus
-    const unsubscribe = navigation.addListener('focus', () => {
-      console.log('Screen focused - reloading workouts');
+
+    const unsubscribe = navigation.addListener("focus", () => {
       loadWorkouts();
     });
 
@@ -34,43 +38,34 @@ export default function WorkoutLibrary({ navigation }: Props) {
   }, [navigation]);
 
   async function loadWorkouts() {
-    console.log('=== LOADING WORKOUTS ===');
     setLoading(true);
-    
+
     try {
-      // Get authenticated user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      console.log('1. User ID:', user?.id);
-      console.log('1. User Error:', userError);
-      
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
       if (userError || !user) {
-        console.error('No authenticated user found:', userError);
-        Alert.alert('Error', 'You must be logged in to view workouts');
+        Alert.alert("Error", "You must be logged in to view workouts");
         setLoading(false);
         return;
       }
-      
+
       const { data, error } = await fetchWorkouts(user.id);
-      console.log('2. Fetch result - Data:', data);
-      console.log('2. Fetch result - Error:', error);
-      console.log('3. Number of workouts:', data?.length || 0);
-      
+
       if (error) {
-        console.error('Error loading workouts:', error);
-        Alert.alert('Error', 'Failed to load workouts: ' + error.message);
+        Alert.alert("Error", "Failed to load workouts: " + error.message);
       } else if (data) {
-        console.log('4. Setting workouts state:', data);
         setWorkouts(data);
       } else {
-        console.log('4. No data returned, setting empty array');
         setWorkouts([]);
       }
     } catch (err) {
-      console.error('Unexpected error:', err);
-      Alert.alert('Error', 'An unexpected error occurred');
+      console.error("Unexpected error:", err);
+      Alert.alert("Error", "An unexpected error occurred");
     } finally {
       setLoading(false);
-      console.log('=== LOADING COMPLETE ===');
     }
   }
 
@@ -83,7 +78,7 @@ export default function WorkoutLibrary({ navigation }: Props) {
         onPress: async () => {
           const { error } = await deleteWorkout(id);
           if (error) {
-            Alert.alert('Error', 'Failed to delete workout: ' + error.message);
+            Alert.alert("Error", "Failed to delete workout: " + error.message);
           } else {
             loadWorkouts();
           }
@@ -92,60 +87,214 @@ export default function WorkoutLibrary({ navigation }: Props) {
     ]);
   }
 
-  console.log('RENDER - Loading:', loading, 'Workouts count:', workouts.length);
+  const getWorkoutCount = (category: string) => {
+    if (category === "all") return workouts.length;
+    return workouts.filter((w) => w.category === category).length;
+  };
+
+  const filteredWorkouts =
+    activeFilter === "all"
+      ? workouts
+      : workouts.filter((w) => w.category === activeFilter);
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loading}>Loading workouts...</Text>
+      <View
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: colors.background },
+        ]}
+      >
+        <StatusBar
+          barStyle={theme === "dark" ? "light-content" : "dark-content"}
+        />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+          Loading workouts...
+        </Text>
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-      <Text style={styles.debugText}>
-        Debug: {workouts.length} workout(s) loaded
-      </Text>
-      
-      <FlatList
-        data={workouts}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.container}
-        renderItem={({ item }) => {
-          console.log('Rendering workout:', item);
-          return (
-            <WorkoutCard
-              workout={item}
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle={theme === "dark" ? "light-content" : "dark-content"}
+      />
+
+      {/* Header */}
+      <View style={[styles.header, { backgroundColor: colors.card }]}>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={[styles.title, { color: colors.text }]}>
+              Workout Library
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              {workouts.length} {workouts.length === 1 ? "workout" : "workouts"}
+            </Text>
+          </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={[styles.iconBtn, { backgroundColor: colors.surface }]}
               onPress={() => {
-                console.log('Navigating to workout:', item.id);
-                navigation.navigate("WorkoutDetails", {
-                  workoutId: item.id,
-                });
+                /* Add search functionality */
               }}
-              onDelete={() => handleDelete(item.id)}
-            />
-          );
-        }}
+            >
+              <Ionicons name="search" size={20} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Filter Pills */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScrollView}
+          contentContainerStyle={styles.filterContainer}
+        >
+          {categories.map((category) => {
+            const isActive = activeFilter === category;
+            return (
+              <TouchableOpacity
+                key={category}
+                style={[
+                  styles.filterPill,
+                  {
+                    backgroundColor: isActive ? colors.primary : colors.surface,
+                  },
+                ]}
+                onPress={() => setActiveFilter(category)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    {
+                      color: isActive ? "#FFFFFF" : colors.textSecondary,
+                      fontWeight: isActive ? "600" : "500",
+                    },
+                  ]}
+                >
+                  {category.toUpperCase()} ({getWorkoutCount(category)})
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Workout Cards */}
+      <FlatList
+        data={filteredWorkouts}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={[styles.card, { backgroundColor: colors.card }]}
+            onPress={() =>
+              navigation.navigate("WorkoutDetails", { workoutId: item.id })
+            }
+            activeOpacity={0.7}
+          >
+            {/* Card Header */}
+            <View style={styles.cardHeader}>
+              <View
+                style={[
+                  styles.badge,
+                  {
+                    backgroundColor:
+                      theme === "dark"
+                        ? "rgba(102, 126, 234, 0.2)"
+                        : "rgba(68, 56, 195, 0.1)",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.badgeText,
+                    { color: theme === "dark" ? "#667eea" : colors.primary },
+                  ]}
+                >
+                  {item.category || "general"}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => handleDelete(item.id)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons
+                  name="ellipsis-vertical"
+                  size={18}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Card Title */}
+            <Text
+              style={[styles.cardTitle, { color: colors.text }]}
+              numberOfLines={2}
+            >
+              {item.title}
+            </Text>
+
+            {/* Card Meta */}
+            <View style={styles.cardMeta}>
+              <View style={styles.metaItem}>
+                <Ionicons
+                  name="barbell-outline"
+                  size={14}
+                  color={colors.textTertiary}
+                />
+                <Text style={[styles.metaText, { color: colors.textTertiary }]}>
+                  {item.exercises?.length || 0} exercises
+                </Text>
+              </View>
+            </View>
+
+            {/* Card Footer */}
+            <View
+              style={[styles.cardFooter, { borderTopColor: colors.divider }]}
+            >
+              <Text style={[styles.dateText, { color: colors.textTertiary }]}>
+                {new Date(item.created_at).toLocaleDateString()}
+              </Text>
+              <TouchableOpacity
+                style={[styles.startBtn, { backgroundColor: colors.primary }]}
+                onPress={() => {
+                  /* Start workout */
+                }}
+              >
+                <Ionicons name="play" size={12} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        )}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="barbell-outline" size={64} color="#ccc" />
-            <Text style={styles.empty}>No workouts yet</Text>
-            <Text style={styles.emptySubtext}>
+            <Ionicons
+              name="barbell-outline"
+              size={64}
+              color={colors.textTertiary}
+            />
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              No {activeFilter !== "all" ? activeFilter : ""} workouts yet
+            </Text>
+            <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
               Tap the + button to create your first workout
             </Text>
           </View>
         }
       />
 
+      {/* Floating Action Button */}
       <TouchableOpacity
-        style={styles.fab}
-        onPress={() => {
-          console.log('FAB pressed - navigating to EditWorkout');
-          navigation.navigate("EditWorkout", { workoutId: undefined });
-        }}
+        style={[styles.fab, { backgroundColor: colors.primary }]}
+        onPress={() =>
+          navigation.navigate("EditWorkout", { workoutId: undefined })
+        }
+        activeOpacity={0.8}
       >
-        <Ionicons name="add" size={26} color="#fff" />
+        <Ionicons name="add" size={32} color="#fff" />
       </TouchableOpacity>
     </View>
   );
@@ -153,47 +302,149 @@ export default function WorkoutLibrary({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    flexGrow: 1,
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    justifyContent: "center",
+    alignItems: "center",
   },
-  loading: {
-    textAlign: "center",
+  loadingText: {
     fontSize: 16,
-    color: '#666',
   },
-  debugText: {
-    padding: 10,
-    backgroundColor: '#fffbea',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ffd700',
-    textAlign: 'center',
-    fontSize: 12,
-    color: '#666',
+  header: {
+    paddingTop: 60,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+  },
+  subtitle: {
+    fontSize: 14,
+    marginTop: 4,
+  },
+  headerActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  iconBtn: {
+    width: 0,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterScrollView: {
+    paddingHorizontal: 20,
+  },
+  filterContainer: {
+    gap: 8,
+  },
+  filterPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  filterText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  listContent: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  card: {
+    width: "100%",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    textTransform: "uppercase",
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
+    minHeight: 40,
+  },
+  cardMeta: {
+    marginBottom: 12,
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  metaText: {
+    fontSize: 13,
+  },
+  cardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(128, 128, 128, 0.1)",
+  },
+  dateText: {
+    fontSize: 11,
+  },
+  startBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingTop: 100,
   },
-  empty: {
-    textAlign: "center",
-    marginTop: 20,
+  emptyText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: "#666",
+    fontWeight: "600",
+    marginTop: 20,
   },
   emptySubtext: {
-    textAlign: "center",
-    marginTop: 8,
     fontSize: 14,
-    color: "#999",
+    marginTop: 8,
+    textAlign: "center",
   },
   fab: {
     position: "absolute",
@@ -202,13 +453,12 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "#007AFF",
-    justifyContent: "center",
     alignItems: "center",
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });

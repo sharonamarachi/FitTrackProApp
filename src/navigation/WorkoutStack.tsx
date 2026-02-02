@@ -18,17 +18,17 @@ export default function WorkoutStack() {
       <Stack.Screen
         name="WorkoutLibrary"
         component={WorkoutLibrary}
-        options={{ title: 'Workouts' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="WorkoutDetails"
         component={WorkoutDetails}
-        options={{ title: 'Workout Details' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="EditWorkout"
         component={EditWorkout}
-        options={{ title: 'Edit Workout' }}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

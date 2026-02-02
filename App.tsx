@@ -10,7 +10,7 @@ import TabNavigator from './src/navigation/TabNavigator';
 import { RootStackParamList } from './src/navigation/types';
 import EditProfile from './src/screens/Profile/EditProfile';
 import SettingsStack from './src/navigation/SettingsStack';
-
+import { ThemeProvider } from './src/context/ThemeContext'; 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
@@ -43,34 +43,22 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator 
-        initialRouteName={initialRoute}
-        screenOptions={{
-          headerShown: false,
-          animation: 'slide_from_right',
-        }}
-      >
-        <Stack.Screen name="Login" component={Login} />
-        <Stack.Screen name="SignUp" component={SignUp} />
-        <Stack.Screen name="Home" component={TabNavigator} />
-        <Stack.Screen 
-          name="SettingsStack" 
-          component={SettingsStack}
-          options={{
-            presentation: 'modal',
-            animation: 'slide_from_bottom',
+    <ThemeProvider>
+      <NavigationContainer>
+        <Stack.Navigator
+          initialRouteName="Login"
+          screenOptions={{
+            headerShown: false,
           }}
-        />
-        <Stack.Screen 
-          name="EditProfile" 
-          component={EditProfile}
-          options={{
-            animation: 'slide_from_right',
-          }}
-        />
-      </Stack.Navigator>
-    </NavigationContainer>
+        >
+          <Stack.Screen name="Login" component={Login} />
+          <Stack.Screen name="SignUp" component={SignUp} />
+          <Stack.Screen name="Home" component={TabNavigator} />
+          <Stack.Screen name="SettingsStack" component={SettingsStack} />
+          <Stack.Screen name="EditProfile" component={EditProfile} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </ThemeProvider>
   );
 }
 

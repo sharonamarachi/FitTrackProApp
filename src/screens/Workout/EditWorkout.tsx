@@ -6,6 +6,8 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  ScrollView,
+  StatusBar,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { WorkoutsStackParamList } from "../../navigation/WorkoutStack";
@@ -16,6 +18,7 @@ import {
 } from "../../services/WorkoutService";
 import { Workout } from "../../domain/workout";
 import { supabase } from "../../api/supabaseClient";
+import { useTheme } from "../../context/ThemeContext";
 
 type Props = NativeStackScreenProps<WorkoutsStackParamList, "EditWorkout">;
 
@@ -24,6 +27,7 @@ export default function EditWorkout({ route, navigation }: Props) {
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const { theme, colors } = useTheme();
 
   useEffect(() => {
     async function init() {
@@ -105,34 +109,63 @@ export default function EditWorkout({ route, navigation }: Props) {
 
   if (initialLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: colors.background },
+        ]}
+      >
+        <StatusBar
+          barStyle={theme === "dark" ? "light-content" : "dark-content"}
+        />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <TextInput
-        placeholder="Workout name"
-        value={title}
-        onChangeText={setTitle}
-        style={styles.input}
-        editable={!loading}
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle={theme === "dark" ? "light-content" : "dark-content"}
       />
+      <ScrollView contentContainerStyle={styles.content}>
+        <TextInput
+          placeholder="Workout name"
+          value={title}
+          onChangeText={setTitle}
+          style={[
+            styles.input,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              color: colors.text,
+            },
+          ]}
+          placeholderTextColor={colors.textSecondary}
+          editable={!loading}
+        />
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#007AFF" />
-      ) : (
-        <Button title="Save Workout" onPress={handleSave} />
-      )}
+        {loading ? (
+          <ActivityIndicator size="large" color={colors.primary} />
+        ) : (
+          <Button
+            title={workoutId ? "Update Workout" : "Create Workout"}
+            onPress={handleSave}
+            color={colors.primary}
+          />
+        )}
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  content: {
     padding: 20,
+    paddingTop: 60,
   },
   loadingContainer: {
     flex: 1,
@@ -141,7 +174,6 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
     padding: 12,
     borderRadius: 8,
     marginBottom: 20,

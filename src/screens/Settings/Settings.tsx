@@ -1,12 +1,14 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../api/supabaseClient';
 import { useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import Header from '../../components/Header';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function Settings({ navigation }: any) {
   const [user, setUser] = useState<User | null>(null);
+  const { theme, toggleTheme, colors } = useTheme();
 
   useEffect(() => {
     const getUser = async () => {
@@ -43,71 +45,136 @@ export default function Settings({ navigation }: any) {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header title="Settings" />
       
-      <ScrollView contentContainerStyle={{ paddingBottom: 30, paddingHorizontal: 20 }}>
+      <ScrollView 
+        contentContainerStyle={{ paddingBottom: 30, paddingHorizontal: 20 }}
+        style={{ backgroundColor: colors.background }}
+      >
         {/* Account Section */}
-        <Text style={styles.sectionTitle}>Account</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Account</Text>
         <SettingItem 
           label="Email" 
           value={user?.email} 
-          icon="mail-outline" 
+          icon="mail-outline"
+          colors={colors}
         />
         <SettingItem 
           label="Edit Profile" 
           icon="person-circle-outline" 
-          onPress={() => navigation.navigate("EditProfile")} 
+          onPress={() => navigation.navigate("EditProfile")}
+          colors={colors}
         />
 
+        {/* Appearance Section */}
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Appearance</Text>
+        <View style={[styles.item, { backgroundColor: colors.card, borderColor: colors.border, paddingRight: 80 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Ionicons 
+              name={theme === 'dark' ? 'moon' : 'sunny'} 
+              size={20} 
+              color={colors.primary} 
+              style={{ marginRight: 10 }} 
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.itemLabel, { color: colors.text }]}>Dark Mode</Text>
+              <Text style={[styles.itemSubtext, { color: colors.textSecondary }]}>
+          {theme === 'dark' ? 'Enabled' : 'Disabled'}
+              </Text>
+            </View>
+          </View>
+          <Switch
+            value={theme === 'dark'}
+            onValueChange={toggleTheme}
+            trackColor={{ false: '#767577', true: colors.primary }}
+            thumbColor={theme === 'dark' ? '#f4f3f4' : '#f4f3f4'}
+          />
+        </View>
+
         {/* App Section */}
-        <Text style={styles.sectionTitle}>App</Text>
-        <SettingItem label="Display & Audio" icon="tv-outline" />
-        <SettingItem label="Notifications" icon="notifications-outline" />
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>App</Text>
+        <SettingItem 
+          label="Display & Audio" 
+          icon="tv-outline"
+          colors={colors}
+        />
+        <SettingItem 
+          label="Notifications" 
+          icon="notifications-outline"
+          colors={colors}
+        />
 
         {/* Legal Section */}
-        <Text style={styles.sectionTitle}>Legal</Text>
-        <SettingItem label="Terms of Use" icon="document-text-outline" />
-        <SettingItem label="Privacy Policy" icon="shield-checkmark-outline" />
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Legal</Text>
+        <SettingItem 
+          label="Terms of Use" 
+          icon="document-text-outline"
+          colors={colors}
+        />
+        <SettingItem 
+          label="Privacy Policy" 
+          icon="shield-checkmark-outline"
+          colors={colors}
+        />
 
         {/* Support Section */}
-        <Text style={styles.sectionTitle}>Support</Text>
-        <SettingItem label="Contact Us" icon="help-circle-outline" />
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Support</Text>
+        <SettingItem 
+          label="Contact Us" 
+          icon="help-circle-outline"
+          colors={colors}
+        />
 
         {/* Delete Account */}
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteUser}>
-          <Text style={styles.deleteText}>Delete Account</Text>
+        <TouchableOpacity 
+          style={[styles.deleteButton, { borderColor: colors.error }]} 
+          onPress={handleDeleteUser}
+        >
+          <Text style={[styles.deleteText, { color: colors.error }]}>Delete Account</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
   );
 }
 
-const SettingItem = ({ label, value, icon, onPress }: any) => (
-  <TouchableOpacity style={styles.item} onPress={onPress} disabled={!onPress}>
-    <View style={{ flexDirection: "row", alignItems: "center" }}>
-      {icon && <Ionicons name={icon} size={20} color="#4438c3" style={{ marginRight: 10 }} />}
-      <Text style={styles.itemLabel}>{label}</Text>
+const SettingItem = ({ label, value, icon, onPress, colors }: any) => (
+  <TouchableOpacity 
+    style={[styles.item, { backgroundColor: colors.card, borderColor: colors.border }]} 
+    onPress={onPress} 
+    disabled={!onPress}
+  >
+    <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+      {icon && (
+        <Ionicons 
+          name={icon} 
+          size={20} 
+          color={colors.primary} 
+          style={{ marginRight: 10 }} 
+        />
+      )}
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.itemLabel, { color: colors.text }]}>{label}</Text>
+        {value && (
+          <Text style={[styles.itemValue, { color: colors.textSecondary }]}>{value}</Text>
+        )}
+      </View>
     </View>
-    {value ? (
-      <Text style={styles.itemValue}>{value}</Text>
-    ) : (
-      <Ionicons name="chevron-forward" size={20} color="#666" />
-    )}
+    {onPress && <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />}
   </TouchableOpacity>
 );
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#666",
     marginTop: 25,
     marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   item: {
     flexDirection: "row",
@@ -115,7 +182,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 16,
     paddingHorizontal: 16,
-    backgroundColor: '#fff',
     borderRadius: 12,
     marginBottom: 8,
     shadowColor: '#000',
@@ -125,19 +191,23 @@ const styles = StyleSheet.create({
   },
   itemLabel: {
     fontSize: 16,
-    color: "#333",
   },
   itemValue: {
     fontSize: 14,
-    color: "#666",
+    marginTop: 2,
+  },
+  itemSubtext: {
+    fontSize: 12,
+    marginTop: 2,
   },
   deleteButton: {
-    marginTop: 50,
+    marginTop: 30,
     alignItems: "center",
     paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: 1,
   },
   deleteText: {
-    color: "red",
     fontSize: 16,
     fontWeight: "bold",
   },

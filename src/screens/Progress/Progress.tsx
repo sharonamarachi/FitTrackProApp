@@ -1,9 +1,13 @@
 // src/screens/Progress/Progress.tsx
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../context/ThemeContext';
+
 
 export default function Progress() {
+  const { theme, colors } = useTheme();
+
   // Mock progress data
   const progressData = {
     workoutsCompleted: 12,
@@ -13,84 +17,121 @@ export default function Progress() {
   };
 
   const progressStats = [
-    { label: 'Workouts Completed', value: progressData.workoutsCompleted, icon: 'barbell', color: '#007AFF' },
-    { label: 'Current Streak', value: `${progressData.currentStreak} days`, icon: 'flame', color: '#FF9500' },
-    { label: 'Personal Records', value: progressData.personalRecords, icon: 'trophy', color: '#FFD60A' },
-    { label: 'Total Weight Lifted', value: `${progressData.totalWeightLifted} kg`, icon: 'fitness', color: '#34C759' },
+    { label: 'Workouts Completed', value: progressData.workoutsCompleted, icon: 'barbell', color: colors.primary },
+    { label: 'Current Streak', value: `${progressData.currentStreak} days`, icon: 'flame', color: colors.warning },
+    { label: 'Personal Records', value: progressData.personalRecords, icon: 'trophy', color: colors.warning },
+    { label: 'Total Weight Lifted', value: `${progressData.totalWeightLifted} kg`, icon: 'fitness', color: colors.success },
   ];
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Progress & Stats</Text>
-        <Text style={styles.subtitle}>Track your fitness journey</Text>
-      </View>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} />
+      
+      <ScrollView>
+        <View style={[styles.header, { backgroundColor: colors.card }]}>
+          <Text style={[styles.title, { color: colors.text }]}>Progress & Stats</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            Track your fitness journey
+          </Text>
+        </View>
 
-      {/* Progress Overview */}
-      <View style={styles.statsGrid}>
-        {progressStats.map((stat, index) => (
-          <View key={index} style={styles.statCard}>
-            <View style={[styles.iconContainer, { backgroundColor: `${stat.color}20` }]}>
-            <Ionicons 
-            name={stat.icon as keyof typeof Ionicons.glyphMap} 
-            size={24} 
-            color={stat.color} 
-            />
+        {/* Progress Overview */}
+        <View style={styles.statsGrid}>
+          {progressStats.map((stat, index) => (
+            <View 
+              key={index} 
+              style={[styles.statCard, { backgroundColor: colors.card }]}
+            >
+              <View style={[
+                styles.iconContainer, 
+                { backgroundColor: `${stat.color}20` }
+              ]}>
+                <Ionicons 
+                  name={stat.icon as keyof typeof Ionicons.glyphMap} 
+                  size={24} 
+                  color={stat.color} 
+                />
+              </View>
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {stat.value}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                {stat.label}
+              </Text>
             </View>
-            <Text style={styles.statValue}>{stat.value}</Text>
-            <Text style={styles.statLabel}>{stat.label}</Text>
+          ))}
+        </View>
+
+        {/* Charts Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Progress Charts
+          </Text>
+          <View style={[styles.chartPlaceholder, { backgroundColor: colors.card }]}>
+            <Ionicons name="stats-chart" size={48} color={colors.textTertiary} />
+            <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
+              Progress charts coming soon
+            </Text>
+            <Text style={[styles.placeholderSubtext, { color: colors.textTertiary }]}>
+              Track your workouts to see detailed analytics
+            </Text>
           </View>
-        ))}
-      </View>
+        </View>
 
-      {/* Charts Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Progress Charts</Text>
-        <View style={styles.chartPlaceholder}>
-          <Ionicons name="stats-chart" size={48} color="#ccc" />
-          <Text style={styles.placeholderText}>Progress charts coming soon</Text>
-          <Text style={styles.placeholderSubtext}>Track your workouts to see detailed analytics</Text>
+        {/* Personal Records */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Personal Records
+          </Text>
+          <View style={[styles.prCard, { backgroundColor: colors.card }]}>
+            <Text style={[styles.prTitle, { color: colors.text }]}>
+              🏋️ Bench Press
+            </Text>
+            <Text style={[styles.prValue, { color: colors.primary }]}>
+              85 kg
+            </Text>
+            <Text style={[styles.prDate, { color: colors.textSecondary }]}>
+              Set on March 15, 2024
+            </Text>
+          </View>
+          <View style={[styles.prCard, { backgroundColor: colors.card }]}>
+            <Text style={[styles.prTitle, { color: colors.text }]}>
+              🏃‍♂️ 5K Run
+            </Text>
+            <Text style={[styles.prValue, { color: colors.primary }]}>
+              24:30
+            </Text>
+            <Text style={[styles.prDate, { color: colors.textSecondary }]}>
+              Set on March 10, 2024
+            </Text>
+          </View>
         </View>
-      </View>
-
-      {/* Personal Records */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Personal Records</Text>
-        <View style={styles.prCard}>
-          <Text style={styles.prTitle}>🏋️ Bench Press</Text>
-          <Text style={styles.prValue}>85 kg</Text>
-          <Text style={styles.prDate}>Set on March 15, 2024</Text>
-        </View>
-        <View style={styles.prCard}>
-          <Text style={styles.prTitle}>🏃‍♂️ 5K Run</Text>
-          <Text style={styles.prValue}>24:30</Text>
-          <Text style={styles.prDate}>Set on March 10, 2024</Text>
-        </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
   },
   header: {
     padding: 20,
     paddingTop: 60,
-    backgroundColor: '#fff',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
     marginTop: 5,
   },
   statsGrid: {
@@ -101,7 +142,6 @@ const styles = StyleSheet.create({
   },
   statCard: {
     width: '48%',
-    backgroundColor: '#fff',
     padding: 15,
     borderRadius: 15,
     marginBottom: 15,
@@ -122,12 +162,10 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
     marginBottom: 5,
   },
   statLabel: {
     fontSize: 12,
-    color: '#666',
     textAlign: 'center',
   },
   section: {
@@ -136,11 +174,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
     marginBottom: 15,
   },
   chartPlaceholder: {
-    backgroundColor: '#fff',
     padding: 40,
     borderRadius: 15,
     alignItems: 'center',
@@ -151,17 +187,14 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 16,
-    color: '#666',
     marginTop: 10,
     marginBottom: 5,
   },
   placeholderSubtext: {
     fontSize: 14,
-    color: '#999',
     textAlign: 'center',
   },
   prCard: {
-    backgroundColor: '#fff',
     padding: 15,
     borderRadius: 10,
     marginBottom: 10,
@@ -178,11 +211,9 @@ const styles = StyleSheet.create({
   prValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#007AFF',
     marginBottom: 5,
   },
   prDate: {
     fontSize: 12,
-    color: '#666',
   },
 });

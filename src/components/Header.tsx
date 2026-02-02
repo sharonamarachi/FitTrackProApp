@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../context/ThemeContext';
 
 interface HeaderProps {
   title: string;
@@ -22,6 +23,7 @@ export default function Header({
   rightAction 
 }: HeaderProps) {
   const navigation = useNavigation();
+  const { theme, colors } = useTheme();
 
   const handleBackPress = () => {
     if (onBackPress) {
@@ -32,31 +34,31 @@ export default function Header({
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <View style={[styles.container, { backgroundColor: colors.card }]}>
+      <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} />
       <View style={styles.content}>
         {showBack && (
           <TouchableOpacity 
             onPress={handleBackPress} 
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: colors.surface }]}
             activeOpacity={0.7}
           >
-            <Ionicons name="chevron-back" size={28} color="#333" />
+            <Ionicons name="chevron-back" size={28} color={colors.text} />
           </TouchableOpacity>
         )}
         
         <View style={[styles.titleContainer, !showBack && styles.titleContainerNoBack]}>
-          <Text style={styles.title}>{title}</Text>
-          {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+          <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+          {subtitle && <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{subtitle}</Text>}
         </View>
 
         {rightAction && (
           <TouchableOpacity 
             onPress={rightAction.onPress}
-            style={styles.rightButton}
+            style={[styles.rightButton, { backgroundColor: colors.surface }]}
             activeOpacity={0.7}
           >
-            <Ionicons name={rightAction.icon} size={24} color="#4438c3" />
+            <Ionicons name={rightAction.icon} size={24} color={colors.primary} />
           </TouchableOpacity>
         )}
       </View>
@@ -66,7 +68,6 @@ export default function Header({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
     paddingTop: Platform.OS === 'ios' ? 60 : StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 40,
     paddingBottom: 15,
     borderBottomLeftRadius: 20,
@@ -86,7 +87,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f8f9fa',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -100,18 +100,15 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
   },
   subtitle: {
     fontSize: 14,
-    color: '#666',
     marginTop: 2,
   },
   rightButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f8f9fa',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 12,
