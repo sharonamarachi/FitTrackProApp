@@ -1,12 +1,21 @@
 // src/screens/QuickStart/QuickStart.tsx
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Modal } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  StatusBar,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { QuickStartScreenProps } from "../../navigation/types";
+import { useTheme } from "../../context/ThemeContext";
 
 export default function QuickStart({ navigation }: QuickStartScreenProps) {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedOption, setSelectedOption] = useState("");
+  const { theme, colors } = useTheme();
 
   const quickActions = [
     {
@@ -47,17 +56,22 @@ export default function QuickStart({ navigation }: QuickStartScreenProps) {
   ];
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle={theme === "dark" ? "light-content" : "dark-content"}
+      />
       <View style={styles.header}>
-        <Text style={styles.title}>Quick Start</Text>
-        <Text style={styles.subtitle}>Choose your workout style</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Quick Start</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+          Choose your workout style
+        </Text>
       </View>
 
       <View style={styles.optionsGrid}>
         {quickActions.map((action) => (
           <TouchableOpacity
             key={action.key}
-            style={styles.optionCard}
+            style={[styles.optionCard, { backgroundColor: colors.card }]}
             onPress={() => {
               if (action.key === "youtube") {
                 navigation.navigate("YouTubeImport");
@@ -80,16 +94,27 @@ export default function QuickStart({ navigation }: QuickStartScreenProps) {
                 color={action.color}
               />
             </View>
-            <Text style={styles.optionTitle}>{action.title}</Text>
-            <Text style={styles.optionDescription}>{action.description}</Text>
+            <Text style={[styles.optionTitle, { color: colors.text }]}>
+              {action.title}
+            </Text>
+            <Text
+              style={[
+                styles.optionDescription,
+                { color: colors.textSecondary },
+              ]}
+            >
+              {action.description}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
 
       {/* Quick Stats Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerTitle}>Ready to train? 💪</Text>
-        <Text style={styles.footerText}>
+      <View style={[styles.footer, { backgroundColor: colors.card }]}>
+        <Text style={[styles.footerTitle, { color: colors.text }]}>
+          Ready to train? 💪
+        </Text>
+        <Text style={[styles.footerText, { color: colors.textSecondary }]}>
           Select an option above to get started
         </Text>
       </View>
@@ -100,7 +125,6 @@ export default function QuickStart({ navigation }: QuickStartScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
     padding: 20,
     paddingTop: 60,
   },
@@ -111,12 +135,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: "bold",
-    color: "#333",
     textAlign: "center",
   },
   subtitle: {
     fontSize: 16,
-    color: "#666",
     marginTop: 5,
     textAlign: "center",
   },
@@ -128,7 +150,6 @@ const styles = StyleSheet.create({
   },
   optionCard: {
     width: "48%",
-    backgroundColor: "#fff",
     padding: 20,
     borderRadius: 15,
     marginBottom: 15,
@@ -154,14 +175,12 @@ const styles = StyleSheet.create({
   },
   optionDescription: {
     fontSize: 12,
-    color: "#666",
     textAlign: "center",
     lineHeight: 16,
   },
   footer: {
     padding: 20,
     alignItems: "center",
-    backgroundColor: "#fff",
     borderRadius: 15,
     marginTop: 20,
   },
@@ -172,7 +191,6 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: "#666",
     textAlign: "center",
   },
 });
