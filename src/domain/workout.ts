@@ -3,7 +3,9 @@ export type Exercise = {
   name: string;
   sets?: number;
   reps?: number;
-  duration?: number; // seconds
+  weight?: number; // NEW: weight in kg
+  duration?: number; // seconds (60 = 1min, 90 = 1min 30s)
+  restTime?: number; // seconds
 };
 
 export type Workout = {
@@ -12,6 +14,7 @@ export type Workout = {
   title: string;
   description?: string;
   category?: string;
+  tags?: string[]; // NEW: for organization
   exercises: Exercise[];
   created_at: string;  
   updated_at?: string; 

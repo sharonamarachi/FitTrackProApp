@@ -17,11 +17,24 @@ import { createWorkout } from "../../services/WorkoutService";
 
 type WorkoutTemplate = "reps" | "timer";
 
+const POPULAR_TAGS = [
+  "upper-body",
+  "lower-body",
+  "core",
+  "cardio",
+  "strength",
+  "hiit",
+  "beginner",
+  "intermediate",
+  "advanced",
+];
+
 interface Exercise {
   id: string;
   name: string;
   sets?: number;
   reps?: number;
+  weight?: number;
   duration?: number;
   restTime?: number;
 }
@@ -32,11 +45,15 @@ export default function CreateWorkoutTemplate({ navigation }: any) {
     useState<WorkoutTemplate | null>(null);
   const [workoutName, setWorkoutName] = useState("");
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [currentExercise, setCurrentExercise] = useState({
     name: "",
     sets: "",
     reps: "",
+    weight: "",
     duration: "",
+    durationMin: "",
+    durationSec: "",
     restTime: "",
   });
 
@@ -56,9 +73,13 @@ export default function CreateWorkoutTemplate({ navigation }: any) {
         newExercise.sets = parseInt(currentExercise.sets);
       if (currentExercise.reps)
         newExercise.reps = parseInt(currentExercise.reps);
+      if (currentExercise.weight)
+        newExercise.weight = parseInt(currentExercise.weight);
     } else {
-      if (currentExercise.duration)
-        newExercise.duration = parseInt(currentExercise.duration);
+      const mins = parseInt(currentExercise.durationMin) || 0;
+      const secs = parseInt(currentExercise.durationSec) || 0;
+      const totalSeconds = mins * 60 + secs;
+      if (totalSeconds > 0) newExercise.duration = totalSeconds;
       if (currentExercise.restTime)
         newExercise.restTime = parseInt(currentExercise.restTime);
     }
@@ -68,13 +89,22 @@ export default function CreateWorkoutTemplate({ navigation }: any) {
       name: "",
       sets: "",
       reps: "",
+      weight: "",
       duration: "",
+      durationMin: "",
+      durationSec: "",
       restTime: "",
     });
   };
 
   const removeExercise = (id: string) => {
     setExercises(exercises.filter((ex) => ex.id !== id));
+  };
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+    );
   };
 
   const saveWorkout = async () => {
@@ -100,6 +130,7 @@ export default function CreateWorkoutTemplate({ navigation }: any) {
         title: workoutName,
         exercises: exercises,
         category: selectedTemplate === "reps" ? "strength" : "cardio",
+        tags: selectedTags,
       };
 
       const { error } = await createWorkout(user.id, newWorkout);
@@ -225,6 +256,43 @@ export default function CreateWorkoutTemplate({ navigation }: any) {
             value={workoutName}
             onChangeText={setWorkoutName}
           />
+        </View>
+
+        {/* Tags */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+            TAGS (OPTIONAL)
+          </Text>
+          <View style={styles.tagsContainer}>
+            {POPULAR_TAGS.map((tag) => (
+              <TouchableOpacity
+                key={tag}
+                style={[
+                  styles.tagChip,
+                  {
+                    backgroundColor: selectedTags.includes(tag)
+                      ? colors.primary
+                      : colors.surface,
+                  },
+                ]}
+                onPress={() => toggleTag(tag)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.tagText,
+                    {
+                      color: selectedTags.includes(tag)
+                        ? "#FFFFFF"
+                        : colors.text,
+                    },
+                  ]}
+                >
+                  {tag}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {/* Exercise List */}
@@ -355,12 +423,111 @@ export default function CreateWorkoutTemplate({ navigation }: any) {
             />
 
             {selectedTemplate === "reps" ? (
-              <View style={styles.inputRow}>
+              <>
+                <View style={styles.inputRow}>
+                  <View style={styles.inputGroup}>
+                    <Text
+                      style={[
+                        styles.inputLabel,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Sets
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        styles.smallInput,
+                        {
+                          backgroundColor: colors.surface,
+                          color: colors.text,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                      placeholder="0"
+                      placeholderTextColor={colors.textTertiary}
+                      keyboardType="numeric"
+                      value={currentExercise.sets}
+                      onChangeText={(text) =>
+                        setCurrentExercise({ ...currentExercise, sets: text })
+                      }
+                    />
+                  </View>
+
+                  <Text
+                    style={[styles.separator, { color: colors.textTertiary }]}
+                  >
+                    ×
+                  </Text>
+
+                  <View style={styles.inputGroup}>
+                    <Text
+                      style={[
+                        styles.inputLabel,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Reps
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        styles.smallInput,
+                        {
+                          backgroundColor: colors.surface,
+                          color: colors.text,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                      placeholder="0"
+                      placeholderTextColor={colors.textTertiary}
+                      keyboardType="numeric"
+                      value={currentExercise.reps}
+                      onChangeText={(text) =>
+                        setCurrentExercise({ ...currentExercise, reps: text })
+                      }
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputRow}>
+                  <View style={styles.inputGroup}>
+                    <Text
+                      style={[
+                        styles.inputLabel,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Weight (kg)
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        styles.smallInput,
+                        {
+                          backgroundColor: colors.surface,
+                          color: colors.text,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                      placeholder="0"
+                      placeholderTextColor={colors.textTertiary}
+                      keyboardType="decimal-pad"
+                      value={currentExercise.weight}
+                      onChangeText={(text) =>
+                        setCurrentExercise({ ...currentExercise, weight: text })
+                      }
+                    />
+                  </View>
+                </View>
+              </>
+            ) : (
+              <View style={styles.durationRow}>
                 <View style={styles.inputGroup}>
                   <Text
                     style={[styles.inputLabel, { color: colors.textSecondary }]}
                   >
-                    Sets
+                    Minutes
                   </Text>
                   <TextInput
                     style={[
@@ -372,27 +539,33 @@ export default function CreateWorkoutTemplate({ navigation }: any) {
                         borderColor: colors.border,
                       },
                     ]}
-                    placeholder="0"
+                    placeholder="1"
                     placeholderTextColor={colors.textTertiary}
                     keyboardType="numeric"
-                    value={currentExercise.sets}
+                    value={currentExercise.durationMin}
                     onChangeText={(text) =>
-                      setCurrentExercise({ ...currentExercise, sets: text })
+                      setCurrentExercise({
+                        ...currentExercise,
+                        durationMin: text,
+                      })
                     }
                   />
                 </View>
 
                 <Text
-                  style={[styles.separator, { color: colors.textTertiary }]}
+                  style={[
+                    styles.durationLabel,
+                    { color: colors.textSecondary },
+                  ]}
                 >
-                  ×
+                  min
                 </Text>
 
                 <View style={styles.inputGroup}>
                   <Text
                     style={[styles.inputLabel, { color: colors.textSecondary }]}
                   >
-                    Reps
+                    Seconds
                   </Text>
                   <TextInput
                     style={[
@@ -404,43 +577,27 @@ export default function CreateWorkoutTemplate({ navigation }: any) {
                         borderColor: colors.border,
                       },
                     ]}
-                    placeholder="0"
+                    placeholder="30"
                     placeholderTextColor={colors.textTertiary}
                     keyboardType="numeric"
-                    value={currentExercise.reps}
+                    value={currentExercise.durationSec}
                     onChangeText={(text) =>
-                      setCurrentExercise({ ...currentExercise, reps: text })
+                      setCurrentExercise({
+                        ...currentExercise,
+                        durationSec: text,
+                      })
                     }
                   />
                 </View>
-              </View>
-            ) : (
-              <View style={styles.inputRow}>
-                <View style={styles.inputGroup}>
-                  <Text
-                    style={[styles.inputLabel, { color: colors.textSecondary }]}
-                  >
-                    Work (sec)
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      styles.smallInput,
-                      {
-                        backgroundColor: colors.surface,
-                        color: colors.text,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    placeholder="0"
-                    placeholderTextColor={colors.textTertiary}
-                    keyboardType="numeric"
-                    value={currentExercise.duration}
-                    onChangeText={(text) =>
-                      setCurrentExercise({ ...currentExercise, duration: text })
-                    }
-                  />
-                </View>
+
+                <Text
+                  style={[
+                    styles.durationLabel,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  s
+                </Text>
 
                 <View style={styles.inputGroup}>
                   <Text
@@ -689,6 +846,68 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "700",
     marginBottom: 14,
+  },
+  tagsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  tagChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 4,
+  },
+  tagText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  durationRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
+    marginBottom: 12,
+  },
+  durationLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    marginBottom: 14,
+  },
+  checkbox: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    borderWidth: 2,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 14,
+  },
+  progressBarTrack: {
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+    backgroundColor: "#e5e7eb",
+  },
+  progressBarFill: {
+    height: "100%",
+    borderRadius: 3,
+    backgroundColor: "#10b981",
+  },
+  exerciseRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  metaText: {
+    fontSize: 14,
+    color: "#6b7280",
+  },
+  metaBold: {
+    fontWeight: "600",
+    color: "#1a1a1a",
   },
   addButton: {
     flexDirection: "row",
