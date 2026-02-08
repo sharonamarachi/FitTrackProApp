@@ -167,9 +167,6 @@ export default function WorkoutDetails({ route, navigation }: Props) {
           Workout Details
         </Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerButton} onPress={handleEdit}>
-            <Ionicons name="create-outline" size={22} color={colors.primary} />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.headerButton} onPress={handleDelete}>
             <Ionicons name="trash-outline" size={22} color={colors.error} />
           </TouchableOpacity>
