@@ -11,7 +11,7 @@ export type RootStackParamList = {
 };
 
 export type TabParamList = {
-  Home: undefined;
+  Dashboard: undefined;
   WorkoutStack: undefined;
   QuickStartStack: undefined;
   Progress: undefined;

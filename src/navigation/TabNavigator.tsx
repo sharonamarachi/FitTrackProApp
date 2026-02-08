@@ -34,7 +34,7 @@ export default function TabNavigator() {
     >
       {/* Dashboard aka Home*/}
       <Tab.Screen
-        name="Home"
+        name="Dashboard"
         component={Home}
         options={{
           tabBarLabel: "Home",
@@ -74,11 +74,11 @@ export default function TabNavigator() {
             <View
               style={[
                 styles.plusButton,
-                { 
+                {
                   backgroundColor: colors.primary,
                   shadowColor: colors.primary,
                 },
-                focused && styles.plusButtonActive
+                focused && styles.plusButtonActive,
               ]}
             >
               <Ionicons name="flash" size={24} color="#fff" />
