@@ -9,13 +9,12 @@ import {
   ScrollView,
   StatusBar,
   TouchableOpacity,
+  PanResponder,
+  Animated,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { WorkoutsStackParamList } from "../../navigation/WorkoutStack";
-import {
-  fetchWorkoutById,
-  updateWorkout,
-} from "../../services/WorkoutService";
+import { fetchWorkoutById, updateWorkout } from "../../services/WorkoutService";
 import { Exercise } from "../../domain/workout";
 import { useTheme } from "../../context/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
@@ -43,7 +42,10 @@ export default function EditWorkout({ route, navigation }: Props) {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [workoutType, setWorkoutType] = useState<"strength" | "cardio">("strength");
+  const [workoutType, setWorkoutType] = useState<"strength" | "cardio">(
+    "strength",
+  );
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const { theme, colors } = useTheme();
 
   const [currentExercise, setCurrentExercise] = useState({
@@ -77,9 +79,11 @@ export default function EditWorkout({ route, navigation }: Props) {
       setCategory(data.category || "");
       setExercises(data.exercises || []);
       setSelectedTags(data.tags || []);
-      
+
       // Detect workout type
-      const hasTimedExercises = data.exercises?.some((e: Exercise) => e.duration);
+      const hasTimedExercises = data.exercises?.some(
+        (e: Exercise) => e.duration,
+      );
       setWorkoutType(hasTimedExercises ? "cardio" : "strength");
     }
   }
@@ -127,6 +131,14 @@ export default function EditWorkout({ route, navigation }: Props) {
     setExercises(exercises.filter((ex) => ex.id !== id));
   };
 
+  const moveExercise = (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= exercises.length) return;
+    const newExercises = [...exercises];
+    const [movedExercise] = newExercises.splice(fromIndex, 1);
+    newExercises.splice(toIndex, 0, movedExercise);
+    setExercises(newExercises);
+  };
+
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
@@ -158,7 +170,7 @@ export default function EditWorkout({ route, navigation }: Props) {
         Alert.alert("Error", "Failed to update workout: " + error.message);
       } else {
         Alert.alert("Success", "Workout updated successfully", [
-          { text: "OK", onPress: () => navigation.goBack() }
+          { text: "OK", onPress: () => navigation.goBack() },
         ]);
       }
     } catch (err) {
@@ -231,7 +243,10 @@ export default function EditWorkout({ route, navigation }: Props) {
               style={[
                 styles.typeButton,
                 {
-                  backgroundColor: workoutType === "strength" ? colors.primary : colors.surface,
+                  backgroundColor:
+                    workoutType === "strength"
+                      ? colors.primary
+                      : colors.surface,
                   borderColor: colors.border,
                 },
               ]}
@@ -245,7 +260,9 @@ export default function EditWorkout({ route, navigation }: Props) {
               <Text
                 style={[
                   styles.typeButtonText,
-                  { color: workoutType === "strength" ? "#FFFFFF" : colors.text },
+                  {
+                    color: workoutType === "strength" ? "#FFFFFF" : colors.text,
+                  },
                 ]}
               >
                 Strength
@@ -255,7 +272,8 @@ export default function EditWorkout({ route, navigation }: Props) {
               style={[
                 styles.typeButton,
                 {
-                  backgroundColor: workoutType === "cardio" ? colors.primary : colors.surface,
+                  backgroundColor:
+                    workoutType === "cardio" ? colors.primary : colors.surface,
                   borderColor: colors.border,
                 },
               ]}
@@ -333,10 +351,77 @@ export default function EditWorkout({ route, navigation }: Props) {
                   styles.exerciseItem,
                   {
                     backgroundColor: colors.card,
-                    borderColor: colors.border,
+                    borderColor:
+                      draggingId === exercise.id
+                        ? colors.primary
+                        : colors.border,
+                    borderWidth: draggingId === exercise.id ? 2 : 1,
                   },
                 ]}
               >
+                <TouchableOpacity
+                  onPress={() =>
+                    setDraggingId(
+                      draggingId === exercise.id ? null : exercise.id,
+                    )
+                  }
+                  style={styles.dragHandle}
+                >
+                  <Ionicons
+                    name="reorder-three"
+                    size={24}
+                    color={
+                      draggingId === exercise.id
+                        ? colors.primary
+                        : colors.textSecondary
+                    }
+                  />
+                </TouchableOpacity>
+
+                {draggingId === exercise.id && (
+                  <View style={styles.dragControls}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        moveExercise(index, index - 1);
+                      }}
+                      disabled={index === 0}
+                      style={[
+                        styles.dragButton,
+                        index === 0 && styles.dragButtonDisabled,
+                      ]}
+                    >
+                      <Ionicons
+                        name="chevron-up"
+                        size={20}
+                        color={
+                          index === 0 ? colors.textTertiary : colors.primary
+                        }
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        moveExercise(index, index + 1);
+                      }}
+                      disabled={index === exercises.length - 1}
+                      style={[
+                        styles.dragButton,
+                        index === exercises.length - 1 &&
+                          styles.dragButtonDisabled,
+                      ]}
+                    >
+                      <Ionicons
+                        name="chevron-down"
+                        size={20}
+                        color={
+                          index === exercises.length - 1
+                            ? colors.textTertiary
+                            : colors.primary
+                        }
+                      />
+                    </TouchableOpacity>
+                  </View>
+                )}
+
                 <View style={styles.exerciseItemLeft}>
                   <View
                     style={[
@@ -732,6 +817,25 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 12,
     borderWidth: 1,
+  },
+  dragHandle: {
+    padding: 8,
+    marginRight: 8,
+  },
+  dragControls: {
+    flexDirection: "column",
+    gap: 8,
+    marginRight: 8,
+  },
+  dragButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dragButtonDisabled: {
+    opacity: 0.5,
   },
   exerciseItemLeft: {
     flexDirection: "row",
