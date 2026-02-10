@@ -21,12 +21,12 @@ export async function createWorkout(
   userId: string,
   workout: Partial<Workout>
 ) {
-  // Don't send 'id' or 'createdAt' - let Supabase generate these
   return supabase.from('workouts').insert({
     user_id: userId,
     title: workout.title,
     description: workout.description,
     category: workout.category,
+    tags: workout.tags || [],
     exercises: workout.exercises ?? [],
     source: 'manual',
   });
@@ -36,7 +36,6 @@ export async function updateWorkout(
   id: string,
   updates: Partial<Workout>
 ) {
-  // Create a clean update object without fields that shouldn't be updated
   const cleanUpdates: any = {
     updated_at: new Date().toISOString(),
   };
@@ -45,6 +44,7 @@ export async function updateWorkout(
   if (updates.description !== undefined) cleanUpdates.description = updates.description;
   if (updates.category !== undefined) cleanUpdates.category = updates.category;
   if (updates.exercises !== undefined) cleanUpdates.exercises = updates.exercises;
+  if (updates.tags !== undefined) cleanUpdates.tags = updates.tags;
 
   return supabase
     .from('workouts')
@@ -57,20 +57,25 @@ export async function deleteWorkout(id: string) {
 }
 
 export async function softDeleteWorkout(userId: string, id: string, workout: Workout) {
-  // Move workout to deleted_workouts table
-  return supabase.from('deleted_workouts').insert({
+  // Insert into deleted_workouts table
+  const { error: insertError } = await supabase.from('deleted_workouts').insert({
     original_id: id,
     user_id: userId,
     title: workout.title,
     description: workout.description,
     category: workout.category,
+    tags: workout.tags || [],
     exercises: workout.exercises,
     source: workout.source,
     created_at: workout.created_at,
-  }).then(() => {
-    // Then delete from workouts table
-    return supabase.from('workouts').delete().eq('id', id);
   });
+
+  if (insertError) {
+    return { error: insertError };
+  }
+
+  // Delete from workouts table
+  return supabase.from('workouts').delete().eq('id', id);
 }
 
 export async function fetchDeletedWorkouts(userId: string) {
@@ -81,20 +86,21 @@ export async function fetchDeletedWorkouts(userId: string) {
     .order('deleted_at', { ascending: false });
 }
 
-export async function restoreWorkout(userId: string, deletedWorkoutId: string, originalWorkout: Workout) {
-  // Create workout back in workouts table
+export async function restoreWorkout(userId: string, deletedWorkoutId: string, originalWorkout: any) {
+  // Insert back into workouts table (without the original ID to generate new one)
   const { error: createError } = await supabase.from('workouts').insert({
-    id: originalWorkout.id,
     user_id: userId,
     title: originalWorkout.title,
     description: originalWorkout.description,
     category: originalWorkout.category,
+    tags: originalWorkout.tags || [],
     exercises: originalWorkout.exercises,
-    source: originalWorkout.source,
-    created_at: originalWorkout.created_at,
+    source: originalWorkout.source || 'manual',
   });
 
-  if (createError) return { error: createError };
+  if (createError) {
+    return { error: createError };
+  }
 
   // Delete from deleted_workouts table
   return supabase.from('deleted_workouts').delete().eq('id', deletedWorkoutId);
