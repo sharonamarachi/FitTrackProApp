@@ -11,12 +11,14 @@ import {
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { WorkoutsStackParamList } from "../../navigation/WorkoutStack";
-import { fetchWorkouts, deleteWorkout } from "../../services/WorkoutService";
+import {
+  fetchWorkouts,
+  softDeleteWorkout,
+} from "../../services/WorkoutService";
 import { Workout } from "../../domain/workout";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../api/supabaseClient";
 import { useTheme } from "../../context/ThemeContext";
-
 
 type Props = NativeStackScreenProps<WorkoutsStackParamList, "WorkoutLibrary">;
 
@@ -77,11 +79,31 @@ export default function WorkoutLibrary({ navigation }: Props) {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          const { error } = await deleteWorkout(id);
-          if (error) {
-            Alert.alert("Error", "Failed to delete workout: " + error.message);
-          } else {
-            loadWorkouts();
+          try {
+            const {
+              data: { user },
+            } = await supabase.auth.getUser();
+
+            if (user) {
+              const workoutToDelete = workouts.find((w) => w.id === id);
+              if (workoutToDelete) {
+                const { error } = await softDeleteWorkout(
+                  user.id,
+                  id,
+                  workoutToDelete,
+                );
+                if (error) {
+                  Alert.alert(
+                    "Error",
+                    "Failed to delete workout: " + error.message,
+                  );
+                } else {
+                  loadWorkouts();
+                }
+              }
+            }
+          } catch (err) {
+            Alert.alert("Error", "Failed to delete workout");
           }
         },
       },
@@ -139,6 +161,9 @@ export default function WorkoutLibrary({ navigation }: Props) {
               onPress={() => {
                 /* Add search functionality */
               }}
+              accessible={true}
+              accessibilityLabel="Search workouts"
+              accessibilityRole="button"
             >
               <Ionicons name="search" size={20} color={colors.text} />
             </TouchableOpacity>
@@ -165,6 +190,10 @@ export default function WorkoutLibrary({ navigation }: Props) {
                 ]}
                 onPress={() => setActiveFilter(category)}
                 activeOpacity={0.7}
+                accessible={true}
+                accessibilityLabel={`${category.charAt(0).toUpperCase() + category.slice(1)} workouts filter`}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isActive }}
               >
                 <Text
                   style={[
@@ -195,6 +224,10 @@ export default function WorkoutLibrary({ navigation }: Props) {
               navigation.navigate("WorkoutDetails", { workoutId: item.id })
             }
             activeOpacity={0.7}
+            accessible={true}
+            accessibilityLabel={`${item.title} workout`}
+            accessibilityHint={`${item.exercises?.length || 0} exercises. Double tap to view details`}
+            accessibilityRole="button"
           >
             {/* Card Header */}
             <View style={styles.cardHeader}>
@@ -259,14 +292,6 @@ export default function WorkoutLibrary({ navigation }: Props) {
               <Text style={[styles.dateText, { color: colors.textTertiary }]}>
                 {new Date(item.created_at).toLocaleDateString()}
               </Text>
-              <TouchableOpacity
-                style={[styles.startBtn, { backgroundColor: colors.primary }]}
-                onPress={() => {
-                  /* Start workout */
-                }}
-              >
-                <Ionicons name="play" size={12} color="#fff" />
-              </TouchableOpacity>
             </View>
           </TouchableOpacity>
         )}
@@ -290,10 +315,11 @@ export default function WorkoutLibrary({ navigation }: Props) {
       {/* Floating Action Button */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.primary }]}
-        onPress={() =>
-          navigation.navigate("CreateWorkoutTemplate")
-        }
+        onPress={() => navigation.navigate("CreateWorkoutTemplate")}
         activeOpacity={0.8}
+        accessible={true}
+        accessibilityLabel="Create new workout"
+        accessibilityRole="button"
       >
         <Ionicons name="add" size={32} color="#fff" />
       </TouchableOpacity>
@@ -344,7 +370,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   iconBtn: {
-    width: 0,
+    width: 40,
     height: 40,
     borderRadius: 20,
     alignItems: "center",

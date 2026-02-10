@@ -1,9 +1,16 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
-import { useEffect, useState } from 'react';
-import { supabase } from '../../api/supabaseClient';
-import { User } from '@supabase/supabase-js';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../context/ThemeContext';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  StatusBar,
+} from "react-native";
+import { useEffect, useState } from "react";
+import { supabase } from "../../api/supabaseClient";
+import { User } from "@supabase/supabase-js";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "../../context/ThemeContext";
 
 export default function Profile({ navigation }: any) {
   const [user, setUser] = useState<User | null>(null);
@@ -11,7 +18,9 @@ export default function Profile({ navigation }: any) {
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       setUser(user);
     };
     getUser();
@@ -19,42 +28,65 @@ export default function Profile({ navigation }: any) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} />
-      
+      <StatusBar
+        barStyle={theme === "dark" ? "light-content" : "dark-content"}
+      />
+
       <ScrollView contentContainerStyle={{ paddingBottom: 50 }}>
         {/* Header Section */}
         <View style={[styles.header, { backgroundColor: colors.primary }]}>
-          <View style={[styles.avatar, { 
-            backgroundColor: theme === 'dark' ? colors.primaryLight : '#6c63ff',
-          }]}>
+          <View
+            style={[
+              styles.avatar,
+              {
+                backgroundColor:
+                  theme === "dark" ? colors.primaryLight : "#6c63ff",
+              },
+            ]}
+          >
             <Ionicons name="person" size={50} color="white" />
           </View>
           <Text style={styles.username}>
-            {user?.email?.split('@')[0] || 'Username'}
+            {user?.email?.split("@")[0] || "Username"}
           </Text>
           <Text style={styles.memberSince}>
-            Member since {user ? new Date(user.created_at).toLocaleDateString() : '...'}
+            Member since{" "}
+            {user ? new Date(user.created_at).toLocaleDateString() : "..."}
           </Text>
         </View>
 
         {/* Stats */}
         <View style={[styles.statsRow, { backgroundColor: colors.card }]}>
           <View style={styles.statItem}>
-            <Text style={[styles.statNumber, { color: colors.primary }]}>0</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Workouts</Text>
+            <Text style={[styles.statNumber, { color: colors.primary }]}>
+              0
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+              Workouts
+            </Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={[styles.statNumber, { color: colors.primary }]}>0</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Streak</Text>
+            <Text style={[styles.statNumber, { color: colors.primary }]}>
+              0
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+              Streak
+            </Text>
           </View>
         </View>
 
         {/* Action buttons */}
         <View style={styles.actions}>
           <ActionButton
+            label="Recently Deleted"
+            icon="trash-outline"
+            onPress={() => navigation.navigate("RecentlyDeleted")}
+            colors={colors}
+          />
+          <ActionButton
             label="Settings"
             icon="settings-outline"
-            onPress={() => navigation.navigate('SettingsStack')}
+            onPress={() => navigation.navigate("SettingsStack")}
             colors={colors}
           />
           <ActionButton
@@ -63,7 +95,7 @@ export default function Profile({ navigation }: any) {
             danger
             onPress={async () => {
               await supabase.auth.signOut();
-              navigation.replace('Login');
+              navigation.replace("Login");
             }}
             colors={colors}
           />
@@ -77,11 +109,11 @@ const ActionButton = ({ label, icon, onPress, danger, colors }: any) => (
   <TouchableOpacity
     style={[
       styles.actionButton,
-      { 
+      {
         backgroundColor: colors.card,
         borderColor: colors.border,
       },
-      danger && { borderColor: colors.error }
+      danger && { borderColor: colors.error },
     ]}
     onPress={onPress}
   >
@@ -92,11 +124,13 @@ const ActionButton = ({ label, icon, onPress, danger, colors }: any) => (
         color={danger ? colors.error : colors.primary}
         style={{ marginRight: 10 }}
       />
-      <Text style={[
-        styles.actionText,
-        { color: colors.text },
-        danger && { color: colors.error }
-      ]}>
+      <Text
+        style={[
+          styles.actionText,
+          { color: colors.text },
+          danger && { color: colors.error },
+        ]}
+      >
         {label}
       </Text>
     </View>
@@ -109,7 +143,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingBottom: 40,
     paddingTop: 80,
     borderBottomLeftRadius: 30,
@@ -119,10 +153,10 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
@@ -130,34 +164,34 @@ const styles = StyleSheet.create({
   },
   username: {
     fontSize: 22,
-    fontWeight: '700',
-    color: 'white',
+    fontWeight: "700",
+    color: "white",
   },
   memberSince: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
+    color: "rgba(255,255,255,0.8)",
     marginTop: 4,
   },
   statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-evenly',
+    flexDirection: "row",
+    justifyContent: "space-evenly",
     marginTop: -20,
     marginBottom: 30,
     marginHorizontal: 20,
     borderRadius: 16,
     paddingVertical: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
   statItem: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   statNumber: {
     fontSize: 22,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   statLabel: {
     fontSize: 13,
@@ -168,9 +202,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   actionButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 15,
     marginVertical: 6,
     borderRadius: 12,
@@ -178,6 +212,6 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });

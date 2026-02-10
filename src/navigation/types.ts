@@ -8,6 +8,7 @@ export type RootStackParamList = {
   SettingsStack: undefined; 
   EditProfile: undefined; 
   WorkoutStack: undefined;
+  RecentlyDeleted: undefined;
 };
 
 export type TabParamList = {

@@ -10,6 +10,7 @@ import TabNavigator from "./src/navigation/TabNavigator";
 import { RootStackParamList } from "./src/navigation/types";
 import EditProfile from "./src/screens/Profile/EditProfile";
 import SettingsStack from "./src/navigation/SettingsStack";
+import RecentlyDeleted from "./src/screens/Profile/RecentlyDeleted";
 import { ThemeProvider } from "./src/context/ThemeContext";
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -67,6 +68,13 @@ export default function App() {
           <Stack.Screen
             name="EditProfile"
             component={EditProfile}
+            options={{
+              animation: "slide_from_right",
+            }}
+          />
+          <Stack.Screen
+            name="RecentlyDeleted"
+            component={RecentlyDeleted}
             options={{
               animation: "slide_from_right",
             }}
