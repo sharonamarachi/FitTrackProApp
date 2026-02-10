@@ -2,9 +2,9 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SettingsStackParamList } from './types';
 import Settings from '../screens/Settings/Settings';
-/* import AccountSettings from '../screens/Settings/AccountSettings';
-import Notifications from '../screens/Settings/Notifications';
-import Privacy from '../screens/Settings/Privacy'; */
+import PrivacyPolicy from '../screens/Settings/PrivacyPolicy';
+import TermsOfUse from '../screens/Settings/TermsOfUse';
+import ContactUs from '../screens/Settings/ContactUs';
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
 
@@ -12,9 +12,9 @@ export default function SettingsStack() {
   return (
     <Stack.Navigator>
       <Stack.Screen name="Settings" component={Settings} options={{ headerShown: false }} />
-{/*       <Stack.Screen name="AccountSettings" component={AccountSettings} />
-      <Stack.Screen name="Notifications" component={Notifications} />
-      <Stack.Screen name="Privacy" component={Privacy} /> */}
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicy} options={{ headerShown: false }} />
+      <Stack.Screen name="TermsOfUse" component={TermsOfUse} options={{ headerShown: false }} />
+      <Stack.Screen name="ContactUs" component={ContactUs} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }

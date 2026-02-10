@@ -111,11 +111,13 @@ export default function Settings({ navigation }: any) {
           label="Terms of Use" 
           icon="document-text-outline"
           colors={colors}
+          onPress={() => navigation.navigate("TermsOfUse")}
         />
         <SettingItem 
           label="Privacy Policy" 
           icon="shield-checkmark-outline"
           colors={colors}
+          onPress={() => navigation.navigate("PrivacyPolicy")}
         />
 
         {/* Support Section */}
@@ -124,6 +126,7 @@ export default function Settings({ navigation }: any) {
           label="Contact Us" 
           icon="help-circle-outline"
           colors={colors}
+          onPress={() => navigation.navigate("ContactUs")}
         />
 
         {/* Delete Account */}
