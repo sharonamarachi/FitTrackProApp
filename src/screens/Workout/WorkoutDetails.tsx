@@ -133,6 +133,14 @@ export default function WorkoutDetails({ route, navigation }: Props) {
     ]).start();
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadWorkout();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
   async function loadWorkout() {
     setLoading(true);
     const { data } = await fetchWorkoutById(workoutId);
@@ -213,6 +221,7 @@ export default function WorkoutDetails({ route, navigation }: Props) {
       } else {
         setWorkoutTitle(tempTitle);
         setIsEditingTitle(false);
+        await loadWorkout();
       }
     }
   };
