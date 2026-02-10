@@ -883,8 +883,12 @@ const styles = StyleSheet.create({
   circularProgressCenter: {
     position: 'absolute',
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'center',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   progressNumber: {
     fontSize: 38,
