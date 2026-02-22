@@ -39,7 +39,7 @@ interface Exercise {
   restTime?: number;
 }
 
-export default function CreateWorkoutTemplate({ navigation }: any) {
+export default function CreateWorkoutTemplate({ navigation, route }: any) {
   const { theme, colors } = useTheme();
   const [selectedTemplate, setSelectedTemplate] =
     useState<WorkoutTemplate | null>(null);
@@ -56,6 +56,49 @@ export default function CreateWorkoutTemplate({ navigation }: any) {
     durationSec: "",
     restTime: "",
   });
+
+  React.useEffect(() => {
+    if (route?.params?.importedData) {
+      const data = route.params.importedData;
+
+      // Set workout name
+      if (data.title) {
+        setWorkoutName(data.title);
+      }
+
+      // Set exercises
+      if (data.exercises && Array.isArray(data.exercises)) {
+        const formattedExercises = data.exercises.map(
+          (ex: any, index: number) => ({
+            id: ex.id || `ex_${Date.now()}_${index}`,
+            name: ex.name,
+            sets: ex.sets,
+            reps: ex.reps,
+            weight: ex.weight,
+            duration: ex.duration,
+            restTime: ex.restTime,
+          }),
+        );
+        setExercises(formattedExercises);
+
+        // Auto-select template
+        const hasTimedExercises = formattedExercises.some(
+          (ex: Exercise) => ex.duration,
+        );
+        setSelectedTemplate(hasTimedExercises ? "timer" : "reps");
+      }
+
+      // Set tags
+      if (data.tags && Array.isArray(data.tags)) {
+        setSelectedTags(data.tags);
+      }
+
+      // Add category as tag
+      if (data.category && !data.tags?.includes(data.category)) {
+        setSelectedTags((prev) => [...prev, data.category]);
+      }
+    }
+  }, [route?.params?.importedData]);
 
   const addExercise = () => {
     if (!currentExercise.name.trim()) {

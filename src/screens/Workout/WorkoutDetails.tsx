@@ -893,7 +893,7 @@ const styles = StyleSheet.create({
   progressNumber: {
     fontSize: 38,
     fontWeight: "900",
-    color: '#1F2937',
+    color: '#9CA3AF',
     lineHeight: 42,
   },
   progressDivider: {
