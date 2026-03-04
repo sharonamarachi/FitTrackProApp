@@ -23,11 +23,7 @@ interface Profile {
   gender: string;
 }
 
-const genderOptions = [
-  'Man',
-  'Woman',
-  'Prefer not to say',
-];
+const genderOptions = ['Man', 'Woman', 'Prefer not to say'];
 
 export default function EditProfile({ navigation }: any) {
   const [profile, setProfile] = useState<Profile>({
@@ -39,7 +35,6 @@ export default function EditProfile({ navigation }: any) {
   const [birthday, setBirthday] = useState<Date | null>(null);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof Profile | 'weight' | 'date_of_birth', string>>>({});
-
   const [showGenderModal, setShowGenderModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -88,7 +83,10 @@ export default function EditProfile({ navigation }: any) {
     validateField('weight', filtered);
   };
 
-  const validateField = (field: keyof Profile | 'weight' | 'date_of_birth', value: string | Date | null) => {
+  const validateField = (
+    field: keyof Profile | 'weight' | 'date_of_birth',
+    value: string | Date | null
+  ) => {
     let newErrors = { ...errors };
 
     if (field === 'username') {
@@ -107,7 +105,7 @@ export default function EditProfile({ navigation }: any) {
 
     if (field === 'weight') {
       const val = parseFloat(value as string);
-      if ((value && (isNaN(val) || val <= 0 || val > 1000))) newErrors.weight = 'Enter a valid weight (1-1000 kg)';
+      if (value && (isNaN(val) || val <= 0 || val > 1000)) newErrors.weight = 'Enter a valid weight (1-1000 kg)';
       else delete newErrors.weight;
     }
 
@@ -144,20 +142,64 @@ export default function EditProfile({ navigation }: any) {
       const userId = userData.user?.id;
       if (!userId) throw new Error('User not found');
 
-      const { error } = await supabase
+      const newWeight = weightInput ? parseFloat(weightInput) : null;
+
+      // 1. Update user_profiles — username is always safe.
+      // bio/gender/weight/date_of_birth require you to run the ALTER TABLE migration.
+      // If those columns don't exist yet, Supabase returns a 42703 error and we fall
+      // back to updating only username so the save never silently does nothing.
+      const fullPayload: Record<string, any> = {
+        username: profile.username.trim(),
+        updated_at: new Date().toISOString(),
+        bio: profile.bio.trim(),
+        gender: profile.gender || null,
+        weight: newWeight,
+        date_of_birth: birthday ? birthday.toISOString().split('T')[0] : null,
+      };
+
+      const { error: profileError } = await supabase
         .from('user_profiles')
-        .update({
-          username: profile.username.trim(),
-          bio: profile.bio.trim(),
-          gender: profile.gender,
-          weight: weightInput ? parseFloat(weightInput) : null,
-          date_of_birth: birthday ? birthday.toISOString().split('T')[0] : null,
-          updated_at: new Date().toISOString(),
-        })
+        .update(fullPayload)
         .eq('user_id', userId);
 
-      if (error) throw error;
-      Alert.alert('Success', 'Profile updated successfully');
+      if (profileError) {
+        // Column likely doesn't exist yet — fall back to just updating username
+        if (profileError.code === '42703' || profileError.message?.includes('column')) {
+          const { error: fallbackError } = await supabase
+            .from('user_profiles')
+            .update({ username: profile.username.trim(), updated_at: new Date().toISOString() })
+            .eq('user_id', userId);
+          if (fallbackError) throw fallbackError;
+          Alert.alert(
+            'Partial Save',
+            'Username saved. To save bio, gender, weight and date of birth, run the ALTER TABLE migration in Supabase (see console for details).'
+          );
+          console.warn('Run in Supabase SQL editor:\nalter table user_profiles add column if not exists bio text, add column if not exists gender text, add column if not exists weight numeric, add column if not exists date_of_birth date;');
+        } else {
+          throw profileError;
+        }
+      }
+
+      // 2. Always insert weight into body_measurements — this works regardless of
+      // whether user_profiles has a weight column, and builds the Progress chart history.
+      if (newWeight && !isNaN(newWeight)) {
+        const { error: measurementError } = await supabase
+          .from('body_measurements')
+          .insert({
+            user_id: userId,
+            weight_kg: newWeight,
+            recorded_at: new Date().toISOString(),
+          });
+
+        if (measurementError) {
+          console.error('Body measurement save error:', measurementError);
+          // Non-fatal
+        }
+      }
+
+      if (!profileError) {
+        Alert.alert('Success', 'Profile updated successfully');
+      }
       navigation.goBack();
     } catch (error) {
       Alert.alert('Error', 'Failed to update profile.');
@@ -231,12 +273,16 @@ export default function EditProfile({ navigation }: any) {
               style={[styles.dropdown, errors.gender && styles.errorInput]}
               onPress={() => setShowGenderModal(true)}
             >
-              <Text style={profile.gender ? styles.dropdownText : styles.placeholderText}>
+              <Text
+                style={profile.gender ? styles.dropdownText : styles.placeholderText}
+              >
                 {profile.gender || 'Select Gender'}
               </Text>
               <Ionicons name="chevron-down" size={20} color="#333" />
             </TouchableOpacity>
-            {errors.gender && <Text style={styles.errorText}>{errors.gender}</Text>}
+            {errors.gender && (
+              <Text style={styles.errorText}>{errors.gender}</Text>
+            )}
           </View>
 
           <Modal visible={showGenderModal} transparent animationType="slide">
@@ -278,7 +324,9 @@ export default function EditProfile({ navigation }: any) {
               </Text>
               <Ionicons name="calendar-outline" size={20} color="#333" />
             </TouchableOpacity>
-            {errors.date_of_birth && <Text style={styles.errorText}>{errors.date_of_birth}</Text>}
+            {errors.date_of_birth && (
+              <Text style={styles.errorText}>{errors.date_of_birth}</Text>
+            )}
             {showDatePicker && (
               <DateTimePicker
                 value={birthday || new Date()}
@@ -299,6 +347,9 @@ export default function EditProfile({ navigation }: any) {
             placeholder="Enter your weight"
             keyboardType="decimal-pad"
           />
+          <Text style={styles.weightHint}>
+            Each save records a new entry in your weight history for the progress chart.
+          </Text>
         </ScrollView>
       </View>
     </KeyboardAvoidingView>
@@ -332,21 +383,17 @@ const FormField: React.FC<FormFieldProps> = ({
       {...props}
     />
     {showCharCount && (
-      <Text style={styles.charCount}>{value.length}/{props.maxLength}</Text>
+      <Text style={styles.charCount}>
+        {value.length}/{props.maxLength}
+      </Text>
     )}
     {error && <Text style={styles.errorText}>{error}</Text>}
   </View>
 );
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
+  screen: { flex: 1, backgroundColor: '#f8f9fa' },
+  container: { flex: 1, paddingHorizontal: 20 },
   avatarContainer: { alignItems: 'center', marginVertical: 20 },
   field: { marginBottom: 20 },
   label: { fontSize: 14, color: '#666', marginBottom: 5 },
@@ -373,6 +420,14 @@ const styles = StyleSheet.create({
   errorText: { color: 'red', fontSize: 12, marginTop: 3 },
   errorInput: { borderColor: 'red' },
   charCount: { fontSize: 12, color: '#999', textAlign: 'right', marginTop: 2 },
+  weightHint: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: -12,
+    marginBottom: 8,
+    paddingHorizontal: 2,
+    fontStyle: 'italic',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.3)',
@@ -384,5 +439,10 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 15,
     maxHeight: '50%',
   },
-  option: { padding: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  option: {
+    padding: 15,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
 });
