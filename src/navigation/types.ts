@@ -31,8 +31,8 @@ export type SettingsStackParamList = {
 export type QuickStartStackParamList = {
   QuickStart: undefined;
   QuickTimer: undefined;
-  CustomWorkout: undefined;
   YouTubeImport: undefined;
+  TranscriptImport: undefined;
   TimerScreen: { work: number; rest: number; rounds: number; exercises: number };
 };
 

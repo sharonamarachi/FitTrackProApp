@@ -26,13 +26,6 @@ export default function QuickStart({ navigation }: QuickStartScreenProps) {
       color: "#007AFF",
     },
     {
-      key: "timer",
-      icon: "timer-outline",
-      title: "Timer Workout",
-      description: "HIIT, circuits with built-in timer",
-      color: "#34C759",
-    },
-    {
       key: "youtube",
       icon: "logo-youtube",
       title: "YouTube Import",
@@ -40,11 +33,12 @@ export default function QuickStart({ navigation }: QuickStartScreenProps) {
       color: "#FF3B30",
     },
     {
-      key: "custom",
-      icon: "create-outline",
-      title: "Custom Workout",
-      description: "Build detailed workout plan",
-      color: "#AF52DE",
+      key: "transcript",
+      icon: "document-text-outline",
+      title: "Transcript Import",
+      description: "Paste, upload or dictate workout text",
+      color: "#5856D6",
+      onPress: () => navigation.navigate("TranscriptImport"),
     },
     {
       key: "quickTimer",
@@ -77,8 +71,8 @@ export default function QuickStart({ navigation }: QuickStartScreenProps) {
                 navigation.navigate("YouTubeImport");
               } else if (action.key === "quickTimer") {
                 navigation.navigate("QuickTimer");
-              } else if (action.key === "custom") {
-                navigation.navigate("CustomWorkout");
+              } else if (action.key === "transcript") {
+                navigation.navigate("TranscriptImport");
               }
             }}
           >
