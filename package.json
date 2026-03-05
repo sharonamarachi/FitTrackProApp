@@ -22,7 +22,9 @@
     "expo-speech": "~14.0.8",
     "express": "^5.2.1",
     "he": "^1.2.0",
+    "multer": "^2.1.1",
     "node-fetch": "^3.3.2",
+    "papaparse": "^5.5.3",
     "playwright": "^1.58.2",
     "react": "19.1.0",
     "react-native": "0.81.5",
@@ -41,6 +43,8 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/he": "^1.2.3",
+    "@types/multer": "^2.0.0",
+    "@types/papaparse": "^5.5.2",
     "@types/react": "~19.1.10",
     "typescript": "~5.9.2"
   },

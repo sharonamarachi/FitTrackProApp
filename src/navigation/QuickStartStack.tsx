@@ -11,6 +11,8 @@ import QuickTimer from "../screens/QuickStart/QuickTimer";
 import YouTubeImport from "../screens/QuickStart/YouTubeImport";
 import TimerScreen from "../screens/QuickStart/TimerScreen";
 import TranscriptImport from "../screens/QuickStart/TranscriptImport";
+import CreateWorkoutTemplate from "../screens/Workout/CreateWorkoutTemplate";
+import VideoImport from "../screens/QuickStart/VideoImport";
 
 const Stack = createNativeStackNavigator<QuickStartStackParamList>();
 
@@ -26,6 +28,10 @@ export default function QuickStartStack() {
       <Stack.Screen name="YouTubeImport" component={YouTubeImport} />
       <Stack.Screen name="TimerScreen" component={TimerScreen} />
       <Stack.Screen name="TranscriptImport" component={TranscriptImport} />
+      <Stack.Screen name="VideoImport" component={VideoImport} />
+
+      <Stack.Screen name="CreateWorkoutTemplate" component={CreateWorkoutTemplate} />
+      
     </Stack.Navigator>
   );
 }
