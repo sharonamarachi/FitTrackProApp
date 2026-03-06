@@ -35,9 +35,21 @@ export type QuickStartStackParamList = {
   TranscriptImport: undefined;
   TimerScreen: { work: number; rest: number; rounds: number; exercises: number };
   CreateWorkoutTemplate: {
-    importedData?: any;
-    importSource?: string;
-  } | undefined;
+  importedData?: {
+    exercises: {
+      id: string;
+      name: string;
+      sets?: number;
+      reps?: number;
+      duration?: number;
+      restTime?: number;
+      type: 'reps' | 'timed';
+    }[];
+    suggestedName?: string;
+    tags?: string[];
+  };
+  importSource?: string;
+};
   VideoImport: undefined;
 };
 

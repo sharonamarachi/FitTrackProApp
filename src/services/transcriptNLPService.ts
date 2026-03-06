@@ -1,14 +1,11 @@
-import nlp from 'compromise';
-import { buildExerciseDBFromCSV } from './exerciseDatabase';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+const GROQ_API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY;
 
 export interface ExtractedExercise {
   id: string;
   name: string;
   sets?: number;
   reps?: number;
-  weight?: number;
+  weight?: number;   // ← add this
   duration?: number;
   restTime?: number;
   confidence: number;
@@ -23,328 +20,219 @@ export interface ParseResult {
   rawExerciseCount: number;
 }
 
-// ── EXPORTED so exerciseDatabase.ts can import it ────────────────────────────
-export interface ExerciseTemplate {
-  canonical: string;
-  aliases: string[];
-  category: 'upper-body' | 'lower-body' | 'core' | 'cardio' | 'glutes' | 'full-body';
-  type: 'reps' | 'timed';
-  defaultSets: number;
-  defaultReps?: number;
-  defaultDuration?: number;
-  defaultRest?: number;
+export function isWorkoutTranscript(text: string): boolean {
+  const lower = text.toLowerCase();
+  const workoutSignals = [
+    'exercise','workout','reps','sets','seconds','rest','core','abs',
+    'plank','squat','push','pull','jump','crunch','raise','curl',
+    'press','lift','breathe','engage','muscle','burn','rounds',
+  ];
+  const musicSignals = [
+    '[music]','[applause]','cherry lips','dance floor','sugar how',
+  ];
+  const signalCount = workoutSignals.filter(w => lower.includes(w)).length;
+  const musicCount  = musicSignals.filter(w => lower.includes(w)).length;
+  return signalCount >= 3 && musicCount === 0;
 }
 
-// ─── Handcrafted exercise database ───────────────────────────────────────────
-
-const HANDCRAFTED_EXERCISES: ExerciseTemplate[] = [
-  // ── Upper body ──────────────────────────────────────────────────────────────
-  { canonical: 'Push Ups', aliases: ['push up','pushup','push-up','press up','press-up'],
-    category: 'upper-body', type: 'reps', defaultSets: 3, defaultReps: 15 },
-  { canonical: 'Pull Ups', aliases: ['pull up','pullup','pull-up','chin up','chinup'],
-    category: 'upper-body', type: 'reps', defaultSets: 3, defaultReps: 8 },
-  { canonical: 'Bench Press', aliases: ['bench press','chest press','flat bench'],
-    category: 'upper-body', type: 'reps', defaultSets: 3, defaultReps: 10 },
-  { canonical: 'Shoulder Press', aliases: ['shoulder press','military press','overhead press','ohp'],
-    category: 'upper-body', type: 'reps', defaultSets: 3, defaultReps: 10 },
-  { canonical: 'Bicep Curls', aliases: ['bicep curl','bicep curls','arm curl','dumbbell curl'],
-    category: 'upper-body', type: 'reps', defaultSets: 3, defaultReps: 12 },
-  { canonical: 'Tricep Dips', aliases: ['tricep dip','tricep dips','dips','bench dip','chair dip'],
-    category: 'upper-body', type: 'reps', defaultSets: 3, defaultReps: 12 },
-  { canonical: 'Tricep Extension', aliases: ['tricep extension','skull crusher','overhead extension','tricep kickback'],
-    category: 'upper-body', type: 'reps', defaultSets: 3, defaultReps: 12 },
-  { canonical: 'Rows', aliases: ['row','rows','bent over row','barbell row','dumbbell row','cable row'],
-    category: 'upper-body', type: 'reps', defaultSets: 3, defaultReps: 12 },
-  { canonical: 'Lateral Raise', aliases: ['lateral raise','side raise','shoulder raise'],
-    category: 'upper-body', type: 'reps', defaultSets: 3, defaultReps: 15 },
-  { canonical: 'Chest Fly', aliases: ['chest fly','pec fly','cable fly','dumbbell fly'],
-    category: 'upper-body', type: 'reps', defaultSets: 3, defaultReps: 12 },
-  { canonical: 'Diamond Push Ups', aliases: ['diamond push up','diamond pushup','close grip push up','tricep push up'],
-    category: 'upper-body', type: 'reps', defaultSets: 3, defaultReps: 12 },
-
-  // ── Lower body ──────────────────────────────────────────────────────────────
-  { canonical: 'Squats', aliases: ['squat','squats','air squat','bodyweight squat','goblet squat'],
-    category: 'lower-body', type: 'reps', defaultSets: 3, defaultReps: 15 },
-  { canonical: 'Barbell Squat', aliases: ['barbell squat','back squat','front squat','loaded squat'],
-    category: 'lower-body', type: 'reps', defaultSets: 3, defaultReps: 8 },
-  { canonical: 'Lunges', aliases: ['lunge','lunges','forward lunge','reverse lunge','walking lunge'],
-    category: 'lower-body', type: 'reps', defaultSets: 3, defaultReps: 12 },
-  { canonical: 'Deadlifts', aliases: ['deadlift','deadlifts','dead lift','romanian deadlift','rdl'],
-    category: 'lower-body', type: 'reps', defaultSets: 3, defaultReps: 8 },
-  { canonical: 'Leg Press', aliases: ['leg press','machine press'],
-    category: 'lower-body', type: 'reps', defaultSets: 3, defaultReps: 12 },
-  { canonical: 'Calf Raises', aliases: ['calf raise','calf raises','standing calf'],
-    category: 'lower-body', type: 'reps', defaultSets: 3, defaultReps: 20 },
-  { canonical: 'Leg Extension', aliases: ['leg extension','quad extension','machine extension'],
-    category: 'lower-body', type: 'reps', defaultSets: 3, defaultReps: 12 },
-  { canonical: 'Leg Curl', aliases: ['leg curl','hamstring curl','lying curl','seated curl'],
-    category: 'lower-body', type: 'reps', defaultSets: 3, defaultReps: 12 },
-  { canonical: 'Bulgarian Split Squat', aliases: ['bulgarian split squat','split squat','rear foot elevated'],
-    category: 'lower-body', type: 'reps', defaultSets: 3, defaultReps: 10 },
-
-  // ── Glutes ───────────────────────────────────────────────────────────────────
-  { canonical: 'Glute Bridges', aliases: ['glute bridge','glute bridges','hip thrust','hip bridge'],
-    category: 'glutes', type: 'reps', defaultSets: 3, defaultReps: 15 },
-  { canonical: 'Donkey Kicks', aliases: ['donkey kick','donkey kicks','glute kickback'],
-    category: 'glutes', type: 'reps', defaultSets: 3, defaultReps: 15 },
-  { canonical: 'Fire Hydrants', aliases: ['fire hydrant','fire hydrants','lateral leg raise'],
-    category: 'glutes', type: 'reps', defaultSets: 3, defaultReps: 15 },
-  { canonical: 'Clamshells', aliases: ['clamshell','clamshells','hip abduction'],
-    category: 'glutes', type: 'reps', defaultSets: 3, defaultReps: 20 },
-
-  // ── Core ─────────────────────────────────────────────────────────────────────
-  { canonical: 'Plank', aliases: ['plank','front plank','high plank','forearm plank'],
-    category: 'core', type: 'timed', defaultSets: 3, defaultDuration: 60, defaultRest: 30 },
-  { canonical: 'Side Plank', aliases: ['side plank','lateral plank'],
-    category: 'core', type: 'timed', defaultSets: 2, defaultDuration: 30, defaultRest: 20 },
-  { canonical: 'Crunches', aliases: ['crunch','crunches','ab crunch','abdominal crunch'],
-    category: 'core', type: 'reps', defaultSets: 3, defaultReps: 20 },
-  { canonical: 'Sit Ups', aliases: ['sit up','sit ups','situp','situps'],
-    category: 'core', type: 'reps', defaultSets: 3, defaultReps: 15 },
-  { canonical: 'Russian Twists', aliases: ['russian twist','russian twists','oblique twist'],
-    category: 'core', type: 'reps', defaultSets: 3, defaultReps: 20 },
-  { canonical: 'Leg Raises', aliases: ['leg raise','leg raises','lying leg raise','flutter kick'],
-    category: 'core', type: 'reps', defaultSets: 3, defaultReps: 15 },
-  { canonical: 'Mountain Climbers', aliases: ['mountain climber','mountain climbers','running plank'],
-    category: 'core', type: 'timed', defaultSets: 3, defaultDuration: 45, defaultRest: 15 },
-  { canonical: 'Bicycle Crunches', aliases: ['bicycle crunch','bicycle crunches','bike crunch'],
-    category: 'core', type: 'reps', defaultSets: 3, defaultReps: 20 },
-  { canonical: 'V-Ups', aliases: ['v up','v ups','vup','jackknife'],
-    category: 'core', type: 'reps', defaultSets: 3, defaultReps: 15 },
-
-  // ── Cardio ───────────────────────────────────────────────────────────────────
-  { canonical: 'Burpees', aliases: ['burpee','burpees','squat thrust'],
-    category: 'cardio', type: 'reps', defaultSets: 3, defaultReps: 10 },
-  { canonical: 'Jumping Jacks', aliases: ['jumping jack','jumping jacks','star jump'],
-    category: 'cardio', type: 'timed', defaultSets: 3, defaultDuration: 45, defaultRest: 15 },
-  { canonical: 'High Knees', aliases: ['high knee','high knees','running in place'],
-    category: 'cardio', type: 'timed', defaultSets: 3, defaultDuration: 40, defaultRest: 20 },
-  { canonical: 'Box Jumps', aliases: ['box jump','box jumps','jump squat','plyo squat'],
-    category: 'cardio', type: 'reps', defaultSets: 3, defaultReps: 10 },
-  { canonical: 'Jump Rope', aliases: ['jump rope','skipping','skipping rope'],
-    category: 'cardio', type: 'timed', defaultSets: 3, defaultDuration: 60, defaultRest: 30 },
-  { canonical: 'Jump Squats', aliases: ['jump squat','jump squats','squat jump','explosive squat'],
-    category: 'cardio', type: 'reps', defaultSets: 3, defaultReps: 12 },
-
-  // ── Full body ────────────────────────────────────────────────────────────────
-  { canonical: 'Thrusters', aliases: ['thruster','thrusters','squat press'],
-    category: 'full-body', type: 'reps', defaultSets: 3, defaultReps: 12 },
-  { canonical: 'Kettlebell Swing', aliases: ['kettlebell swing','kb swing','kettle bell swing'],
-    category: 'full-body', type: 'reps', defaultSets: 3, defaultReps: 15 },
-  { canonical: 'Bear Crawl', aliases: ['bear crawl','bear walk','crawl'],
-    category: 'full-body', type: 'timed', defaultSets: 3, defaultDuration: 30, defaultRest: 15 },
-];
-
-// ─── Merge handcrafted + CSV ──────────────────────────────────────────────────
-
-let EXERCISE_DB: ExerciseTemplate[] = [...HANDCRAFTED_EXERCISES];
-
-try {
-  const csvExercises = buildExerciseDBFromCSV();
-  const existingNames = new Set(EXERCISE_DB.map(e => e.canonical.toLowerCase()));
-  const newEntries = csvExercises.filter(e => !existingNames.has(e.canonical.toLowerCase()));
-  EXERCISE_DB = [...EXERCISE_DB, ...newEntries];
-  console.log(`Exercise DB: ${HANDCRAFTED_EXERCISES.length} handcrafted + ${newEntries.length} from CSV = ${EXERCISE_DB.length} total`);
-} catch (e) {
-  console.warn('Could not load CSV exercise database, using handcrafted only:', e);
+function titleCase(str: string): string {
+  return str.replace(/\b\w/g, c => c.toUpperCase());
 }
 
-// ─── Fuzzy matching ───────────────────────────────────────────────────────────
-
-function levenshtein(a: string, b: string): number {
-  const m = a.length, n = b.length;
-  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
-    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
-  );
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      dp[i][j] = a[i - 1] === b[j - 1]
-        ? dp[i - 1][j - 1]
-        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-    }
-  }
-  return dp[m][n];
+function normaliseKey(name: string): string {
+  return name.toLowerCase().replace(/[-&\s]/g, '');
 }
 
-function tokenSimilarity(sourceTokens: Set<string>, alias: string): number {
-  const aliasTokens = alias.split(/\s+/).filter(Boolean);
-  if (aliasTokens.length === 0) return 0;
-  const matches = aliasTokens.filter(at => {
-    if (sourceTokens.has(at)) return true;
-    if (at.length > 3) {
-      for (const st of sourceTokens) {
-        if (st.length > 3 && levenshtein(at, st) <= 1) return true;
-      }
-    }
-    return false;
-  });
-  return matches.length / aliasTokens.length;
-}
-
-interface MatchResult {
-  template: ExerciseTemplate;
-  alias: string;
-  score: number;
-}
-
-function findBestMatch(sentence: string): MatchResult | null {
-  const lower = sentence.toLowerCase().replace(/[^a-z0-9\s]/g, ' ');
-  const tokens = new Set(lower.split(/\s+/).filter(t => t.length > 1));
-
-  let best: MatchResult | null = null;
-
-  for (const template of EXERCISE_DB) {
-    for (const alias of template.aliases) {
-      if (lower.includes(alias)) {
-        if (!best || best.score < 1.0) {
-          best = { template, alias, score: 1.0 };
-        }
-        break;
-      }
-      const score = tokenSimilarity(tokens, alias);
-      if (score >= 0.75 && (!best || score > best.score)) {
-        best = { template, alias, score };
-      }
-    }
-  }
-
-  return best;
-}
-
-// ─── Number / pattern extraction ─────────────────────────────────────────────
-
-function extractSetsReps(sentence: string): { sets?: number; reps?: number; weight?: number } {
-  const s = sentence.toLowerCase();
-  const result: { sets?: number; reps?: number; weight?: number } = {};
-
-  const multi = s.match(/(\d+)\s*[x×]\s*(\d+)/);
-  if (multi) { result.sets = parseInt(multi[1]); result.reps = parseInt(multi[2]); return result; }
-
-  const setsOf = s.match(/(\d+)\s*(?:sets?|rounds?)\s*(?:of\s*)?(\d+)/i);
-  if (setsOf) { result.sets = parseInt(setsOf[1]); result.reps = parseInt(setsOf[2]); return result; }
-
-  const setsMatch = s.match(/(\d+)\s*(?:sets?|rounds?)/i);
-  if (setsMatch) result.sets = parseInt(setsMatch[1]);
-
-  const repsMatch = s.match(/(\d+)\s*(?:reps?|repetitions?|times)/i);
-  if (repsMatch) result.reps = parseInt(repsMatch[1]);
-
-  const weightMatch = s.match(/(\d+(?:\.\d+)?)\s*(?:kg|kgs|kilo|lb|lbs|pounds?)/i);
-  if (weightMatch) {
-    const val = parseFloat(weightMatch[1]);
-    const unit = weightMatch[0].toLowerCase();
-    result.weight = unit.includes('lb') || unit.includes('pound') ? Math.round(val * 0.453592) : val;
-  }
-
-  return result;
-}
-
-function extractDurationRest(sentence: string): { duration?: number; restTime?: number } {
-  const s = sentence.toLowerCase();
-  const result: { duration?: number; restTime?: number } = {};
-
-  const secMatch = s.match(/(\d+)\s*(?:seconds?|secs?)/i);
-  const minMatch = s.match(/(\d+)\s*(?:minutes?|mins?)/i);
-
-  let totalSec = 0;
-  if (minMatch) totalSec += parseInt(minMatch[1]) * 60;
-  if (secMatch) totalSec += parseInt(secMatch[1]);
-  if (totalSec > 0) result.duration = totalSec;
-
-  const restMatch = s.match(/(?:rest(?:ing)?\s*(?:for\s*)?(\d+)\s*(?:seconds?|secs?)?|(\d+)\s*(?:seconds?|secs?)?\s*rest)/i);
-  if (restMatch) result.restTime = parseInt(restMatch[1] ?? restMatch[2]);
-
-  return result;
-}
-
-function buildContextWindow(sentences: string[], idx: number, radius = 1): string {
-  const start = Math.max(0, idx - radius);
-  const end   = Math.min(sentences.length - 1, idx + radius);
-  return sentences.slice(start, end + 1).join(' ');
-}
-
-// ─── Main export ──────────────────────────────────────────────────────────────
-
-export function parseTranscript(rawText: string): ParseResult {
+export async function parseTranscript(rawText: string): Promise<ParseResult> {
   if (!rawText.trim()) {
     return { title: '', category: 'general', exercises: [], tags: [], confidence: 0, rawExerciseCount: 0 };
   }
 
-  const doc = nlp(rawText);
-  const sentences: string[] = doc.sentences().out('array');
+  const prompt = `You are a fitness AI. Extract all exercises from this workout transcript.
 
-  const seen = new Set<string>();
-  const exercises: ExtractedExercise[] = [];
-  const categoryVotes: Record<string, number> = {};
+Return ONLY valid JSON, no markdown, no explanation:
+{
+  "exercises": [
+    {
+      "name": "Exercise Name",
+      "sets": 3,
+      "reps": 15,
+      "duration": null,
+      "restTime": 10,
+      "type": "reps"
+    }
+  ],
+  "category": "core",
+  "globalDuration": 30,
+  "globalRest": 10,
+  "isCircuit": false
+}
 
-  sentences.forEach((sentence, idx) => {
-    const match = findBestMatch(sentence);
-    if (!match) return;
-    if (seen.has(match.template.canonical)) return;
-    seen.add(match.template.canonical);
+Rules:
+- "type" is "timed" if exercise uses seconds, "reps" if it uses sets/reps
+- For timed exercises set reps to null, for reps exercises set duration to null
+- "category": core | upper-body | lower-body | glutes | cardio | full-body
+- If transcript says "all exercises are X seconds" apply that duration to all timed exercises
+- Include ALL exercises mentioned, use sensible defaults if timing not specified
+- globalDuration and globalRest are the workout-wide defaults (null if not stated)
+- "isCircuit" is true if the workout repeats a block of exercises in rounds/sets
+- If isCircuit is true, only list each exercise ONCE (the circuit handles repetition)
+- If exercises repeat for different body parts or are genuinely different movements, list each separately
 
-    const context = buildContextWindow(sentences, idx);
-    const tmpl    = match.template;
+TRANSCRIPT:
+${rawText.slice(0, 3500)}`;
 
-    let exercise: ExtractedExercise;
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        max_tokens: 1000,
+        temperature: 0.1,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a fitness coach AI. You only output valid JSON. Never include markdown code fences or explanation.',
+          },
+          { role: 'user', content: prompt },
+        ],
+      }),
+    });
 
-    if (tmpl.type === 'timed') {
-      const { duration, restTime } = extractDurationRest(context);
-      exercise = {
-        id:         `ex_${Date.now()}_${exercises.length}`,
-        name:       tmpl.canonical,
-        duration:   duration  ?? tmpl.defaultDuration,
-        restTime:   restTime  ?? tmpl.defaultRest,
-        sets:       tmpl.defaultSets,
-        confidence: match.score,
-      };
-    } else {
-      const { sets, reps, weight } = extractSetsReps(context);
-      exercise = {
-        id:         `ex_${Date.now()}_${exercises.length}`,
-        name:       tmpl.canonical,
-        sets:       sets  ?? tmpl.defaultSets,
-        reps:       reps  ?? tmpl.defaultReps,
-        weight,
-        confidence: match.score,
-      };
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Groq API error ${response.status}: ${err}`);
     }
 
-    exercises.push(exercise);
-    categoryVotes[tmpl.category] = (categoryVotes[tmpl.category] ?? 0) + 1;
-  });
+    const data   = await response.json();
+    const raw    = data.choices?.[0]?.message?.content ?? '';
+    const clean  = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
 
-  const category = (Object.entries(categoryVotes).sort((a, b) => b[1] - a[1])[0]?.[0]) ?? 'general';
-  const overallConfidence = exercises.length > 0
-    ? exercises.reduce((s, e) => s + e.confidence, 0) / exercises.length
-    : 0;
+    const globalDuration: number | undefined = parsed.globalDuration ?? undefined;
+    const globalRest: number | undefined     = parsed.globalRest     ?? undefined;
+    const isCircuit: boolean                 = parsed.isCircuit      ?? false;
 
-  const tags = [
-    ...Object.keys(categoryVotes),
-    'transcript-import',
-    exercises.some(e => e.duration) ? 'timed' : 'reps-based',
-  ];
+    let exercises: ExtractedExercise[] = (parsed.exercises ?? []).map(
+      (e: any, i: number) => ({
+        id:        `ex_${Date.now()}_${i}`,
+        name:      titleCase(e.name),
+        sets:      e.sets ?? 3,
+        reps:      e.type === 'reps'  ? (e.reps     ?? 15)                   : undefined,
+        weight:    e.weight ?? undefined, // ← include weight if provided
+        duration:  e.type === 'timed' ? (e.duration ?? globalDuration ?? 30) : undefined,
+        restTime:  e.restTime ?? globalRest ?? 10,
+        confidence: 0.92,
+      })
+    );
+
+    // Only deduplicate if it's a circuit (same exercises repeating in rounds)
+    // For non-circuits, keep duplicates — they're intentional different sets
+    if (isCircuit) {
+      const seen = new Set<string>();
+      exercises = exercises.filter(e => {
+        const key = normaliseKey(e.name);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    const category = parsed.category ?? 'general';
+    const tags = [
+      category,
+      'transcript-import',
+      exercises.some(ex => ex.duration) ? 'timed' : 'reps-based',
+    ];
+
+    return {
+      title:            `${formatCategory(category)} Workout (${exercises.length} exercises)`,
+      category,
+      exercises,
+      tags:             [...new Set(tags)],
+      confidence:       0.92,
+      rawExerciseCount: exercises.length,
+    };
+
+  } catch (err) {
+    console.error('[NLP] Groq parse failed, falling back to rule-based:', err);
+    return fallbackParse(rawText);
+  }
+}
+
+const FALLBACK_EXERCISES = [
+  { name: 'Leg Raises',        aliases: ['leg raise','leg raises','leg raise clap'] },
+  { name: 'Reverse Crunch',    aliases: ['reverse crunch'] },
+  { name: 'Spider-Man Plank',  aliases: ['spiderman plank','spider-man plank','spider man plank'] },
+  { name: 'Mountain Climbers', aliases: ['mountain climber','mountain climbers','cross-body climber','crossbody climber'] },
+  { name: 'Russian Twists',    aliases: ['russian twist','russian twists'] },
+  { name: 'Plank Hip Dips',    aliases: ['plank with hip dips','plank hip dips','hip dips'] },
+  { name: 'Plank Jacks',       aliases: ['plank jack','plank jacks'] },
+  { name: 'The Hundreds',      aliases: ['the hundreds','hundreds'] },
+  { name: 'Crunches',          aliases: ['crunch','crunches','straight leg crunch'] },
+  { name: 'Up & Down Plank',   aliases: ['up and down plank','up-and-down plank'] },
+  { name: 'Heel Touches',      aliases: ['heel touch','heel touches','heel tap'] },
+  { name: 'Bicycle Crunches',  aliases: ['bicycle crunch','bicycle crunches'] },
+  { name: 'Plank',             aliases: ['plank'] },
+  { name: 'Squats',            aliases: ['squat','squats'] },
+  { name: 'Push Ups',          aliases: ['push up','push ups','pushup'] },
+  { name: 'Lunges',            aliases: ['lunge','lunges'] },
+  { name: 'Burpees',           aliases: ['burpee','burpees'] },
+  { name: 'High Knees',        aliases: ['high knee','high knees'] },
+  { name: 'Glute Bridges',     aliases: ['glute bridge','glute bridges','hip thrust'] },
+  { name: 'Tricep Dips',       aliases: ['tricep dip','tricep dips'] },
+];
+
+function fallbackParse(rawText: string): ParseResult {
+  const lower = rawText.toLowerCase();
+  const globalDurationMatch = lower.match(/exercises?\s+(?:are|is)\s+(\d+)\s+sec/);
+  const globalRestMatch     = lower.match(/(\d+)\s+sec(?:onds?)?\s+(?:break|rest)/);
+  const globalDuration      = globalDurationMatch ? parseInt(globalDurationMatch[1]) : 30;
+  const globalRest          = globalRestMatch     ? parseInt(globalRestMatch[1])     : 10;
+
+  const found: ExtractedExercise[] = [];
+  const seen = new Set<string>();
+
+  for (const ex of FALLBACK_EXERCISES) {
+    for (const alias of ex.aliases) {
+      if (lower.includes(alias) && !seen.has(ex.name)) {
+        seen.add(ex.name);
+        found.push({
+          id:        `ex_${Date.now()}_${found.length}`,
+          name:      ex.name,
+          sets:      3,
+          duration:  globalDuration,
+          restTime:  globalRest,
+          confidence: 0.7,
+        });
+        break;
+      }
+    }
+  }
 
   return {
-    title:            generateTitle(exercises, category),
-    category,
-    exercises,
-    tags:             [...new Set(tags)],
-    confidence:       overallConfidence,
-    rawExerciseCount: exercises.length,
+    title:            `Core Workout (${found.length} exercises)`,
+    category:         'core',
+    exercises:        found,
+    tags:             ['core', 'transcript-import', 'timed'],
+    confidence:       0.7,
+    rawExerciseCount: found.length,
   };
 }
 
-function generateTitle(exercises: ExtractedExercise[], category: string): string {
-  const labels: Record<string, string> = {
+function formatCategory(cat: string): string {
+  const map: Record<string, string> = {
     'upper-body': 'Upper Body',
     'lower-body': 'Lower Body',
     'core':       'Core',
-    'cardio':     'Cardio HIIT',
-    'glutes':     'Glutes & Legs',
+    'cardio':     'Cardio',
+    'glutes':     'Glutes',
     'full-body':  'Full Body',
     'general':    'Full Body',
   };
-  const label = labels[category] ?? 'Full Body';
-  return exercises.length === 0 ? 'Imported Workout' : `${label} Workout (${exercises.length} exercises)`;
+  return map[cat] ?? 'Full Body';
 }
