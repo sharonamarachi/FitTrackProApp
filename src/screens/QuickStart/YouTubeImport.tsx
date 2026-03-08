@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+// src/screens/QuickStart/YouTubeImport.tsx
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,565 +11,457 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useTheme } from "../../context/ThemeContext";
-import Header from "../../components/Header";
-import { supabase } from "../../api/supabaseClient";
+  StatusBar,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../context/ThemeContext';
+import Header from '../../components/Header';
 import {
-  extractVideoId,
-  isValidYouTubeUrl,
-  getYouTubeTranscript,
-  extractWorkoutFromTranscript,
-} from "../../services/freeYouTubeService";
+  parseTranscript,
+  isWorkoutTranscript,
+} from '../../services/transcriptNLPService';
 
-const YouTubeImport = ({ navigation }: any) => {
+// ─── Config ──────────────────────────────────────────────────────────────────
+// iOS Simulator: http://localhost:4000
+// Android Emulator: http://10.0.2.2:4000
+// Physical device: http://<your-machine-ip>:4000
+const BACKEND_URL = 'http://localhost:4000';
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+interface TranscriptSegment {
+  text: string;
+  offset: number;
+  duration: number;
+}
+
+interface TranscriptResult {
+  videoId: string;
+  transcript: string;
+  segments: TranscriptSegment[];
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
+export default function YouTubeImport({ navigation }: any) {
   const { colors, theme } = useTheme();
-  const [url, setUrl] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState("");
-  const [progress, setProgress] = useState(0);
+  const isDark = theme === 'dark';
 
-  const handleImport = async () => {
-    // Validation
-    if (!url.trim()) {
-      Alert.alert("Error", "Please paste a YouTube URL");
-      return;
-    }
+  const [url, setUrl]               = useState('');
+  const [isLoading, setIsLoading]   = useState(false);
+  const [status, setStatus]         = useState('');
+  const [result, setResult]         = useState<TranscriptResult | null>(null);
+  const [viewMode, setViewMode]     = useState<'full' | 'segments'>('full');
 
-    if (!isValidYouTubeUrl(url)) {
-      Alert.alert("Invalid URL", "Please paste a valid YouTube link (youtube.com or youtu.be)");
-      return;
-    }
+  // ── Fetch transcript ──────────────────────────────────────────────────────
 
-    const videoId = extractVideoId(url);
-    if (!videoId) {
-      Alert.alert("Invalid URL", "Could not extract video ID from URL");
+  const handleFetch = async () => {
+    const trimmed = url.trim();
+    if (!trimmed) {
+      Alert.alert('No URL', 'Paste a YouTube URL first.');
       return;
     }
 
     setIsLoading(true);
-    setProgress(10);
+    setStatus('Fetching transcript…');
+    setResult(null);
 
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error("You must be logged in to import workouts");
+      const response = await fetch(`${BACKEND_URL}/transcript`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: trimmed }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error ?? `HTTP ${response.status}`);
       }
 
-      // Check if already imported
-      setStatusMessage("Checking for existing import...");
-      const { data: existingImport } = await supabase
-        .from('youtube_imports')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('video_id', videoId)
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (existingImport) {
+      setResult(data as TranscriptResult);
+    } catch (err: any) {
+      const msg: string = err.message ?? 'Unknown error';
+      if (msg.includes('Network request failed') || msg.includes('fetch')) {
         Alert.alert(
-          "Already Imported",
-          "You've already imported this video. Would you like to import it again?",
-          [
-            { text: "Cancel", style: "cancel", onPress: () => setIsLoading(false) },
-            {
-              text: "Import Again",
-              onPress: () => continueImport(user.id, videoId)
-            }
-          ]
+          'Cannot reach backend',
+          'Make sure the server is running:\n\n  npx ts-node src/backend/server.ts\n\nThen try again.',
         );
-        return;
+      } else {
+        Alert.alert('Failed', msg);
       }
-
-      await continueImport(user.id, videoId);
-
-    } catch (error: any) {
-      console.error("Import error:", error);
-      Alert.alert(
-        "Import Failed",
-        error.message || "Could not import workout. Please try another video with captions enabled."
-      );
+    } finally {
       setIsLoading(false);
-      setProgress(0);
-      setStatusMessage("");
+      setStatus('');
     }
   };
 
-  const continueImport = async (userId: string, videoId: string) => {
+  // ── Extract workout via Groq ──────────────────────────────────────────────
+
+  const handleExtract = async () => {
+    if (!result) return;
+
+    if (!isWorkoutTranscript(result.transcript)) {
+      Alert.alert(
+        'Not a workout video',
+        "This video doesn't seem to contain workout instructions. Try a different video.",
+      );
+      return;
+    }
+
+    setIsLoading(true);
+    setStatus('Extracting exercises with AI…');
+
     try {
-      // Step 1: Fetch transcript
-      setStatusMessage("Fetching video transcript...");
-      setProgress(30);
+      const parsed = await parseTranscript(result.transcript);
 
-      const transcript = await getYouTubeTranscript(videoId);
-      
-      if (!transcript || transcript.length < 50) {
-        throw new Error("Transcript too short or unavailable. Make sure the video has captions.");
-      }
-
-      setProgress(50);
-      
-      // Step 2: Extract workout data
-      setStatusMessage("Analyzing workout content...");
-      
-      const workoutData = extractWorkoutFromTranscript(transcript);
-      
-      if (!workoutData.exercises || workoutData.exercises.length === 0) {
+      if (parsed.exercises.length === 0) {
         Alert.alert(
-          "No Exercises Found",
-          "Couldn't find exercises in this video. Would you like to create a blank workout?",
-          [
-            { text: "Cancel", style: "cancel", onPress: () => {
-              setIsLoading(false);
-              setProgress(0);
-            }},
-            {
-              text: "Create Blank",
-              onPress: () => {
-                navigation.navigate("CreateWorkoutTemplate", {
-                  importedData: {
-                    title: "YouTube Workout",
-                    category: "general",
-                    exercises: [],
-                    tags: ["youtube-import"]
-                  },
-                  importSource: 'youtube',
-                  youtubeUrl: url
-                });
-                setIsLoading(false);
-                setProgress(0);
-              }
-            }
-          ]
+          'No exercises found',
+          'Try a video with clearer exercise instructions.',
         );
         return;
       }
 
-      setProgress(75);
-
-      // Step 3: Save to Supabase
-      setStatusMessage("Saving workout...");
-      
-      const { error: saveError } = await supabase
-        .from('youtube_imports')
-        .insert({
-          user_id: userId,
-          youtube_url: url,
-          video_id: videoId,
-          video_title: workoutData.title,
-          transcript: transcript.substring(0, 10000), // Store first 10k chars
-          extracted_workout: workoutData,
-          status: 'completed'
-        });
-
-      if (saveError) {
-        console.error("Save error:", saveError);
-        // Continue anyway - saving is optional
-      }
-
-      setProgress(100);
-      setStatusMessage("Success!");
-
-      // Navigate to workout creation
-      setTimeout(() => {
-        navigation.navigate("CreateWorkoutTemplate", {
-          importedData: workoutData,
-          importSource: 'youtube',
-          youtubeUrl: url,
-          videoId: videoId
-        });
-        
-        setIsLoading(false);
-        setProgress(0);
-        setStatusMessage("");
-        setUrl(""); // Clear URL for next import
-      }, 500);
-
-    } catch (error: any) {
-      throw error;
+      navigation.navigate('CreateWorkoutTemplate', {
+        importedData: {
+          title: parsed.title,
+          category: parsed.category,
+          exercises: parsed.exercises.map(({ confidence, ...ex }) => ex),
+          tags: parsed.tags,
+        },
+        importSource: 'youtube',
+      });
+    } catch (err: any) {
+      Alert.alert('Extraction failed', err.message ?? 'Unknown error');
+    } finally {
+      setIsLoading(false);
+      setStatus('');
     }
   };
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const wordCount = result?.transcript.split(/\s+/).length ?? 0;
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={[styles.root, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Header title="YouTube Import" subtitle="100% Free - No API keys needed" showBack />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-      <ScrollView 
-        contentContainerStyle={styles.content}
+      <Header
+        title="YouTube Import"
+        subtitle="Fetch & extract workout"
+        showBack
+      />
+
+      <ScrollView
+        contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {/* Icon */}
-        <View style={styles.iconContainer}>
-          <View style={[styles.iconCircle, { backgroundColor: colors.primary + '20' }]}>
-            <Ionicons name="logo-youtube" size={60} color="#FF0000" />
-          </View>
-          <Text style={[styles.title, { color: colors.text }]}>
-            Import from YouTube
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Paste a workout video URL and we'll extract the exercises
-          </Text>
-        </View>
-
-        {/* How It Works */}
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="information-circle" size={24} color={colors.primary} />
-            <Text style={[styles.cardTitle, { color: colors.text }]}>
-              How it works
-            </Text>
-          </View>
-          
-          <View style={styles.step}>
-            <View style={[styles.stepBadge, { backgroundColor: colors.primary }]}>
-              <Text style={styles.stepNumber}>1</Text>
-            </View>
-            <Text style={[styles.stepText, { color: colors.textSecondary }]}>
-              Find a workout video with <Text style={{fontWeight: 'bold'}}>captions/subtitles</Text>
-            </Text>
-          </View>
-
-          <View style={styles.step}>
-            <View style={[styles.stepBadge, { backgroundColor: colors.primary }]}>
-              <Text style={styles.stepNumber}>2</Text>
-            </View>
-            <Text style={[styles.stepText, { color: colors.textSecondary }]}>
-              Copy the video URL from YouTube
-            </Text>
-          </View>
-
-          <View style={styles.step}>
-            <View style={[styles.stepBadge, { backgroundColor: colors.primary }]}>
-              <Text style={styles.stepNumber}>3</Text>
-            </View>
-            <Text style={[styles.stepText, { color: colors.textSecondary }]}>
-              Paste below and tap Import
-            </Text>
-          </View>
-        </View>
-
-        {/* URL Input */}
-        <View style={styles.inputSection}>
-          <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
-            YOUTUBE URL
-          </Text>
-          <View style={[styles.inputContainer, { 
-            backgroundColor: colors.surface,
-            borderColor: colors.border 
-          }]}>
-            <Ionicons name="link" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+        {/* ── URL input ────────────────────────────────────────────────── */}
+        <View style={[styles.inputCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.inputRow}>
+            <Ionicons name="logo-youtube" size={22} color="#FF0000" />
             <TextInput
               style={[styles.input, { color: colors.text }]}
               placeholder="https://youtube.com/watch?v=..."
               placeholderTextColor={colors.textTertiary}
               value={url}
-              onChangeText={setUrl}
+              onChangeText={(t) => { setUrl(t); setResult(null); }}
               autoCapitalize="none"
               autoCorrect={false}
               editable={!isLoading}
-              multiline={false}
             />
             {url.length > 0 && !isLoading && (
-              <TouchableOpacity onPress={() => setUrl("")} style={styles.clearButton}>
-                <Ionicons name="close-circle" size={22} color={colors.textTertiary} />
+              <TouchableOpacity onPress={() => { setUrl(''); setResult(null); }}>
+                <Ionicons name="close-circle" size={20} color={colors.textTertiary} />
               </TouchableOpacity>
             )}
           </View>
-
-          {/* Import Button */}
-          <TouchableOpacity
-            style={[
-              styles.importButton, 
-              { 
-                backgroundColor: colors.primary,
-                opacity: (isLoading || !url.trim()) ? 0.5 : 1 
-              }
-            ]}
-            onPress={handleImport}
-            disabled={isLoading || !url.trim()}
-            activeOpacity={0.8}
-          >
-            {isLoading ? (
-              <>
-                <ActivityIndicator color="#FFF" size="small" />
-                <Text style={styles.buttonText}>Importing...</Text>
-              </>
-            ) : (
-              <>
-                <Ionicons name="download-outline" size={22} color="#FFF" />
-                <Text style={styles.buttonText}>Import Workout</Text>
-              </>
-            )}
-          </TouchableOpacity>
         </View>
 
-        {/* Progress */}
-        {isLoading && (
-          <View style={[styles.progressCard, { backgroundColor: colors.card }]}>
-            <View style={styles.progressHeader}>
-              <Ionicons name="sync" size={24} color={colors.primary} />
-              <Text style={[styles.progressTitle, { color: colors.text }]}>
-                {statusMessage}
-              </Text>
-            </View>
-            <View style={[styles.progressBarContainer, { backgroundColor: colors.surface }]}>
-              <View 
-                style={[
-                  styles.progressBar, 
-                  { 
-                    backgroundColor: colors.primary,
-                    width: `${progress}%` 
-                  }
-                ]} 
-              />
-            </View>
-            <Text style={[styles.progressPercent, { color: colors.textSecondary }]}>
-              {progress}% complete
+        {/* ── Example URL ──────────────────────────────────────────────── */}
+        {!result && !isLoading && (
+          <TouchableOpacity
+            style={[styles.exampleBtn, { borderColor: colors.border }]}
+            onPress={() => setUrl('https://www.youtube.com/watch?v=ml6cT4AZdqI')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="flask-outline" size={14} color={colors.textSecondary} />
+            <Text style={[styles.exampleText, { color: colors.textSecondary }]}>
+              Try an example workout video
             </Text>
-          </View>
+          </TouchableOpacity>
         )}
 
-        {/* Tips */}
-        <View style={[styles.tipsCard, { 
-          backgroundColor: theme === 'dark' ? colors.surface : '#FFF9C4' 
-        }]}>
-          <View style={styles.tipsHeader}>
-            <Ionicons name="bulb" size={20} color="#FFA000" />
-            <Text style={[styles.tipsTitle, { color: theme === 'dark' ? colors.text : '#F57C00' }]}>
-              Tips for best results
-            </Text>
-          </View>
-          <Text style={[styles.tipsText, { color: theme === 'dark' ? colors.textSecondary : '#5D4037' }]}>
-            • Choose videos that clearly mention exercise names{'\n'}
-            • Videos with "follow along" workouts work best{'\n'}
-            • Make sure captions/subtitles are available{'\n'}
-            • You can edit the imported workout afterward
-          </Text>
-        </View>
+        {/* ── Fetch button ─────────────────────────────────────────────── */}
+        <TouchableOpacity
+          style={[
+            styles.fetchBtn,
+            { backgroundColor: colors.primary },
+            (!url.trim() || isLoading) && { opacity: 0.45 },
+          ]}
+          onPress={handleFetch}
+          disabled={!url.trim() || isLoading}
+          activeOpacity={0.8}
+        >
+          {isLoading ? (
+            <View style={styles.row}>
+              <ActivityIndicator color="#fff" size="small" />
+              <Text style={styles.fetchBtnText}>{status}</Text>
+            </View>
+          ) : (
+            <View style={styles.row}>
+              <Ionicons name="download-outline" size={20} color="#fff" />
+              <Text style={styles.fetchBtnText}>Get Transcript</Text>
+            </View>
+          )}
+        </TouchableOpacity>
 
-        {/* Example URLs */}
-        <View style={[styles.examplesCard, { backgroundColor: colors.card }]}>
-          <Text style={[styles.examplesTitle, { color: colors.text }]}>
-            Example workout videos:
-          </Text>
-          <TouchableOpacity
-            style={styles.exampleItem}
-            onPress={() => setUrl("https://youtu.be/ml6cT4AZdqI")}
-          >
-            <Ionicons name="fitness" size={18} color={colors.primary} />
-            <Text style={[styles.exampleText, { color: colors.textSecondary }]}>
-              Full Body HIIT Workout
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.exampleItem}
-            onPress={() => setUrl("https://youtu.be/gC_L9qAHVJ8")}
-          >
-            <Ionicons name="barbell" size={18} color={colors.primary} />
-            <Text style={[styles.exampleText, { color: colors.textSecondary }]}>
-              Upper Body Strength
-            </Text>
-          </TouchableOpacity>
-        </View>
+        {/* ── Result ───────────────────────────────────────────────────── */}
+        {result && (
+          <>
+            {/* Stats bar */}
+            <View style={[styles.statsBar, { backgroundColor: colors.card }]}>
+              <View style={styles.stat}>
+                <Text style={[styles.statValue, { color: colors.primary }]}>
+                  {result.segments.length}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>segments</Text>
+              </View>
+              <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.stat}>
+                <Text style={[styles.statValue, { color: colors.primary }]}>
+                  {wordCount.toLocaleString()}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>words</Text>
+              </View>
+              <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.stat}>
+                <Text style={[styles.statValue, { color: colors.primary }]}>
+                  {result.segments.length > 0
+                    ? formatTime(result.segments[result.segments.length - 1].offset)
+                    : '—'}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>length</Text>
+              </View>
+            </View>
 
+            {/* View mode toggle */}
+            <View style={[styles.toggleRow, { backgroundColor: colors.card }]}>
+              {(['full', 'segments'] as const).map((mode) => (
+                <TouchableOpacity
+                  key={mode}
+                  style={[
+                    styles.toggleBtn,
+                    viewMode === mode && { backgroundColor: colors.primary },
+                  ]}
+                  onPress={() => setViewMode(mode)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[
+                    styles.toggleBtnText,
+                    { color: viewMode === mode ? '#fff' : colors.textSecondary },
+                  ]}>
+                    {mode === 'full' ? 'Full Text' : 'Timed Segments'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Transcript content */}
+            <View style={[styles.transcriptCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {viewMode === 'full' ? (
+                <Text style={[styles.fullText, { color: colors.text }]}>
+                  {result.transcript}
+                </Text>
+              ) : (
+                result.segments.map((seg, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.segmentRow,
+                      i < result.segments.length - 1 && {
+                        borderBottomWidth: 1,
+                        borderBottomColor: colors.divider,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.segmentTime, { color: colors.primary }]}>
+                      {formatTime(seg.offset)}
+                    </Text>
+                    <Text style={[styles.segmentText, { color: colors.text }]}>
+                      {seg.text}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </View>
+
+            {/* Extract workout CTA */}
+            <TouchableOpacity
+              style={[
+                styles.extractBtn,
+                { backgroundColor: colors.success },
+                isLoading && { opacity: 0.6 },
+              ]}
+              onPress={handleExtract}
+              disabled={isLoading}
+              activeOpacity={0.8}
+            >
+              {isLoading ? (
+                <View style={styles.row}>
+                  <ActivityIndicator color="#fff" size="small" />
+                  <Text style={styles.extractBtnTitle}>{status}</Text>
+                </View>
+              ) : (
+                <>
+                  <Ionicons name="flash" size={22} color="#fff" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.extractBtnTitle}>Extract Workout with AI</Text>
+                    <Text style={styles.extractBtnSub}>Powered by Groq · Llama 3</Text>
+                  </View>
+                  <Ionicons name="arrow-forward" size={20} color="rgba(255,255,255,0.8)" />
+                </>
+              )}
+            </TouchableOpacity>
+          </>
+        )}
+
+        <View style={{ height: 40 }} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
-};
+}
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1 
-  },
-  content: { 
-    padding: 20,
-    paddingBottom: 40 
-  },
-  iconContainer: { 
-    alignItems: "center", 
-    marginVertical: 20,
-  },
-  iconCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
-  title: { 
-    fontSize: 26, 
-    fontWeight: "800", 
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 15,
-    textAlign: "center",
-    lineHeight: 22,
-    paddingHorizontal: 20,
-  },
-  card: {
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 20,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  step: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 16,
-    gap: 12,
-  },
-  stepBadge: {
-    width: 32,
-    height: 32,
+  root:   { flex: 1 },
+  scroll: { padding: 20, paddingBottom: 40 },
+
+  inputCard: {
     borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
+    borderWidth: 1.5,
+    padding: 14,
+    marginBottom: 10,
   },
-  stepNumber: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  stepText: {
-    fontSize: 15,
-    flex: 1,
-    paddingTop: 4,
-    lineHeight: 22,
-  },
-  inputSection: {
-    marginBottom: 24,
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 1,
-    marginBottom: 12,
-  },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    borderWidth: 2,
-    marginBottom: 16,
-    minHeight: 60,
-  },
-  inputIcon: {
-    marginRight: 12,
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   input: {
     flex: 1,
-    fontSize: 16,
-    paddingVertical: 12,
+    fontSize: 15,
+    paddingVertical: 4,
   },
-  clearButton: {
-    padding: 4,
+
+  exampleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 14,
   },
-  importButton: {
-    height: 56,
-    borderRadius: 16,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  buttonText: { 
-    color: "#FFF", 
-    fontSize: 18, 
-    fontWeight: "700" 
-  },
-  progressCard: {
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 24,
-  },
-  progressHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 16,
-  },
-  progressTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    flex: 1,
-  },
-  progressBarContainer: {
-    height: 10,
-    borderRadius: 5,
-    overflow: "hidden",
-    marginBottom: 12,
-  },
-  progressBar: {
-    height: "100%",
-    borderRadius: 5,
-  },
-  progressPercent: {
-    fontSize: 14,
-    fontWeight: "600",
-    textAlign: "right",
-  },
-  tipsCard: {
-    borderRadius: 16,
-    padding: 18,
+  exampleText: { fontSize: 12, fontWeight: '600' },
+
+  fetchBtn: {
+    height: 54,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 20,
   },
-  tipsHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 12,
-  },
-  tipsTitle: {
+  fetchBtnText: {
+    color: '#fff',
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: '700',
+    marginLeft: 8,
   },
-  tipsText: {
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+
+  statsBar: {
+    flexDirection: 'row',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  stat:        { alignItems: 'center', gap: 2 },
+  statValue:   { fontSize: 20, fontWeight: '800' },
+  statLabel:   { fontSize: 11, fontWeight: '600' },
+  statDivider: { width: 1, height: 32 },
+
+  toggleRow: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 12,
+    gap: 4,
+  },
+  toggleBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  toggleBtnText: { fontSize: 13, fontWeight: '700' },
+
+  transcriptCard: {
+    borderRadius: 16,
+    borderWidth: 1.5,
+    padding: 16,
+    marginBottom: 16,
+    maxHeight: 400,
+  },
+  fullText: {
     fontSize: 14,
     lineHeight: 22,
   },
-  examplesCard: {
-    borderRadius: 16,
-    padding: 18,
-  },
-  examplesTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    marginBottom: 12,
-  },
-  exampleItem: {
-    flexDirection: "row",
-    alignItems: "center",
+  segmentRow: {
+    flexDirection: 'row',
     gap: 12,
     paddingVertical: 10,
   },
-  exampleText: {
-    fontSize: 14,
+  segmentTime: {
+    fontSize: 12,
+    fontWeight: '700',
+    width: 42,
+    paddingTop: 2,
   },
-});
+  segmentText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+  },
 
-export default YouTubeImport;
+  extractBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 18,
+    padding: 18,
+    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  extractBtnTitle: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  extractBtnSub:   { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
+});
