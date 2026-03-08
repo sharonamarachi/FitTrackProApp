@@ -41,14 +41,6 @@ export default function QuickStart({ navigation }: QuickStartScreenProps) {
       onPress: () => navigation.navigate("TranscriptImport"),
     },
     {
-      key: "videoImport",
-      icon: "videocam-outline",
-      title: "Video Import",
-      description: "Upload your workout video",
-      color: "#10b981",
-      onPress: () => navigation.navigate('VideoImport'),
-    },
-    {
       key: "quickTimer",
       icon: "stopwatch-outline",
       title: "Quick Timer",
@@ -81,8 +73,6 @@ export default function QuickStart({ navigation }: QuickStartScreenProps) {
                 navigation.navigate("QuickTimer");
               } else if (action.key === "transcript") {
                 navigation.navigate("TranscriptImport");
-              } else if (action.key === "videoImport") {
-                navigation.navigate("VideoImport");
               }
             }}
           >
