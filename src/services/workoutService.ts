@@ -6,6 +6,7 @@ export async function fetchWorkouts(userId: string) {
     .from('workouts')
     .select('*')
     .eq('user_id', userId)
+    .order('is_pinned', { ascending: false })
     .order('created_at', { ascending: false });
 }
 
@@ -29,6 +30,8 @@ export async function createWorkout(
     tags: workout.tags || [],
     exercises: workout.exercises ?? [],
     source: 'manual',
+    is_pinned: false,
+    is_favorited: false,
   });
 }
 
@@ -52,12 +55,25 @@ export async function updateWorkout(
     .eq('id', id);
 }
 
+export async function togglePinWorkout(id: string, currentValue: boolean) {
+  return supabase
+    .from('workouts')
+    .update({ is_pinned: !currentValue, updated_at: new Date().toISOString() })
+    .eq('id', id);
+}
+
+export async function toggleFavoriteWorkout(id: string, currentValue: boolean) {
+  return supabase
+    .from('workouts')
+    .update({ is_favorited: !currentValue, updated_at: new Date().toISOString() })
+    .eq('id', id);
+}
+
 export async function deleteWorkout(id: string) {
   return supabase.from('workouts').delete().eq('id', id);
 }
 
 export async function softDeleteWorkout(userId: string, id: string, workout: Workout) {
-  // Insert into deleted_workouts table
   const { error: insertError } = await supabase.from('deleted_workouts').insert({
     original_id: id,
     user_id: userId,
@@ -74,7 +90,6 @@ export async function softDeleteWorkout(userId: string, id: string, workout: Wor
     return { error: insertError };
   }
 
-  // Delete from workouts table
   return supabase.from('workouts').delete().eq('id', id);
 }
 
@@ -87,7 +102,6 @@ export async function fetchDeletedWorkouts(userId: string) {
 }
 
 export async function restoreWorkout(userId: string, deletedWorkoutId: string, originalWorkout: any) {
-  // Insert back into workouts table (without the original ID to generate new one)
   const { error: createError } = await supabase.from('workouts').insert({
     user_id: userId,
     title: originalWorkout.title,
@@ -96,13 +110,14 @@ export async function restoreWorkout(userId: string, deletedWorkoutId: string, o
     tags: originalWorkout.tags || [],
     exercises: originalWorkout.exercises,
     source: originalWorkout.source || 'manual',
+    is_pinned: false,
+    is_favorited: false,
   });
 
   if (createError) {
     return { error: createError };
   }
 
-  // Delete from deleted_workouts table
   return supabase.from('deleted_workouts').delete().eq('id', deletedWorkoutId);
 }
 
