@@ -1,0 +1,77 @@
+.
+├── App.tsx
+├── README.md
+├── app.json
+├── assets
+│   ├── adaptive-icon.png
+│   ├── beep.mp3
+│   ├── favicon.png
+│   ├── icon.png
+│   └── splash-icon.png
+├── folder_structure.txt
+├── ios
+├── package-lock.json
+├── package.json
+├── src
+│   ├── api
+│   │   └── supabaseClient.ts
+│   ├── backend
+│   │   └── server.ts
+│   ├── components
+│   │   └── Header.tsx
+│   ├── context
+│   │   └── ThemeContext.tsx
+│   ├── data
+│   │   ├── exercises.csv
+│   │   └── exercises.ts
+│   ├── domain
+│   │   └── workout.ts
+│   ├── hooks
+│   │   └── useWorkouts.ts
+│   ├── navigation
+│   │   ├── QuickStartStack.tsx
+│   │   ├── SettingsStack.tsx
+│   │   ├── TabNavigator.tsx
+│   │   ├── WorkoutStack.tsx
+│   │   └── types.ts
+│   ├── screens
+│   │   ├── Auth
+│   │   │   ├── Login.tsx
+│   │   │   └── SignUp.tsx
+│   │   ├── Home
+│   │   │   └── Home.tsx
+│   │   ├── Profile
+│   │   │   ├── EditProfile.tsx
+│   │   │   ├── Profile.tsx
+│   │   │   └── RecentlyDeleted.tsx
+│   │   ├── Progress
+│   │   │   └── Progress.tsx
+│   │   ├── QuickStart
+│   │   │   ├── QuickStart.tsx
+│   │   │   ├── QuickTimer.tsx
+│   │   │   ├── TimerScreen.tsx
+│   │   │   ├── TranscriptImport.tsx
+│   │   │   ├── VideoImport.tsx
+│   │   │   ├── WorkoutEditor.tsx
+│   │   │   ├── YouTubeImport.tsx
+│   │   │   └── index.mjs
+│   │   ├── Settings
+│   │   │   ├── ContactUs.tsx
+│   │   │   ├── PrivacyPolicy.tsx
+│   │   │   ├── Settings.tsx
+│   │   │   └── TermsOfUse.tsx
+│   │   └── Workout
+│   │       ├── CreateWorkoutTemplate.tsx
+│   │       ├── EditWorkout.tsx
+│   │       ├── IntervalTimerPlayback.tsx
+│   │       ├── WorkoutDetails.tsx
+│   │       ├── WorkoutLibrary.tsx
+│   │       └── components
+│   │           ├── ExerciseRow.tsx
+│   │           └── WorkoutCard.tsx
+│   └── services
+│       ├── WorkoutService.ts
+│       └── transcriptNLPService.ts
+└── tsconfig.json
+
+22 directories, 53 files

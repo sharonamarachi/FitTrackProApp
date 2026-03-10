@@ -319,6 +319,12 @@ export default function WorkoutDetails({ route, navigation }: Props) {
     }
   };
 
+  // Reset timer
+  const handleResetTimer = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setElapsedSeconds(0);
+  };
+
   if (loading) {
     return (
       <View
@@ -388,19 +394,31 @@ export default function WorkoutDetails({ route, navigation }: Props) {
         </View>
 
         <View style={styles.headerRight}>
-          {/* Live timer */}
+          {/* Live timer + reset button */}
           {sessionStarted && (
-            <View
-              style={[
-                styles.liveTimer,
-                { backgroundColor: "#10b981" + "22" },
-              ]}
-            >
-              <View style={styles.liveDot} />
-              <Text style={[styles.liveTimerText, { color: "#10b981" }]}>
-                {formatElapsed(elapsedSeconds)}
-              </Text>
-            </View>
+            <>
+              <View
+                style={[
+                  styles.liveTimer,
+                  { backgroundColor: "#10b981" + "22" },
+                ]}
+              >
+                <View style={styles.liveDot} />
+                <Text style={[styles.liveTimerText, { color: "#10b981" }]}>
+                  {formatElapsed(elapsedSeconds)}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.iconButton,
+                  { backgroundColor: isDark ? colors.surface : colors.card },
+                ]}
+                onPress={handleResetTimer}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="refresh-outline" size={20} color={colors.text} />
+              </TouchableOpacity>
+            </>
           )}
           <TouchableOpacity
             style={[
@@ -869,16 +887,14 @@ export default function WorkoutDetails({ route, navigation }: Props) {
         {/* Action Buttons */}
         {exercises.length > 0 && (
           <View style={styles.actionButtons}>
-
-            {/* CARDIO: always show Start Timer, plus Finish Workout once session active */}
+            {/* CARDIO: Show Start Timer (does NOT start main session) */}
             {workoutType === "cardio" && (
               <>
                 <TouchableOpacity
                   style={[styles.startButton, { backgroundColor: workoutTypeColor, shadowColor: workoutTypeColor }]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                    // Start the session timer when heading into interval training
-                    if (!sessionStarted) handleStartWorkout();
+                    // Do NOT call handleStartWorkout() – the interval timer manages its own timing
                     navigation.navigate("IntervalTimerPlayback", {
                       exercises: exercises.map((ex) => ({
                         name: ex.name,
@@ -969,7 +985,6 @@ export default function WorkoutDetails({ route, navigation }: Props) {
                 )}
               </>
             )}
-
           </View>
         )}
       </ScrollView>
@@ -1110,7 +1125,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  content: { paddingHorizontal: 20, paddingBottom: 60 },
+  content: { paddingHorizontal: 20, paddingBottom: 120 },
   infoCard: {
     borderRadius: 28,
     padding: 28,
