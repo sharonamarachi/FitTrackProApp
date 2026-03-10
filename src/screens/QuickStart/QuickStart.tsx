@@ -24,6 +24,7 @@ export default function QuickStart({ navigation }: QuickStartScreenProps) {
       title: "Quick Log",
       description: "Log a simple workout in seconds",
       color: "#007AFF",
+      onPress: () => navigation.navigate("CreateWorkoutTemplate"),
     },
     {
       key: "youtube",
@@ -73,6 +74,8 @@ export default function QuickStart({ navigation }: QuickStartScreenProps) {
                 navigation.navigate("QuickTimer");
               } else if (action.key === "transcript") {
                 navigation.navigate("TranscriptImport");
+              } else if (action.key === "quickLog") {
+                navigation.navigate("CreateWorkoutTemplate");
               }
             }}
           >
