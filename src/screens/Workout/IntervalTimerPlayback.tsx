@@ -9,6 +9,8 @@ import { Audio } from 'expo-av';
 import * as Speech from 'expo-speech';
 import Slider from '@react-native-community/slider';
 import { supabase } from '../../api/supabaseClient';
+import { useUserPreferences } from '../../context/UserPreferencesContext';
+import CountdownOverlay from '../../components/CountdownOverlay';
 
 const { width } = Dimensions.get('window');
 
@@ -32,40 +34,50 @@ interface Props {
 export default function IntervalTimerPlayback({ navigation, route }: Props) {
   const { exercises, workoutName, workoutId } = route.params;
 
+  // Pull in user preferences as defaults
+  const {
+    beepsEnabled: prefBeeps,
+    coachVoiceEnabled: prefCoach,
+    coachVoiceGender: prefGender,
+  } = useUserPreferences();
+
+  // Session-level overrides (start from prefs, adjustable in-session)
+  const [isCountingDown, setIsCountingDown] = useState(true);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
-  const [isResting,   setIsResting]   = useState(false);
-  const [timeLeft,    setTimeLeft]    = useState(exercises[0]?.duration || 0);
-  const [isPaused,    setIsPaused]    = useState(false);
+  const [isResting, setIsResting] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(exercises[0]?.duration || 0);
+  const [isPaused, setIsPaused] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [volume,      setVolume]      = useState(0.8);
-  const [isMaleVoice, setIsMaleVoice] = useState(false);
-  const [showSettings,setShowSettings]= useState(false);
-  const [saving,      setSaving]      = useState(false);
+  const [volume, setVolume] = useState(0.8);
+  const [beepsEnabled, setBeepsEnabled] = useState(prefBeeps);
+  const [coachEnabled, setCoachEnabled] = useState(prefCoach);
+  const [isMaleVoice, setIsMaleVoice] = useState(prefGender === 'male');
+  const [showSettings, setShowSettings] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // Track elapsed time for saving
+  // Sync prefs when they change (e.g. if user opens settings mid-workout — unlikely but safe)
+  useEffect(() => { setBeepsEnabled(prefBeeps); }, [prefBeeps]);
+  useEffect(() => { setCoachEnabled(prefCoach); }, [prefCoach]);
+  useEffect(() => { setIsMaleVoice(prefGender === 'male'); }, [prefGender]);
+
   const startTimeRef = useRef<Date>(new Date());
-  const elapsedRef   = useRef<number>(0);
-
-  // ── expo-av Audio ─────────────────────────────────────────────────────────────
+  const elapsedRef = useRef<number>(0);
   const soundRef = useRef<Audio.Sound | null>(null);
 
   useEffect(() => {
     Audio.Sound.createAsync(require('../../../assets/beep.mp3'))
       .then(({ sound }) => { soundRef.current = sound; })
-      .catch(() => {/* beep unavailable – silent fallback */});
-
+      .catch(() => {});
     return () => {
       soundRef.current?.unloadAsync().catch(() => {});
       Speech.stop();
     };
   }, []);
 
-  // Sync volume to sound object whenever slider moves
   useEffect(() => {
     soundRef.current?.setVolumeAsync(volume).catch(() => {});
   }, [volume]);
 
-  // ── Helpers ───────────────────────────────────────────────────────────────────
   const currentExercise = exercises[currentExerciseIndex];
 
   const progress = isResting
@@ -73,6 +85,7 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
     : ((currentExercise.duration - timeLeft) / currentExercise.duration) * 100;
 
   const playBeep = async () => {
+    if (!beepsEnabled) return;
     try {
       await soundRef.current?.setPositionAsync(0);
       await soundRef.current?.playAsync();
@@ -80,18 +93,19 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
   };
 
   const announceNext = (index: number, type: 'WORK' | 'REST' | 'DONE') => {
+    if (!coachEnabled) return;
     const text =
-      type === 'WORK' ? `Next exercise: ${exercises[index].name}` :
-      type === 'REST' ? 'Rest'                                     :
-                        'Workout complete. Great job!';
+      type === 'WORK' ? `Next: ${exercises[index].name}` :
+      type === 'REST' ? 'Rest' :
+      'Workout complete. Great job!';
 
     Speech.speak(text, {
-      rate:   0.9,
-      volume: volume,
-      voice:  Platform.OS === 'ios'
+      rate: 0.9,
+      volume,
+      voice: Platform.OS === 'ios'
         ? (isMaleVoice
-            ? 'com.apple.ttsbundle.Daniel-compact'
-            : 'com.apple.ttsbundle.Samantha-compact')
+          ? 'com.apple.ttsbundle.Daniel-compact'
+          : 'com.apple.ttsbundle.Samantha-compact')
         : undefined,
     });
   };
@@ -105,7 +119,9 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
         setIsResting(false);
         setTimeLeft(exercises[nextIdx].duration);
       } else {
-        elapsedRef.current = Math.round((Date.now() - startTimeRef.current.getTime()) / 1000);
+        elapsedRef.current = Math.round(
+          (Date.now() - startTimeRef.current.getTime()) / 1000,
+        );
         announceNext(0, 'DONE');
         setIsCompleted(true);
       }
@@ -121,7 +137,9 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
           setCurrentExerciseIndex(nextIdx);
           setTimeLeft(exercises[nextIdx].duration);
         } else {
-          elapsedRef.current = Math.round((Date.now() - startTimeRef.current.getTime()) / 1000);
+          elapsedRef.current = Math.round(
+            (Date.now() - startTimeRef.current.getTime()) / 1000,
+          );
           announceNext(0, 'DONE');
           setIsCompleted(true);
         }
@@ -129,9 +147,9 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
     }
   };
 
-  // ── Timer ─────────────────────────────────────────────────────────────────────
+  // Timer — only runs after countdown completes
   useEffect(() => {
-    if (isPaused || isCompleted) return;
+    if (isCountingDown || isPaused || isCompleted) return;
 
     const timer = setInterval(() => {
       setTimeLeft(prev => {
@@ -146,7 +164,7 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isPaused, isCompleted, currentExerciseIndex, isResting]);
+  }, [isCountingDown, isPaused, isCompleted, currentExerciseIndex, isResting]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -161,7 +179,6 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
     return `${m}m ${s}s`;
   };
 
-  // ── Save workout log ──────────────────────────────────────────────────────────
   const saveWorkoutLog = async () => {
     if (!workoutId) {
       navigation.goBack();
@@ -194,7 +211,7 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
           duration_seconds: ex.duration ?? null,
           logged_at: new Date().toISOString(),
         }));
-        await supabase.from('exercise_logs').insert(exerciseLogs).match(() => {});
+        await supabase.from('exercise_logs').insert(exerciseLogs);
       }
 
       navigation.goBack();
@@ -204,7 +221,7 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
     }
   };
 
-  // ── Completed screen ──────────────────────────────────────────────────────────
+  // ── Completed Screen ──────────────────────────────────────────────────────
   if (isCompleted) {
     return (
       <View style={styles.container}>
@@ -216,8 +233,6 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
           <Text style={styles.completedSubtitle}>
             Great job finishing {workoutName}
           </Text>
-
-          {/* Stats row */}
           <View style={styles.completedStats}>
             <View style={styles.completedStat}>
               <Text style={styles.completedStatValue}>{exercises.length}</Text>
@@ -231,8 +246,6 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
               <Text style={styles.completedStatLabel}>Duration</Text>
             </View>
           </View>
-
-          {/* Save button */}
           <TouchableOpacity
             style={[styles.saveButton, saving && { opacity: 0.7 }]}
             onPress={saveWorkoutLog}
@@ -244,24 +257,38 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
               {saving ? 'Saving…' : 'Save & Finish'}
             </Text>
           </TouchableOpacity>
-
-          {/* Don't save */}
           <TouchableOpacity
-            style={styles.skipButton}
+            style={styles.skipSaveButton}
             onPress={() => navigation.goBack()}
             activeOpacity={0.7}
           >
-            <Text style={styles.skipButtonText}>Don't Save</Text>
+            <Text style={styles.skipSaveButtonText}>Don't Save</Text>
           </TouchableOpacity>
         </View>
       </View>
     );
   }
 
-  // ── Main screen ───────────────────────────────────────────────────────────────
+  // ── Main Screen ───────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
+
+      {/* 3-2-1 Countdown Overlay */}
+      {isCountingDown && (
+        <CountdownOverlay
+          onComplete={() => {
+            setIsCountingDown(false);
+            startTimeRef.current = new Date();
+            if (coachEnabled) announceNext(0, 'WORK');
+          }}
+          primaryColor="#10b981"
+          playBeep={playBeep}
+          beepsEnabled={beepsEnabled}
+          coachVoiceEnabled={coachEnabled}
+          coachVoiceGender={isMaleVoice ? 'male' : 'female'}
+        />
+      )}
 
       {/* Header */}
       <View style={styles.header}>
@@ -282,18 +309,79 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
           style={styles.closeButton}
         >
           <Ionicons
-            name="volume-medium"
+            name="settings-outline"
             size={22}
             color={showSettings ? '#10b981' : '#fff'}
           />
         </TouchableOpacity>
       </View>
 
-      {/* Audio settings panel */}
+      {/* Audio/settings panel */}
       {showSettings && (
         <View style={styles.audioSettingsCard}>
+          {/* Beeps toggle */}
           <View style={styles.settingRow}>
-            <Ionicons name="volume-high" size={20} color="#fff" />
+            <Ionicons
+              name={beepsEnabled ? 'musical-notes' : 'musical-notes-outline'}
+              size={18} color={beepsEnabled ? '#10b981' : 'rgba(255,255,255,0.4)'}
+            />
+            <Text style={[styles.settingLabel, !beepsEnabled && styles.settingLabelOff]}>
+              Countdown Beeps
+            </Text>
+            <TouchableOpacity
+              style={[styles.miniToggle, beepsEnabled && styles.miniToggleOn]}
+              onPress={() => setBeepsEnabled(v => !v)}
+            >
+              <Text style={styles.miniToggleText}>{beepsEnabled ? 'ON' : 'OFF'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Coach voice toggle */}
+          <View style={styles.settingRow}>
+            <Ionicons
+              name={coachEnabled ? 'mic' : 'mic-off'}
+              size={18} color={coachEnabled ? '#10b981' : 'rgba(255,255,255,0.4)'}
+            />
+            <Text style={[styles.settingLabel, !coachEnabled && styles.settingLabelOff]}>
+              Coach Voice
+            </Text>
+            <TouchableOpacity
+              style={[styles.miniToggle, coachEnabled && styles.miniToggleOn]}
+              onPress={() => setCoachEnabled(v => !v)}
+            >
+              <Text style={styles.miniToggleText}>{coachEnabled ? 'ON' : 'OFF'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Voice gender */}
+          {coachEnabled && (
+            <View style={styles.settingRow}>
+              <Ionicons name="person" size={18} color="#a78bfa" />
+              <Text style={styles.settingLabel}>Voice</Text>
+              <View style={styles.genderToggle}>
+                <TouchableOpacity
+                  style={[styles.genderBtn, !isMaleVoice && styles.genderBtnActive]}
+                  onPress={() => setIsMaleVoice(false)}
+                >
+                  <Text style={[styles.genderBtnText, !isMaleVoice && styles.genderBtnTextActive]}>
+                    Female
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.genderBtn, isMaleVoice && styles.genderBtnActive]}
+                  onPress={() => setIsMaleVoice(true)}
+                >
+                  <Text style={[styles.genderBtnText, isMaleVoice && styles.genderBtnTextActive]}>
+                    Male
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* Volume slider */}
+          <View style={[styles.settingRow, { marginTop: 4 }]}>
+            <Ionicons name="volume-high" size={18} color="#fff" />
             <Slider
               style={{ flex: 1, marginHorizontal: 10 }}
               minimumValue={0}
@@ -305,15 +393,6 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
             />
             <Text style={styles.settingValue}>{Math.round(volume * 100)}%</Text>
           </View>
-          <TouchableOpacity
-            style={styles.voiceToggle}
-            onPress={() => setIsMaleVoice(!isMaleVoice)}
-          >
-            <Text style={styles.settingValue}>
-              Voice: {isMaleVoice ? 'Male' : 'Female'}
-            </Text>
-            <Ionicons name="person" size={16} color="#10b981" />
-          </TouchableOpacity>
         </View>
       )}
 
@@ -324,7 +403,7 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
             key={i}
             style={[styles.progressSegment, {
               backgroundColor:
-                i < currentExerciseIndex  ? '#10b981' :
+                i < currentExerciseIndex ? '#10b981' :
                 i === currentExerciseIndex ? (isResting ? '#f97316' : '#10b981') :
                 'rgba(255,255,255,0.2)',
             }]}
@@ -334,18 +413,9 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
 
       {/* Phase pill */}
       <View style={styles.phasePillRow}>
-        <View style={[
-          styles.phasePill,
-          { borderColor: isResting ? '#f97316' : '#10b981' }
-        ]}>
-          <View style={[
-            styles.phaseDot,
-            { backgroundColor: isResting ? '#f97316' : '#10b981' }
-          ]} />
-          <Text style={[
-            styles.phasePillText,
-            { color: isResting ? '#f97316' : '#10b981' }
-          ]}>
+        <View style={[styles.phasePill, { borderColor: isResting ? '#f97316' : '#10b981' }]}>
+          <View style={[styles.phaseDot, { backgroundColor: isResting ? '#f97316' : '#10b981' }]} />
+          <Text style={[styles.phasePillText, { color: isResting ? '#f97316' : '#10b981' }]}>
             {isResting ? 'REST' : 'WORK'}
           </Text>
           {isPaused && (
@@ -366,7 +436,9 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
               stroke={isResting ? '#f97316' : '#10b981'}
               strokeWidth={14} fill="none"
               strokeDasharray={2 * Math.PI * 142}
-              strokeDashoffset={2 * Math.PI * 142 - (progress / 100) * 2 * Math.PI * 142}
+              strokeDashoffset={
+                2 * Math.PI * 142 - (progress / 100) * 2 * Math.PI * 142
+              }
               strokeLinecap="round" rotation="-90" origin="150, 150"
             />
           </Svg>
@@ -392,16 +464,14 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
           <Text style={styles.infoLabel}>PREVIOUS</Text>
           <Text style={styles.infoValue}>
             {currentExerciseIndex > 0
-              ? exercises[currentExerciseIndex - 1].name
-              : '—'}
+              ? exercises[currentExerciseIndex - 1].name : '—'}
           </Text>
         </View>
         <View style={styles.infoCard}>
           <Text style={styles.infoLabel}>NEXT UP</Text>
           <Text style={styles.infoValue} numberOfLines={1}>
             {currentExerciseIndex < exercises.length - 1
-              ? exercises[currentExerciseIndex + 1].name
-              : 'Finish 🎉'}
+              ? exercises[currentExerciseIndex + 1].name : 'Finish 🎉'}
           </Text>
         </View>
         <View style={styles.infoCard}>
@@ -417,7 +487,6 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
         <TouchableOpacity
           style={styles.controlButton}
           onPress={() => {
-            // go back one exercise
             if (currentExerciseIndex > 0) {
               const prevIdx = currentExerciseIndex - 1;
               setCurrentExerciseIndex(prevIdx);
@@ -450,220 +519,141 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0a0a0a', paddingBottom: 80 },
 
-  // Header
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 8,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingTop: 60, paddingBottom: 8,
   },
   closeButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 42, height: 42, borderRadius: 21,
     backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
   },
   headerCenter: { flex: 1, alignItems: 'center', marginHorizontal: 8 },
-  workoutTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  workoutSubtitle: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: 2,
-  },
+  workoutTitle: { fontSize: 17, fontWeight: '700', color: '#fff' },
+  workoutSubtitle: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 },
 
-  // Audio settings
+  // Settings panel
   audioSettingsCard: {
-    backgroundColor: '#1a1a1a',
-    marginHorizontal: 20,
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 6,
-  },
-  settingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  settingValue: { color: '#fff', fontSize: 13 },
-  voiceToggle: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    padding: 10,
-    borderRadius: 8,
-  },
-
-  // Progress strip
-  progressStrip: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 5,
-    marginTop: 10,
+    backgroundColor: '#161616',
+    marginHorizontal: 16,
+    padding: 16,
+    borderRadius: 18,
     marginBottom: 8,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  settingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  settingLabel: { flex: 1, color: '#fff', fontSize: 14, fontWeight: '500' },
+  settingLabelOff: { color: 'rgba(255,255,255,0.35)' },
+  settingValue: { color: '#fff', fontSize: 13, minWidth: 36, textAlign: 'right' },
+  miniToggle: {
+    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  miniToggleOn: { backgroundColor: '#10b981' },
+  miniToggleText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  genderToggle: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 10,
+    padding: 3,
+    gap: 3,
+  },
+  genderBtn: {
+    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8,
+  },
+  genderBtnActive: { backgroundColor: '#a78bfa' },
+  genderBtnText: { color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600' },
+  genderBtnTextActive: { color: '#fff' },
+
+  progressStrip: {
+    flexDirection: 'row', paddingHorizontal: 20, gap: 5, marginTop: 10, marginBottom: 8,
   },
   progressSegment: { flex: 1, height: 3, borderRadius: 2 },
 
-  // Phase pill
   phasePillRow: { alignItems: 'center', marginBottom: 4 },
   phasePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20,
+    borderWidth: 1.5, backgroundColor: 'rgba(255,255,255,0.05)',
   },
   phaseDot: { width: 8, height: 8, borderRadius: 4 },
   phasePillText: { fontSize: 13, fontWeight: '700', letterSpacing: 1.5 },
   pausedBadge: {
-    backgroundColor: '#92400e',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    backgroundColor: '#92400e', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
   },
   pausedText: { color: '#fbbf24', fontSize: 11, fontWeight: '700' },
 
-  // Circular timer
   timerSection: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   circularContainer: { alignItems: 'center', justifyContent: 'center' },
   circularContent: {
-    position: 'absolute',
-    alignItems: 'center',
-    paddingHorizontal: 24,
+    position: 'absolute', alignItems: 'center', paddingHorizontal: 24,
   },
   timeText: { fontSize: 68, fontWeight: '700', color: '#fff', letterSpacing: -2 },
   exerciseNameText: {
-    fontSize: 17,
-    color: 'rgba(255,255,255,0.65)',
-    textAlign: 'center',
-    marginTop: 6,
-    fontWeight: '600',
+    fontSize: 17, color: 'rgba(255,255,255,0.65)',
+    textAlign: 'center', marginTop: 6, fontWeight: '600',
   },
   restBadge: {
-    marginTop: 8,
-    backgroundColor: 'rgba(249,115,22,0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
+    marginTop: 8, backgroundColor: 'rgba(249,115,22,0.2)',
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10,
   },
   restBadgeText: { color: '#f97316', fontSize: 12, fontWeight: '600' },
 
-  // Info cards
-  infoSection: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 10,
-    marginBottom: 20,
-  },
+  infoSection: { flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginBottom: 20 },
   infoCard: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 14,
-    padding: 12,
-    alignItems: 'center',
+    flex: 1, backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 14, padding: 12, alignItems: 'center',
   },
   infoLabel: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.4)',
-    letterSpacing: 0.8,
-    marginBottom: 4,
+    fontSize: 10, color: 'rgba(255,255,255,0.4)', letterSpacing: 0.8, marginBottom: 4,
   },
   infoValue: { fontSize: 13, fontWeight: '700', color: '#fff', textAlign: 'center' },
 
-  // Controls — paddingBottom accounts for home indicator + tab bar
   controls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: 50,
-    gap: 24,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingBottom: 50, gap: 24,
   },
   controlButton: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
+    width: 62, height: 62, borderRadius: 31,
     backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
   },
   pauseButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#10b981',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: '#10b981', alignItems: 'center', justifyContent: 'center',
   },
   pauseButtonActive: { backgroundColor: '#f97316' },
 
-  // Completion screen
   completedContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 36,
-    gap: 4,
+    flex: 1, alignItems: 'center', justifyContent: 'center', padding: 36, gap: 4,
   },
   completedEmoji: { fontSize: 56, marginBottom: 8 },
   completedTitle: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: '#fff',
-    marginTop: 16,
-    marginBottom: 4,
+    fontSize: 30, fontWeight: '800', color: '#fff', marginTop: 16, marginBottom: 4,
   },
   completedSubtitle: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.6)',
-    textAlign: 'center',
-    marginBottom: 24,
+    fontSize: 16, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginBottom: 24,
   },
   completedStats: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 20,
-    paddingVertical: 20,
-    paddingHorizontal: 36,
-    alignItems: 'center',
-    gap: 24,
-    marginBottom: 32,
-    width: '100%',
-    justifyContent: 'center',
+    flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 20, paddingVertical: 20, paddingHorizontal: 36,
+    alignItems: 'center', gap: 24, marginBottom: 32, width: '100%', justifyContent: 'center',
   },
   completedStat: { alignItems: 'center', gap: 4 },
   completedStatValue: { fontSize: 28, fontWeight: '800', color: '#10b981' },
   completedStatLabel: { fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: '600' },
   completedStatDivider: { width: 1, height: 36, backgroundColor: 'rgba(255,255,255,0.15)' },
-
   saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#10b981',
-    paddingHorizontal: 40,
-    paddingVertical: 18,
-    borderRadius: 18,
-    width: '100%',
-    justifyContent: 'center',
-    marginBottom: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#10b981', paddingHorizontal: 40, paddingVertical: 18,
+    borderRadius: 18, width: '100%', justifyContent: 'center', marginBottom: 12,
   },
   saveButtonText: { fontSize: 18, fontWeight: '800', color: '#fff' },
-
-  skipButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.2)',
-    width: '100%',
-    alignItems: 'center',
+  skipSaveButton: {
+    paddingVertical: 14, paddingHorizontal: 32, borderRadius: 14,
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.2)', width: '100%', alignItems: 'center',
   },
-  skipButtonText: { fontSize: 15, fontWeight: '600', color: 'rgba(255,255,255,0.5)' },
+  skipSaveButtonText: { fontSize: 15, fontWeight: '600', color: 'rgba(255,255,255,0.5)' },
 });

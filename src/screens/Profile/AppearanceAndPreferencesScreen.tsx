@@ -25,17 +25,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme, THEME_META, type ThemeId, type ThemeMode } from "../../context/ThemeContext";
-import { usePreferences, type RestTimerDuration } from "../../context/UserPreferencesContext";
-
-// ── Rest timer options ─────────────────────────────────────────────────────────
-
-const REST_OPTIONS: { label: string; value: RestTimerDuration }[] = [
-  { label: "30s",   value: 30  },
-  { label: "1 min", value: 60  },
-  { label: "90s",   value: 90  },
-  { label: "2 min", value: 120 },
-  { label: "Custom",value: "custom" },
-];
+import { usePreferences} from "../../context/UserPreferencesContext";
 
 const WEEKLY_GOAL_OPTIONS = [3, 4, 5, 6, 7];
 

@@ -1,106 +1,131 @@
-/**
- * UserPreferencesContext.tsx
- *
- * Stores workout & app preferences, persisted to AsyncStorage.
- *
- * Usage:
- *   const { prefs, setPref } = usePreferences();
- *   setPref("restTimerDuration", 90);
- *   setPref("autoStartRestTimer", true);
- */
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-} from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+// ── Interface ──────────────────────────────────────────────────────────────────
 
-// ── Preference shape ───────────────────────────────────────────────────────────
-
-export type RestTimerDuration = 30 | 60 | 90 | 120 | "custom";
-
-export type UserPrefs = {
-
-  // Audio
+export interface UserPreferences {
+  weeklyWorkoutGoal: number;
   countdownBeepEnabled: boolean;
   coachVoiceEnabled: boolean;
-  // Goals
-  weeklyWorkoutGoal: number;             // 1–7
-};
+  coachVoiceGender: 'male' | 'female';
+}
 
-const DEFAULTS: UserPrefs = {
+// ── Context shape ──────────────────────────────────────────────────────────────
+
+interface PreferencesContextType {
+  prefs: UserPreferences;
+  setPref: <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => Promise<void>;
+  updatePreferences: (updates: Partial<UserPreferences>) => Promise<void>;
+}
+
+// ── Defaults ───────────────────────────────────────────────────────────────────
+
+const PREFS_KEY = 'user_preferences_v3';
+const LEGACY_PREFS_KEY = 'user_preferences_v2';
+const LEGACY_GOAL_KEY = 'weekly_workout_goal';
+
+const defaults: UserPreferences = {
+  weeklyWorkoutGoal: 4,
   countdownBeepEnabled: true,
   coachVoiceEnabled: true,
-  weeklyWorkoutGoal: 4,
+  coachVoiceGender: 'female',
 };
 
 // ── Context ────────────────────────────────────────────────────────────────────
 
-type PreferencesContextValue = {
-  prefs: UserPrefs;
-  setPref: <K extends keyof UserPrefs>(key: K, value: UserPrefs[K]) => void;
-  resetPrefs: () => void;
-  loaded: boolean;
-};
+const PreferencesContext = createContext<PreferencesContextType>({
+  prefs: defaults,
+  setPref: async () => {},
+  updatePreferences: async () => {},
+});
 
-const PreferencesContext = createContext<PreferencesContextValue>(
-  {} as PreferencesContextValue
-);
+// ── Provider ───────────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = "@app_user_prefs";
+export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [prefs, setPrefs] = useState<UserPreferences>(defaults);
 
-export function PreferencesProvider({ children }: { children: React.ReactNode }) {
-  const [prefs, setPrefs] = useState<UserPrefs>(DEFAULTS);
-  const [loaded, setLoaded] = useState(false);
-
-  // ── Load from storage ─────────────────────────────────────────────────────
   useEffect(() => {
-    (async () => {
+    const load = async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const saved = JSON.parse(raw) as Partial<UserPrefs>;
-          // Merge with defaults so new keys added later still have values
-          setPrefs({ ...DEFAULTS, ...saved });
+        const stored = await AsyncStorage.getItem(PREFS_KEY);
+        if (stored) {
+          setPrefs({ ...defaults, ...JSON.parse(stored) });
+          return;
         }
-      } catch {}
-      setLoaded(true);
-    })();
+        // Migrate from v2 (old field names: beepsEnabled, weeklyGoal)
+        const v2 = await AsyncStorage.getItem(LEGACY_PREFS_KEY);
+        if (v2) {
+          const old = JSON.parse(v2);
+          const migrated: UserPreferences = {
+            weeklyWorkoutGoal:    old.weeklyWorkoutGoal ?? old.weeklyGoal ?? defaults.weeklyWorkoutGoal,
+            countdownBeepEnabled: old.countdownBeepEnabled ?? old.beepsEnabled ?? defaults.countdownBeepEnabled,
+            coachVoiceEnabled:    old.coachVoiceEnabled ?? defaults.coachVoiceEnabled,
+            coachVoiceGender:     old.coachVoiceGender ?? defaults.coachVoiceGender,
+          };
+          setPrefs(migrated);
+          await AsyncStorage.setItem(PREFS_KEY, JSON.stringify(migrated));
+          return;
+        }
+        // Migrate legacy weekly goal key
+        const oldGoal = await AsyncStorage.getItem(LEGACY_GOAL_KEY);
+        if (oldGoal) {
+          const g = parseInt(oldGoal, 10);
+          if (!isNaN(g) && g > 0) {
+            const migrated = { ...defaults, weeklyWorkoutGoal: g };
+            setPrefs(migrated);
+            await AsyncStorage.setItem(PREFS_KEY, JSON.stringify(migrated));
+          }
+        }
+      } catch (err) {
+        console.error('Error loading preferences:', err);
+      }
+    };
+    load();
   }, []);
 
-  // ── Persist on every change ───────────────────────────────────────────────
-  const save = useCallback(async (updated: UserPrefs) => {
+  const updatePreferences = async (updates: Partial<UserPreferences>) => {
+    const next = { ...prefs, ...updates };
+    setPrefs(next);
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch {}
-  }, []);
+      await AsyncStorage.setItem(PREFS_KEY, JSON.stringify(next));
+    } catch (err) {
+      console.error('Error saving preferences:', err);
+    }
+  };
 
-  const setPref = useCallback(
-    <K extends keyof UserPrefs>(key: K, value: UserPrefs[K]) => {
-      setPrefs((prev) => {
-        const next = { ...prev, [key]: value };
-        save(next);
-        return next;
-      });
-    },
-    [save]
-  );
-
-  const resetPrefs = useCallback(() => {
-    setPrefs(DEFAULTS);
-    save(DEFAULTS);
-  }, [save]);
+  const setPref = async <K extends keyof UserPreferences>(
+    key: K,
+    value: UserPreferences[K],
+  ) => {
+    await updatePreferences({ [key]: value });
+  };
 
   return (
-    <PreferencesContext.Provider value={{ prefs, setPref, resetPrefs, loaded }}>
+    <PreferencesContext.Provider value={{ prefs, setPref, updatePreferences }}>
       {children}
     </PreferencesContext.Provider>
   );
-}
+};
 
-export function usePreferences() {
-  return useContext(PreferencesContext);
-}
+// Alias so existing imports of UserPreferencesProvider still compile
+export const UserPreferencesProvider = PreferencesProvider;
+
+// ── Hooks ──────────────────────────────────────────────────────────────────────
+
+/** Primary hook — returns { prefs, setPref, updatePreferences } */
+export const usePreferences = () => useContext(PreferencesContext);
+
+/**
+ * Legacy hook used by TimerScreen & IntervalTimerPlayback.
+ * Maps new field names to the old shape so those screens compile unchanged.
+ */
+export const useUserPreferences = () => {
+  const { prefs, updatePreferences } = useContext(PreferencesContext);
+  return {
+    beepsEnabled:      prefs.countdownBeepEnabled,
+    coachVoiceEnabled: prefs.coachVoiceEnabled,
+    coachVoiceGender:  prefs.coachVoiceGender,
+    weeklyGoal:        prefs.weeklyWorkoutGoal,
+    updatePreferences,
+  };
+};

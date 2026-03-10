@@ -2,27 +2,53 @@ import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
+import { Audio } from "expo-av";
 import { TimerScreenProps } from "../../navigation/types";
+import { useUserPreferences } from "../../context/UserPreferencesContext";
+import CountdownOverlay from "../../components/CountdownOverlay";
 
 export default function TimerScreen({ navigation, route }: TimerScreenProps) {
   const { work, rest, rounds, exercises } = route.params;
+  const { beepsEnabled, coachVoiceEnabled, coachVoiceGender } = useUserPreferences();
 
+  const [isCountingDown, setIsCountingDown] = useState(true);
   const [timeLeft, setTimeLeft] = useState(work);
   const [isWorkPhase, setIsWorkPhase] = useState(true);
   const [currentRound, setCurrentRound] = useState(1);
   const [currentExercise, setCurrentExercise] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
 
-  // Calculate total workout stats
-  const totalRounds = rounds * exercises;
-  const completedRounds = (currentExercise - 1) * rounds + (currentRound - 1) + (isWorkPhase ? 0 : 0.5);
-  const totalProgress = (completedRounds / totalRounds) * 100;
-  
-  const currentPhaseTotal = isWorkPhase ? work : rest;
-  const currentPhaseProgress = ((currentPhaseTotal - timeLeft) / currentPhaseTotal) * 100;
+  const soundRef = React.useRef<Audio.Sound | null>(null);
 
   useEffect(() => {
-    if (isPaused) return;
+    Audio.Sound.createAsync(require("../../../assets/beep.mp3"))
+      .then(({ sound }) => { soundRef.current = sound; })
+      .catch(() => {});
+    return () => {
+      soundRef.current?.unloadAsync().catch(() => {});
+    };
+  }, []);
+
+  const playBeep = async () => {
+    if (!beepsEnabled) return;
+    try {
+      await soundRef.current?.setPositionAsync(0);
+      await soundRef.current?.playAsync();
+    } catch {}
+  };
+
+  // Calculate progress
+  const totalRounds = rounds * exercises;
+  const completedRounds =
+    (currentExercise - 1) * rounds + (currentRound - 1) + (isWorkPhase ? 0 : 0.5);
+  const totalProgress = (completedRounds / totalRounds) * 100;
+
+  const currentPhaseTotal = isWorkPhase ? work : rest;
+  const currentPhaseProgress =
+    ((currentPhaseTotal - timeLeft) / currentPhaseTotal) * 100;
+
+  useEffect(() => {
+    if (isCountingDown || isPaused) return;
 
     if (timeLeft === 0) {
       if (isWorkPhase) {
@@ -39,7 +65,6 @@ export default function TimerScreen({ navigation, route }: TimerScreenProps) {
           setCurrentRound(1);
           setCurrentExercise(currentExercise + 1);
         } else {
-          // Workout complete
           navigation.goBack();
         }
       }
@@ -47,16 +72,38 @@ export default function TimerScreen({ navigation, route }: TimerScreenProps) {
     }
 
     const timer = setTimeout(() => {
-      setTimeLeft(timeLeft - 1);
+      setTimeLeft(prev => {
+        const next = prev - 1;
+        if (next <= 3 && next > 0) playBeep();
+        return next;
+      });
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [timeLeft, isPaused]);
+  }, [timeLeft, isPaused, isCountingDown]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const handleSkip = () => {
+    if (isWorkPhase) {
+      setIsWorkPhase(false);
+      setTimeLeft(rest);
+    } else {
+      if (currentRound < rounds) {
+        setIsWorkPhase(true);
+        setTimeLeft(work);
+        setCurrentRound(currentRound + 1);
+      } else if (currentExercise < exercises) {
+        setIsWorkPhase(true);
+        setTimeLeft(work);
+        setCurrentRound(1);
+        setCurrentExercise(currentExercise + 1);
+      }
+    }
   };
 
   const DualRingProgress = () => {
@@ -67,13 +114,13 @@ export default function TimerScreen({ navigation, route }: TimerScreenProps) {
     const centerX = size / 2;
     const centerY = size / 2;
 
-    // Calculate circumferences
     const outerCircumference = 2 * Math.PI * outerRadius;
     const innerCircumference = 2 * Math.PI * innerRadius;
 
-    // Calculate stroke dash offsets
-    const outerStrokeDashoffset = outerCircumference - (totalProgress / 100) * outerCircumference;
-    const innerStrokeDashoffset = innerCircumference - (currentPhaseProgress / 100) * innerCircumference;
+    const outerStrokeDashoffset =
+      outerCircumference - (totalProgress / 100) * outerCircumference;
+    const innerStrokeDashoffset =
+      innerCircumference - (currentPhaseProgress / 100) * innerCircumference;
 
     return (
       <View style={styles.circularContainer}>
@@ -88,64 +135,35 @@ export default function TimerScreen({ navigation, route }: TimerScreenProps) {
               <Stop offset="100%" stopColor={isWorkPhase ? "#34d399" : "#fb923c"} />
             </LinearGradient>
           </Defs>
-
-          {/* Outer ring background */}
           <Circle
-            cx={centerX}
-            cy={centerY}
-            r={outerRadius}
-            stroke="#1f2937"
-            strokeWidth={strokeWidth}
-            fill="none"
+            cx={centerX} cy={centerY} r={outerRadius}
+            stroke="#1f2937" strokeWidth={strokeWidth} fill="none"
           />
-
-          {/* Outer ring progress (total workout) */}
           <Circle
-            cx={centerX}
-            cy={centerY}
-            r={outerRadius}
-            stroke="url(#outerGrad)"
-            strokeWidth={strokeWidth}
-            fill="none"
+            cx={centerX} cy={centerY} r={outerRadius}
+            stroke="url(#outerGrad)" strokeWidth={strokeWidth} fill="none"
             strokeDasharray={outerCircumference}
             strokeDashoffset={outerStrokeDashoffset}
-            strokeLinecap="round"
-            rotation="-90"
+            strokeLinecap="round" rotation="-90"
             origin={`${centerX}, ${centerY}`}
           />
-
-          {/* Inner ring background */}
           <Circle
-            cx={centerX}
-            cy={centerY}
-            r={innerRadius}
-            stroke="#1f2937"
-            strokeWidth={strokeWidth}
-            fill="none"
+            cx={centerX} cy={centerY} r={innerRadius}
+            stroke="#1f2937" strokeWidth={strokeWidth} fill="none"
           />
-
-          {/* Inner ring progress (current interval) */}
           <Circle
-            cx={centerX}
-            cy={centerY}
-            r={innerRadius}
-            stroke="url(#innerGrad)"
-            strokeWidth={strokeWidth}
-            fill="none"
+            cx={centerX} cy={centerY} r={innerRadius}
+            stroke="url(#innerGrad)" strokeWidth={strokeWidth} fill="none"
             strokeDasharray={innerCircumference}
             strokeDashoffset={innerStrokeDashoffset}
-            strokeLinecap="round"
-            rotation="-90"
+            strokeLinecap="round" rotation="-90"
             origin={`${centerX}, ${centerY}`}
           />
         </Svg>
 
         <View style={styles.circularContent}>
           <Text style={styles.timeText}>{formatTime(timeLeft)}</Text>
-          <Text style={[
-            styles.phaseText,
-            { color: isWorkPhase ? "#10b981" : "#f97316" }
-          ]}>
+          <Text style={[styles.phaseText, { color: isWorkPhase ? "#10b981" : "#f97316" }]}>
             {isWorkPhase ? "WORK" : "REST"}
           </Text>
           <Text style={styles.roundText}>
@@ -158,8 +176,23 @@ export default function TimerScreen({ navigation, route }: TimerScreenProps) {
 
   return (
     <View style={styles.container}>
+      {/* 3-2-1 Countdown Overlay */}
+      {isCountingDown && (
+        <CountdownOverlay
+          onComplete={() => setIsCountingDown(false)}
+          primaryColor="#10b981"
+          playBeep={playBeep}
+          beepsEnabled={beepsEnabled}
+          coachVoiceEnabled={coachVoiceEnabled}
+          coachVoiceGender={coachVoiceGender}
+        />
+      )}
+
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.closeButton}
+        >
           <Ionicons name="close" size={28} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -178,26 +211,7 @@ export default function TimerScreen({ navigation, route }: TimerScreenProps) {
       </View>
 
       <View style={styles.controls}>
-        <TouchableOpacity 
-          style={styles.skipButton}
-          onPress={() => {
-            if (isWorkPhase) {
-              setIsWorkPhase(false);
-              setTimeLeft(rest);
-            } else {
-              if (currentRound < rounds) {
-                setIsWorkPhase(true);
-                setTimeLeft(work);
-                setCurrentRound(currentRound + 1);
-              } else if (currentExercise < exercises) {
-                setIsWorkPhase(true);
-                setTimeLeft(work);
-                setCurrentRound(1);
-                setCurrentExercise(currentExercise + 1);
-              }
-            }
-          }}
-        >
+        <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
           <Ionicons name="play-skip-forward" size={24} color="#fff" />
         </TouchableOpacity>
 
@@ -208,7 +222,10 @@ export default function TimerScreen({ navigation, route }: TimerScreenProps) {
           <Text style={styles.pauseText}>{isPaused ? "RESUME" : "PAUSE"}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.closeButtonBottom} onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          style={styles.closeButtonBottom}
+          onPress={() => navigation.goBack()}
+        >
           <Ionicons name="close" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
