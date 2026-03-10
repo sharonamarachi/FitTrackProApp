@@ -112,9 +112,9 @@ export default function TranscriptImport({ navigation }: any) {
         {/* ── Disclaimer banners ──────────────────────────────────────────── */}
         <View style={[styles.infoBanner, {
           backgroundColor: isDark ? '#1e3a5f' : '#eff6ff',
-          borderLeftColor: colors.accent,
-        }]}>
-          <Ionicons name="wifi" size={16} color={colors.accent} />
+          borderLeftColor: colors.primary,
+          }]}>
+          <Ionicons name="wifi" size={16} color={colors.primary} />
           <Text style={[styles.bannerText, { color: isDark ? '#93c5fd' : '#1e40af' }]}>
             Best results on WiFi — AI extraction requires internet. Offline mode uses basic keyword matching.
           </Text>
@@ -275,7 +275,6 @@ export default function TranscriptImport({ navigation }: any) {
             {result.exercises.length > 0 && (
               <View style={[styles.exercisesCard, {
                 backgroundColor: colors.card,
-                shadowColor: colors.shadow,
               }]}>
                 <View style={styles.exercisesCardHeader}>
                   <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
