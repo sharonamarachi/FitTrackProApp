@@ -12,6 +12,8 @@ import EditProfile from "./src/screens/Profile/EditProfile";
 import SettingsStack from "./src/navigation/SettingsStack";
 import RecentlyDeleted from "./src/screens/Profile/RecentlyDeleted";
 import { ThemeProvider } from "./src/context/ThemeContext";
+import { PreferencesProvider } from "./src/context/UserPreferencesContext";
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
@@ -46,41 +48,43 @@ export default function App() {
 
   return (
     <ThemeProvider>
-      <NavigationContainer>
-        <Stack.Navigator
-          initialRouteName={initialRoute}
-          screenOptions={{
-            headerShown: false,
-            animation: "slide_from_right",
-          }}
-        >
-          <Stack.Screen name="Login" component={Login} />
-          <Stack.Screen name="SignUp" component={SignUp} />
-          <Stack.Screen name="Home" component={TabNavigator} />
-          <Stack.Screen
-            name="SettingsStack"
-            component={SettingsStack}
-            options={{
-              presentation: "modal",
-              animation: "slide_from_bottom",
-            }}
-          />
-          <Stack.Screen
-            name="EditProfile"
-            component={EditProfile}
-            options={{
+      <PreferencesProvider>
+        <NavigationContainer>
+          <Stack.Navigator
+            initialRouteName={initialRoute}
+            screenOptions={{
+              headerShown: false,
               animation: "slide_from_right",
             }}
-          />
-          <Stack.Screen
-            name="RecentlyDeleted"
-            component={RecentlyDeleted}
-            options={{
-              animation: "slide_from_right",
-            }}
-          />
-        </Stack.Navigator>
-      </NavigationContainer>
+          >
+            <Stack.Screen name="Login" component={Login} />
+            <Stack.Screen name="SignUp" component={SignUp} />
+            <Stack.Screen name="Home" component={TabNavigator} />
+            <Stack.Screen
+              name="SettingsStack"
+              component={SettingsStack}
+              options={{
+                presentation: "modal",
+                animation: "slide_from_bottom",
+              }}
+            />
+            <Stack.Screen
+              name="EditProfile"
+              component={EditProfile}
+              options={{
+                animation: "slide_from_right",
+              }}
+            />
+            <Stack.Screen
+              name="RecentlyDeleted"
+              component={RecentlyDeleted}
+              options={{
+                animation: "slide_from_right",
+              }}
+            />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </PreferencesProvider>
     </ThemeProvider>
   );
 }

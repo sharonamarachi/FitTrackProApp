@@ -20,6 +20,7 @@ import {
   type WorkoutLog as RecoLog,
   type WorkoutOption,
 } from "../../services/workoutRecommendations";
+import { usePreferences } from "@/context/UserPreferencesContext";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -291,7 +292,8 @@ export default function HomeScreen() {
   const { current: currentStreak, longest: longestStreak } = calcStreak(logs);
   const lastSevenDays = getLastSevenDays(logs);
   const thisWeekCount = lastSevenDays.filter(Boolean).length;
-  const weeklyGoal = 4;
+ const { prefs } = usePreferences();
+const weeklyGoal = prefs.weeklyWorkoutGoal;
   const totalMinutes = Math.round(
     logs.reduce((s, l) => s + (l.duration_seconds ?? 0), 0) / 60
   );

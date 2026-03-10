@@ -26,6 +26,7 @@ export type SettingsStackParamList = {
   PrivacyPolicy: undefined;
   TermsOfUse: undefined;
   ContactUs: undefined;
+  AppearanceAndPreferences: undefined;
 };
 
 export type QuickStartStackParamList = {
