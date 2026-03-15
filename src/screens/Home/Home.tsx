@@ -8,6 +8,8 @@ import {
   StatusBar,
   Animated,
   RefreshControl,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -231,13 +233,18 @@ export default function HomeScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Profile name
       const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name, display_name")
-        .eq("id", user.id)
+        .from("user_profiles")
+        .select("username")
+        .eq("user_id", user.id)
         .single();
-      setUserName(profile?.display_name || profile?.full_name || user.email?.split("@")[0] || "");
+
+      // Prefer username → email prefix
+      setUserName(
+        profile?.username ||
+        user.email?.split("@")[0] ||
+        ""
+      );
 
       // Workout logs (last 90 days for streak calc)
       const since = new Date();
@@ -292,8 +299,8 @@ export default function HomeScreen() {
   const { current: currentStreak, longest: longestStreak } = calcStreak(logs);
   const lastSevenDays = getLastSevenDays(logs);
   const thisWeekCount = lastSevenDays.filter(Boolean).length;
- const { prefs } = usePreferences();
-const weeklyGoal = prefs.weeklyWorkoutGoal;
+  const { prefs } = usePreferences();
+  const weeklyGoal = prefs.weeklyWorkoutGoal;
   const totalMinutes = Math.round(
     logs.reduce((s, l) => s + (l.duration_seconds ?? 0), 0) / 60
   );
@@ -304,321 +311,328 @@ const weeklyGoal = prefs.weeklyWorkoutGoal;
   const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
-        }
-      >
-
-        {/* ── Greeting header ─────────────────────────────────────────────── */}
-        <Animated.View
-          style={[
-            styles.headerSection,
-            {
-              opacity: headerAnim,
-              transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
-            },
-          ]}
-        >
-          <View style={styles.greetingRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.greetingEmoji]}>{emoji}</Text>
-              <Text style={[styles.greetingText, { color: colors.text }]}>{greeting}</Text>
-              <Text style={[styles.greetingSubtext, { color: colors.textSecondary }]}>
-                {currentStreak > 0
-                  ? `${currentStreak}-day streak 🔥 Keep it up!`
-                  : "Ready to crush today's workout?"}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.profileBtn, { backgroundColor: isDark ? colors.surface : colors.card }]}
-              onPress={() => navigation.navigate("Profile")}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="person" size={22} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-
-        {/* ── Smart Recommendation ────────────────────────────────────────── */}
-        {recommendation && (
-          <Animated.View
-            style={{
-              opacity: statsAnim,
-              transform: [{ translateY: statsAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }],
-            }}
-          >
-            <RecommendationCard
-              recommendation={recommendation}
-              colors={colors}
-              isDark={isDark}
-              onPress={() =>
-                navigation.navigate("WorkoutLibrary", {
-                  screen: "WorkoutDetails",
-                  params: { workoutId: recommendation.workout.id },
-                })
-              }
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
             />
-          </Animated.View>
-        )}
-
-        {/* ── Stats row ───────────────────────────────────────────────────── */}
-        <Animated.View
-          style={[
-            {
-              opacity: statsAnim,
-              transform: [{ translateY: statsAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
-            },
-          ]}
+          }
         >
-          {/* Big stat card */}
-          <View style={[styles.bigStatCard, { backgroundColor: colors.primary }]}>
-            <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
-              <Defs>
-                <LinearGradient id="heroGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <Stop offset="0%" stopColor={colors.primary} />
-                  <Stop offset="100%" stopColor={colors.primary + "BB"} />
-                </LinearGradient>
-              </Defs>
-            </Svg>
 
-            <View style={styles.bigStatContent}>
-              {/* Left: streak */}
-              <View style={styles.bigStatLeft}>
-                <View style={styles.streakBadge}>
-                  <Text style={styles.streakFire}>🔥</Text>
-                  <Text style={styles.streakNumber}>{currentStreak}</Text>
-                </View>
-                <Text style={styles.bigStatLabel}>Day Streak</Text>
-                <Text style={styles.bigStatSublabel}>
-                  Best: {longestStreak} days
+          {/* ── Greeting header ─────────────────────────────────────────────── */}
+          <Animated.View
+            style={[
+              styles.headerSection,
+              {
+                opacity: headerAnim,
+                transform: [{ translateY: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
+              },
+            ]}
+          >
+            <View style={styles.greetingRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.greetingEmoji]}>{emoji}</Text>
+                <Text style={[styles.greetingText, { color: colors.text }]}>{greeting}</Text>
+                <Text style={[styles.greetingSubtext, { color: colors.textSecondary }]}>
+                  {currentStreak > 0
+                    ? `${currentStreak}-day streak 🔥 Keep it up!`
+                    : "Ready to crush today's workout?"}
                 </Text>
               </View>
-
-              <View style={styles.bigStatDivider} />
-
-              {/* Right: this week */}
-              <View style={styles.bigStatRight}>
-                <View style={styles.weekDots}>
-                  {DAY_LABELS.map((day, i) => (
-                    <View key={i} style={styles.weekDotCol}>
-                      <View
-                        style={[
-                          styles.weekDot,
-                          {
-                            backgroundColor: lastSevenDays[i]
-                              ? "#fff"
-                              : "rgba(255,255,255,0.25)",
-                          },
-                        ]}
-                      />
-                      <Text style={styles.weekDayLabel}>{day}</Text>
-                    </View>
-                  ))}
-                </View>
-                <Text style={styles.bigStatLabel}>
-                  {thisWeekCount}/{weeklyGoal} this week
-                </Text>
-                <Text style={styles.bigStatSublabel}>
-                  Weekly goal
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Mini stats row */}
-          <View style={styles.miniStatsRow}>
-            <View style={[styles.miniStatCard, { backgroundColor: colors.card }]}>
-              <MiniRing
-                value={logs.length}
-                max={Math.max(logs.length, 10)}
-                color="#4876EC"
-                label={`${logs.length}`}
-                sublabel="Total Workouts"
-                colors={colors}
-              />
-            </View>
-            <View style={[styles.miniStatCard, { backgroundColor: colors.card }]}>
-              <MiniRing
-                value={totalMinutes}
-                max={Math.max(totalMinutes, 60)}
-                color="#10B981"
-                label={totalMinutes >= 60 ? `${Math.floor(totalMinutes / 60)}h` : `${totalMinutes}m`}
-                sublabel="Total Time"
-                colors={colors}
-              />
-            </View>
-            <View style={[styles.miniStatCard, { backgroundColor: colors.card }]}>
-              <MiniRing
-                value={thisWeekCount}
-                max={weeklyGoal}
-                color="#F97316"
-                label={`${thisWeekCount}`}
-                sublabel="This Week"
-                colors={colors}
-              />
-            </View>
-          </View>
-        </Animated.View>
-
-        {/* ── Recent activity ─────────────────────────────────────────────── */}
-        {recentLogs.length > 0 && (
-          <Animated.View
-            style={{
-              opacity: cardsAnim,
-              transform: [{ translateY: cardsAnim.interpolate({ inputRange: [0, 1], outputRange: [32, 0] }) }],
-            }}
-          >
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Activity</Text>
-            </View>
-
-            <View style={styles.recentList}>
-              {recentLogs.map((log, i) => {
-                const colors_badge = ["#4876EC", "#10B981", "#F97316"];
-                const badgeColor = colors_badge[i % 3];
-                return (
-                  <TouchableOpacity
-                    key={log.id}
-                    style={[styles.recentCard, { backgroundColor: colors.card }]}
-                    onPress={() =>
-                      navigation.navigate("WorkoutLibrary", {
-                        screen: "WorkoutDetails",
-                        params: { workoutId: log.workout_id },
-                      })
-                    }
-                    activeOpacity={0.8}
-                  >
-                    <View style={[styles.recentIcon, { backgroundColor: badgeColor + "20" }]}>
-                      <Ionicons name="barbell" size={18} color={badgeColor} />
-                    </View>
-                    <View style={styles.recentInfo}>
-                      <Text style={[styles.recentTitle, { color: colors.text }]} numberOfLines={1}>
-                        {log.title}
-                      </Text>
-                      <Text style={[styles.recentMeta, { color: colors.textSecondary }]}>
-                        {formatDuration(log.duration_seconds ?? 0)} · {timeAgo(log.completed_at)}
-                      </Text>
-                    </View>
-                    <View style={[styles.recentCheckBadge, { backgroundColor: "#10B981" + "22" }]}>
-                      <Ionicons name="checkmark" size={14} color="#10B981" />
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </Animated.View>
-        )}
-
-        {/* ── Continue workouts ────────────────────────────────────────────── */}
-        {recentWorkouts.length > 0 && (
-          <Animated.View
-            style={{
-              opacity: cardsAnim,
-              transform: [{ translateY: cardsAnim.interpolate({ inputRange: [0, 1], outputRange: [36, 0] }) }],
-            }}
-          >
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Your Workouts</Text>
               <TouchableOpacity
-                onPress={() => navigation.navigate("WorkoutLibrary")}
+                style={[styles.profileBtn, { backgroundColor: isDark ? colors.surface : colors.card }]}
+                onPress={() => navigation.navigate("Profile")}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.seeAll, { color: colors.primary }]}>Library →</Text>
+                <Ionicons name="person" size={22} color={colors.primary} />
               </TouchableOpacity>
             </View>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.workoutCardScroll}
-            >
-              {recentWorkouts.map((w) => {
-                const isCardio =
-                  w.category === "cardio" ||
-                  (w.exercises ?? []).some((e: any) => e.duration);
-                const color = isCardio ? "#F97316" : "#4876EC";
-                const exCount = w.exercises?.length ?? 0;
-
-                return (
-                  <TouchableOpacity
-                    key={w.id}
-                    style={[styles.workoutCard, { backgroundColor: colors.card }]}
-                    onPress={() =>
-                      navigation.navigate("WorkoutLibrary", {
-                        screen: "WorkoutDetails",
-                        params: { workoutId: w.id },
-                      })
-                    }
-                    activeOpacity={0.8}
-                  >
-                    {/* Top accent bar */}
-                    <View style={[styles.workoutCardAccent, { backgroundColor: color }]} />
-
-                    <View style={styles.workoutCardBody}>
-                      <View style={[styles.workoutCardIcon, { backgroundColor: color + "20" }]}>
-                        <Ionicons
-                          name={isCardio ? "flash" : "barbell"}
-                          size={20}
-                          color={color}
-                        />
-                      </View>
-                      <Text style={[styles.workoutCardTitle, { color: colors.text }]} numberOfLines={2}>
-                        {w.title}
-                      </Text>
-                      <Text style={[styles.workoutCardMeta, { color: colors.textSecondary }]}>
-                        {exCount} exercise{exCount !== 1 ? "s" : ""}
-                        {w.category ? ` · ${w.category}` : ""}
-                      </Text>
-                    </View>
-
-                    <View style={[styles.workoutCardFooter, { borderTopColor: colors.border }]}>
-                      <Text style={[styles.workoutCardStart, { color: color }]}>
-                        Start →
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
           </Animated.View>
-        )}
 
-        {/* ── Empty state if nothing yet ─────────────────────────────────── */}
-        {!loading && logs.length === 0 && recentWorkouts.length === 0 && (
-          <View style={styles.emptyState}>
-            <Text style={{ fontSize: 56 }}>💪</Text>
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              Let's get started!
-            </Text>
-            <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-              Create your first workout and track your progress here.
-            </Text>
-            <TouchableOpacity
-              style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
-              onPress={() =>
-                navigation.navigate("WorkoutLibrary", { screen: "CreateWorkoutTemplate" })
-              }
-              activeOpacity={0.85}
+          {/* ── Smart Recommendation ────────────────────────────────────────── */}
+          {recommendation && (
+            <Animated.View
+              style={{
+                opacity: statsAnim,
+                transform: [{ translateY: statsAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }],
+              }}
             >
-              <Ionicons name="add" size={20} color="#fff" />
-              <Text style={styles.emptyBtnText}>Create Workout</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+              <RecommendationCard
+                recommendation={recommendation}
+                colors={colors}
+                isDark={isDark}
+                onPress={() =>
+                  navigation.navigate("WorkoutStack", {
+                    screen: "WorkoutDetails",
+                    params: { workoutId: recommendation.workout.id },
+                  })
+                }
+              />
+            </Animated.View>
+          )}
 
-        <View style={{ height: 32 }} />
-      </ScrollView>
-    </View>
+          {/* ── Stats row ───────────────────────────────────────────────────── */}
+          <Animated.View
+            style={[
+              {
+                opacity: statsAnim,
+                transform: [{ translateY: statsAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
+              },
+            ]}
+          >
+            {/* Big stat card */}
+            <View style={[styles.bigStatCard, { backgroundColor: colors.primary }]}>
+              <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+                <Defs>
+                  <LinearGradient id="heroGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <Stop offset="0%" stopColor={colors.primary} />
+                    <Stop offset="100%" stopColor={colors.primary + "BB"} />
+                  </LinearGradient>
+                </Defs>
+              </Svg>
+
+              <View style={styles.bigStatContent}>
+                {/* Left: streak */}
+                <View style={styles.bigStatLeft}>
+                  <View style={styles.streakBadge}>
+                    <Text style={styles.streakFire}>🔥</Text>
+                    <Text style={styles.streakNumber}>{currentStreak}</Text>
+                  </View>
+                  <Text style={styles.bigStatLabel}>Day Streak</Text>
+                  <Text style={styles.bigStatSublabel}>
+                    Best: {longestStreak} days
+                  </Text>
+                </View>
+
+                <View style={styles.bigStatDivider} />
+
+                {/* Right: this week */}
+                <View style={styles.bigStatRight}>
+                  <View style={styles.weekDots}>
+                    {DAY_LABELS.map((day, i) => (
+                      <View key={i} style={styles.weekDotCol}>
+                        <View
+                          style={[
+                            styles.weekDot,
+                            {
+                              backgroundColor: lastSevenDays[i]
+                                ? "#fff"
+                                : "rgba(255,255,255,0.25)",
+                            },
+                          ]}
+                        />
+                        <Text style={styles.weekDayLabel}>{day}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <Text style={styles.bigStatLabel}>
+                    {thisWeekCount}/{weeklyGoal} this week
+                  </Text>
+                  <Text style={styles.bigStatSublabel}>
+                    Weekly goal
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Mini stats row */}
+            <View style={styles.miniStatsRow}>
+              <View style={[styles.miniStatCard, { backgroundColor: colors.card }]}>
+                <MiniRing
+                  value={logs.length}
+                  max={Math.max(logs.length, 10)}
+                  color="#4876EC"
+                  label={`${logs.length}`}
+                  sublabel="Total Workouts"
+                  colors={colors}
+                />
+              </View>
+              <View style={[styles.miniStatCard, { backgroundColor: colors.card }]}>
+                <MiniRing
+                  value={totalMinutes}
+                  max={Math.max(totalMinutes, 60)}
+                  color="#10B981"
+                  label={totalMinutes >= 60 ? `${Math.floor(totalMinutes / 60)}h` : `${totalMinutes}m`}
+                  sublabel="Total Time"
+                  colors={colors}
+                />
+              </View>
+              <View style={[styles.miniStatCard, { backgroundColor: colors.card }]}>
+                <MiniRing
+                  value={thisWeekCount}
+                  max={weeklyGoal}
+                  color="#F97316"
+                  label={`${thisWeekCount}`}
+                  sublabel="This Week"
+                  colors={colors}
+                />
+              </View>
+            </View>
+          </Animated.View>
+
+          {/* ── Recent activity ─────────────────────────────────────────────── */}
+          {recentLogs.length > 0 && (
+            <Animated.View
+              style={{
+                opacity: cardsAnim,
+                transform: [{ translateY: cardsAnim.interpolate({ inputRange: [0, 1], outputRange: [32, 0] }) }],
+              }}
+            >
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Activity</Text>
+              </View>
+
+              <View style={styles.recentList}>
+                {recentLogs.map((log, i) => {
+                  const colors_badge = ["#4876EC", "#10B981", "#F97316"];
+                  const badgeColor = colors_badge[i % 3];
+                  return (
+                    <TouchableOpacity
+                      key={log.id}
+                      style={[styles.recentCard, { backgroundColor: colors.card }]}
+                      onPress={() =>
+                        navigation.navigate("WorkoutStack", {
+                          screen: "WorkoutDetails",
+                          params: { workoutId: log.workout_id },
+                        })
+                      }
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.recentIcon, { backgroundColor: badgeColor + "20" }]}>
+                        <Ionicons name="barbell" size={18} color={badgeColor} />
+                      </View>
+                      <View style={styles.recentInfo}>
+                        <Text style={[styles.recentTitle, { color: colors.text }]} numberOfLines={1}>
+                          {log.title}
+                        </Text>
+                        <Text style={[styles.recentMeta, { color: colors.textSecondary }]}>
+                          {formatDuration(log.duration_seconds ?? 0)} · {timeAgo(log.completed_at)}
+                        </Text>
+                      </View>
+                      <View style={[styles.recentCheckBadge, { backgroundColor: "#10B981" + "22" }]}>
+                        <Ionicons name="checkmark" size={14} color="#10B981" />
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </Animated.View>
+          )}
+
+          {/* ── Continue workouts ────────────────────────────────────────────── */}
+          {recentWorkouts.length > 0 && (
+            <Animated.View
+              style={{
+                opacity: cardsAnim,
+                transform: [{ translateY: cardsAnim.interpolate({ inputRange: [0, 1], outputRange: [36, 0] }) }],
+              }}
+            >
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Your Workouts</Text>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate("WorkoutStack", { screen: "WorkoutLibrary" })}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.seeAll, { color: colors.primary }]}>Library →</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.workoutCardScroll}
+                keyboardShouldPersistTaps="handled"
+              >
+                {recentWorkouts.map((w) => {
+                  const isCardio =
+                    w.category === "cardio" ||
+                    (w.exercises ?? []).some((e: any) => e.duration);
+                  const color = isCardio ? "#F97316" : "#4876EC";
+                  const exCount = w.exercises?.length ?? 0;
+
+                  return (
+                    <TouchableOpacity
+                      key={w.id}
+                      style={[styles.workoutCard, { backgroundColor: colors.card }]}
+                      onPress={() =>
+                        navigation.navigate("WorkoutStack", {
+                          screen: "WorkoutDetails",
+                          params: { workoutId: w.id },
+                        })
+                      }
+                      activeOpacity={0.8}
+                    >
+                      {/* Top accent bar */}
+                      <View style={[styles.workoutCardAccent, { backgroundColor: color }]} />
+
+                      <View style={styles.workoutCardBody}>
+                        <View style={[styles.workoutCardIcon, { backgroundColor: color + "20" }]}>
+                          <Ionicons
+                            name={isCardio ? "flash" : "barbell"}
+                            size={20}
+                            color={color}
+                          />
+                        </View>
+                        <Text style={[styles.workoutCardTitle, { color: colors.text }]} numberOfLines={2}>
+                          {w.title}
+                        </Text>
+                        <Text style={[styles.workoutCardMeta, { color: colors.textSecondary }]}>
+                          {exCount} exercise{exCount !== 1 ? "s" : ""}
+                          {w.category ? ` · ${w.category}` : ""}
+                        </Text>
+                      </View>
+
+                      <View style={[styles.workoutCardFooter, { borderTopColor: colors.border }]}>
+                        <Text style={[styles.workoutCardStart, { color: color }]}>
+                          Start →
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </Animated.View>
+          )}
+
+          {/* ── Empty state if nothing yet ─────────────────────────────────── */}
+          {!loading && logs.length === 0 && recentWorkouts.length === 0 && (
+            <View style={styles.emptyState}>
+              <Text style={{ fontSize: 56 }}>💪</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                Let's get started!
+              </Text>
+              <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
+                Create your first workout and track your progress here.
+              </Text>
+              {/* ── FIX: navigate via WorkoutStack tab ── */}
+              <TouchableOpacity
+                style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
+                onPress={() =>
+                  navigation.navigate("WorkoutStack", {
+                    screen: "CreateWorkoutTemplate",
+                  })
+                }
+                activeOpacity={0.85}
+              >
+                <Ionicons name="add" size={20} color="#fff" />
+                <Text style={styles.emptyBtnText}>Create Workout</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={{ height: 32 }} />
+        </ScrollView>
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 

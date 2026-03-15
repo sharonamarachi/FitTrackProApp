@@ -11,6 +11,8 @@ import {
   TextInput,
   Animated,
   SectionList,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { WorkoutsStackParamList } from "../../navigation/WorkoutStack";
@@ -43,7 +45,12 @@ function buildFilterOptions(workouts: Workout[]): string[] {
   });
 
   const blocked = new Set([
-    "transcript-import", "youtube-import", "timed", "reps-based", "manual", "general",
+    "transcript-import",
+    "youtube-import",
+    "timed",
+    "reps-based",
+    "manual",
+    "general",
   ]);
 
   return Object.entries(freq)
@@ -68,8 +75,14 @@ function formatLabel(label: string): string {
 }
 
 const TAG_PALETTE = [
-  "#6366f1", "#10b981", "#f97316", "#3b82f6",
-  "#a855f7", "#ec4899", "#14b8a6", "#f59e0b",
+  "#6366f1",
+  "#10b981",
+  "#f97316",
+  "#3b82f6",
+  "#a855f7",
+  "#ec4899",
+  "#14b8a6",
+  "#f59e0b",
 ];
 const tagColorMap: Record<string, string> = {};
 let colorIndex = 0;
@@ -103,8 +116,6 @@ export default function WorkoutLibrary({ navigation }: Props) {
   const { theme, colors } = useTheme();
   const isDark = theme === "dark";
 
-  // ── Data loading ─────────────────────────────────────────────────────────────
-
   useEffect(() => {
     loadWorkouts();
     const unsubscribe = navigation.addListener("focus", loadWorkouts);
@@ -114,7 +125,10 @@ export default function WorkoutLibrary({ navigation }: Props) {
   async function loadWorkouts() {
     setLoading(true);
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
       if (userError || !user) {
         Alert.alert("Error", "You must be logged in to view workouts");
         setLoading(false);
@@ -133,8 +147,6 @@ export default function WorkoutLibrary({ navigation }: Props) {
     }
   }
 
-  // ── Delete ────────────────────────────────────────────────────────────────────
-
   async function handleDelete(id: string) {
     Alert.alert("Delete Workout", "Move this workout to Recently Deleted?", [
       { text: "Cancel" },
@@ -143,11 +155,17 @@ export default function WorkoutLibrary({ navigation }: Props) {
         style: "destructive",
         onPress: async () => {
           try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const {
+              data: { user },
+            } = await supabase.auth.getUser();
             if (user) {
               const workoutToDelete = workouts.find((w) => w.id === id);
               if (workoutToDelete) {
-                const { error } = await softDeleteWorkout(user.id, id, workoutToDelete);
+                const { error } = await softDeleteWorkout(
+                  user.id,
+                  id,
+                  workoutToDelete,
+                );
                 if (error) {
                   Alert.alert("Error", "Failed to delete: " + error.message);
                 } else {
@@ -163,19 +181,22 @@ export default function WorkoutLibrary({ navigation }: Props) {
     ]);
   }
 
-  // ── Pin / Favourite ───────────────────────────────────────────────────────────
-
   async function handleTogglePin(workout: Workout) {
     setTogglingId(workout.id);
-    // Optimistic update
     setWorkouts((prev) =>
-      prev.map((w) => w.id === workout.id ? { ...w, is_pinned: !w.is_pinned } : w)
+      prev.map((w) =>
+        w.id === workout.id ? { ...w, is_pinned: !w.is_pinned } : w,
+      ),
     );
-    const { error } = await togglePinWorkout(workout.id, workout.is_pinned ?? false);
+    const { error } = await togglePinWorkout(
+      workout.id,
+      workout.is_pinned ?? false,
+    );
     if (error) {
-      // Revert
       setWorkouts((prev) =>
-        prev.map((w) => w.id === workout.id ? { ...w, is_pinned: workout.is_pinned } : w)
+        prev.map((w) =>
+          w.id === workout.id ? { ...w, is_pinned: workout.is_pinned } : w,
+        ),
       );
       Alert.alert("Error", "Failed to update pin");
     }
@@ -185,19 +206,26 @@ export default function WorkoutLibrary({ navigation }: Props) {
   async function handleToggleFavorite(workout: Workout) {
     setTogglingId(workout.id);
     setWorkouts((prev) =>
-      prev.map((w) => w.id === workout.id ? { ...w, is_favorited: !w.is_favorited } : w)
+      prev.map((w) =>
+        w.id === workout.id ? { ...w, is_favorited: !w.is_favorited } : w,
+      ),
     );
-    const { error } = await toggleFavoriteWorkout(workout.id, workout.is_favorited ?? false);
+    const { error } = await toggleFavoriteWorkout(
+      workout.id,
+      workout.is_favorited ?? false,
+    );
     if (error) {
       setWorkouts((prev) =>
-        prev.map((w) => w.id === workout.id ? { ...w, is_favorited: workout.is_favorited } : w)
+        prev.map((w) =>
+          w.id === workout.id
+            ? { ...w, is_favorited: workout.is_favorited }
+            : w,
+        ),
       );
       Alert.alert("Error", "Failed to update favourite");
     }
     setTogglingId(null);
   }
-
-  // ── Search toggle ─────────────────────────────────────────────────────────────
 
   const toggleSearch = () => {
     const next = !searchVisible;
@@ -211,15 +239,19 @@ export default function WorkoutLibrary({ navigation }: Props) {
     });
   };
 
-  // ── Derived data ──────────────────────────────────────────────────────────────
-
   const filterOptions = useMemo(() => buildFilterOptions(workouts), [workouts]);
 
+  // ── FIX: Handle __fav__ filter properly inside filteredWorkouts ──────────────
   const filteredWorkouts = useMemo(() => {
     let list = workouts;
-    if (activeFilter !== "all") {
+
+    if (activeFilter === "__fav__") {
+      // Show only favourited workouts
+      list = list.filter((w) => w.is_favorited);
+    } else if (activeFilter !== "all") {
       list = list.filter((w) => workoutMatchesFilter(w, activeFilter));
     }
+
     const q = searchQuery.trim().toLowerCase();
     if (q) {
       list = list.filter((w) => {
@@ -232,17 +264,23 @@ export default function WorkoutLibrary({ navigation }: Props) {
     return list;
   }, [workouts, activeFilter, searchQuery]);
 
-  // Split into pinned + rest for sectioned display
   const sections = useMemo(() => {
     const pinned = filteredWorkouts.filter((w) => w.is_pinned);
     const rest = filteredWorkouts.filter((w) => !w.is_pinned);
     const result = [];
     if (pinned.length > 0) result.push({ title: "📌 Pinned", data: pinned });
-    if (rest.length > 0) result.push({ title: pinned.length > 0 ? "All Workouts" : "", data: rest });
+    if (rest.length > 0)
+      result.push({
+        title: pinned.length > 0 ? "All Workouts" : "",
+        data: rest,
+      });
     return result;
   }, [filteredWorkouts]);
 
-  const favCount = useMemo(() => workouts.filter((w) => w.is_favorited).length, [workouts]);
+  const favCount = useMemo(
+    () => workouts.filter((w) => w.is_favorited).length,
+    [workouts],
+  );
 
   const searchBarHeight = searchAnim.interpolate({
     inputRange: [0, 1],
@@ -255,7 +293,12 @@ export default function WorkoutLibrary({ navigation }: Props) {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: colors.background },
+        ]}
+      >
         <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
           Loading workouts…
@@ -263,8 +306,6 @@ export default function WorkoutLibrary({ navigation }: Props) {
       </View>
     );
   }
-
-  // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -284,7 +325,12 @@ export default function WorkoutLibrary({ navigation }: Props) {
                 {searchQuery || activeFilter !== "all" ? " found" : " total"}
               </Text>
               {favCount > 0 && (
-                <View style={[styles.favBadge, { backgroundColor: "#ec4899" + "22" }]}>
+                <View
+                  style={[
+                    styles.favBadge,
+                    { backgroundColor: "#ec4899" + "22" },
+                  ]}
+                >
                   <Ionicons name="heart" size={12} color="#ec4899" />
                   <Text style={[styles.favBadgeText, { color: "#ec4899" }]}>
                     {favCount}
@@ -367,10 +413,18 @@ export default function WorkoutLibrary({ navigation }: Props) {
               onChangeText={setSearchQuery}
               autoCapitalize="none"
               returnKeyType="search"
+              onSubmitEditing={Keyboard.dismiss}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery("")} activeOpacity={0.6}>
-                <Ionicons name="close-circle" size={18} color={colors.textTertiary} />
+              <TouchableOpacity
+                onPress={() => setSearchQuery("")}
+                activeOpacity={0.6}
+              >
+                <Ionicons
+                  name="close-circle"
+                  size={18}
+                  color={colors.textTertiary}
+                />
               </TouchableOpacity>
             )}
           </View>
@@ -382,13 +436,16 @@ export default function WorkoutLibrary({ navigation }: Props) {
           showsHorizontalScrollIndicator={false}
           style={styles.filterScrollView}
           contentContainerStyle={styles.filterContainer}
+          keyboardShouldPersistTaps="handled"
         >
           <TouchableOpacity
             style={[
               styles.filterPill,
               {
-                backgroundColor: activeFilter === "all" ? colors.primary : "transparent",
-                borderColor: activeFilter === "all" ? colors.primary : colors.border,
+                backgroundColor:
+                  activeFilter === "all" ? colors.primary : "transparent",
+                borderColor:
+                  activeFilter === "all" ? colors.primary : colors.border,
               },
             ]}
             onPress={() => setActiveFilter("all")}
@@ -409,7 +466,9 @@ export default function WorkoutLibrary({ navigation }: Props) {
 
           {filterOptions.map((tag) => {
             const isActive = activeFilter === tag;
-            const count = workouts.filter((w) => workoutMatchesFilter(w, tag)).length;
+            const count = workouts.filter((w) =>
+              workoutMatchesFilter(w, tag),
+            ).length;
             return (
               <TouchableOpacity
                 key={tag}
@@ -448,30 +507,37 @@ export default function WorkoutLibrary({ navigation }: Props) {
           filter={activeFilter}
           query={searchQuery}
           colors={colors}
-          onClear={() => { setActiveFilter("all"); setSearchQuery(""); }}
+          onClear={() => {
+            setActiveFilter("all");
+            setSearchQuery("");
+          }}
         />
       ) : (
         <SectionList
-          sections={
-            // Handle favourites-only filter (no pinned sections needed)
-            activeFilter === "__fav__"
-              ? [{
-                  title: "",
-                  data: filteredWorkouts.filter((w) => w.is_favorited),
-                }]
-              : sections
-          }
+          sections={sections}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           stickySectionHeadersEnabled={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           renderSectionHeader={({ section }) =>
             section.title ? (
               <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionHeaderText, { color: colors.textSecondary }]}>
+                <Text
+                  style={[
+                    styles.sectionHeaderText,
+                    { color: colors.textSecondary },
+                  ]}
+                >
                   {section.title}
                 </Text>
                 {section.title.includes("Pinned") && (
-                  <View style={[styles.pinnedDivider, { backgroundColor: colors.border }]} />
+                  <View
+                    style={[
+                      styles.pinnedDivider,
+                      { backgroundColor: colors.border },
+                    ]}
+                  />
                 )}
               </View>
             ) : null
@@ -495,21 +561,32 @@ export default function WorkoutLibrary({ navigation }: Props) {
               filter={activeFilter}
               query={searchQuery}
               colors={colors}
-              onClear={() => { setActiveFilter("all"); setSearchQuery(""); }}
+              onClear={() => {
+                setActiveFilter("all");
+                setSearchQuery("");
+              }}
             />
           }
         />
       )}
 
       {/* ── FAB ──────────────────────────────────────────────────────────────── */}
-      <Animated.View style={[styles.fabWrap, { transform: [{ scale: fabScale }] }]}>
+      <Animated.View
+        style={[styles.fabWrap, { transform: [{ scale: fabScale }] }]}
+      >
         <TouchableOpacity
           style={[styles.fab, { backgroundColor: colors.primary }]}
           onPressIn={() =>
-            Animated.spring(fabScale, { toValue: 0.92, useNativeDriver: true }).start()
+            Animated.spring(fabScale, {
+              toValue: 0.92,
+              useNativeDriver: true,
+            }).start()
           }
           onPressOut={() =>
-            Animated.spring(fabScale, { toValue: 1, useNativeDriver: true }).start()
+            Animated.spring(fabScale, {
+              toValue: 1,
+              useNativeDriver: true,
+            }).start()
           }
           onPress={() => navigation.navigate("CreateWorkoutTemplate")}
           activeOpacity={0.8}
@@ -554,31 +631,30 @@ function WorkoutCard({
     ...(workout.category ? [workout.category] : []),
     ...(workout.tags ?? []).filter(
       (t) =>
-        !["transcript-import","youtube-import","timed","reps-based","manual","general"].includes(
-          t.toLowerCase()
-        ) && t.toLowerCase() !== (workout.category ?? "").toLowerCase()
+        ![
+          "transcript-import",
+          "youtube-import",
+          "timed",
+          "reps-based",
+          "manual",
+          "general",
+        ].includes(t.toLowerCase()) &&
+        t.toLowerCase() !== (workout.category ?? "").toLowerCase(),
     ),
   ].slice(0, 3);
 
   const exerciseCount = workout.exercises?.length ?? 0;
   const hasTimer = workout.exercises?.some((e) => e.duration);
-
-  // Preview: first 3 exercises
   const previewExercises = (workout.exercises ?? []).slice(0, 3);
   const remainingCount = Math.max(0, exerciseCount - 3);
 
-  // Estimate total workout duration
   const totalSeconds = (workout.exercises ?? []).reduce((sum, ex) => {
     if (ex.duration) return sum + ex.duration + (ex.restTime ?? 0);
-    if (ex.sets && ex.reps) return sum + ex.sets * (ex.reps * 3 + (ex.restTime ?? 30));
+    if (ex.sets && ex.reps)
+      return sum + ex.sets * (ex.reps * 3 + (ex.restTime ?? 30));
     return sum;
   }, 0);
   const estimatedMins = Math.round(totalSeconds / 60);
-
-  // Pinned card gets a subtle left border accent
-  const pinnedAccent = isPinned
-    ? { borderLeftWidth: 3, borderLeftColor: colors.primary }
-    : {};
 
   return (
     <TouchableOpacity
@@ -591,10 +667,7 @@ function WorkoutCard({
       ]}
       onPress={onPress}
       activeOpacity={0.75}
-      accessibilityLabel={`${workout.title} workout`}
-      accessibilityRole="button"
     >
-      {/* ── Top row ─────────────────────────────────────────────────────────── */}
       <View style={styles.cardTopRow}>
         <View
           style={[
@@ -614,17 +687,21 @@ function WorkoutCard({
         </View>
 
         <View style={styles.titleBlock}>
-          <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={1}>
+          <Text
+            style={[styles.cardTitle, { color: colors.text }]}
+            numberOfLines={1}
+          >
             {workout.title}
           </Text>
           {estimatedMins > 0 && (
-            <Text style={[styles.estimatedTime, { color: colors.textTertiary }]}>
+            <Text
+              style={[styles.estimatedTime, { color: colors.textTertiary }]}
+            >
               ~{estimatedMins} min
             </Text>
           )}
         </View>
 
-        {/* Action icons: pin, heart, delete */}
         <View style={styles.cardActions}>
           <TouchableOpacity
             onPress={onTogglePin}
@@ -634,7 +711,6 @@ function WorkoutCard({
               styles.actionIconBtn,
               isPinned && { backgroundColor: colors.primary + "22" },
             ]}
-            accessibilityLabel={isPinned ? "Unpin workout" : "Pin workout"}
           >
             <Ionicons
               name={isPinned ? "pin" : "pin-outline"}
@@ -651,7 +727,6 @@ function WorkoutCard({
               styles.actionIconBtn,
               isFav && { backgroundColor: "#ec4899" + "22" },
             ]}
-            accessibilityLabel={isFav ? "Unfavourite workout" : "Favourite workout"}
           >
             <Ionicons
               name={isFav ? "heart" : "heart-outline"}
@@ -667,14 +742,12 @@ function WorkoutCard({
               styles.actionIconBtn,
               { backgroundColor: isDark ? colors.surface : "#FEF2F2" },
             ]}
-            accessibilityLabel="Delete workout"
           >
             <Ionicons name="trash-outline" size={16} color="#EF4444" />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* ── Tag chips ───────────────────────────────────────────────────────── */}
       {visibleTags.length > 0 && (
         <View style={styles.tagRow}>
           {visibleTags.map((tag) => {
@@ -699,21 +772,35 @@ function WorkoutCard({
         </View>
       )}
 
-      {/* ── Exercise preview ─────────────────────────────────────────────────── */}
       {previewExercises.length > 0 && (
-        <View style={[styles.previewContainer, { backgroundColor: isDark ? colors.surface : "#F8F9FA" }]}>
-          {previewExercises.map((ex, i) => (
+        <View
+          style={[
+            styles.previewContainer,
+            { backgroundColor: isDark ? colors.surface : "#F8F9FA" },
+          ]}
+        >
+          {previewExercises.map((ex) => (
             <View key={ex.id} style={styles.previewRow}>
-              <View style={[styles.previewDot, { backgroundColor: hasTimer ? "#f97316" : colors.primary }]} />
-              <Text style={[styles.previewExName, { color: colors.text }]} numberOfLines={1}>
+              <View
+                style={[
+                  styles.previewDot,
+                  { backgroundColor: hasTimer ? "#f97316" : colors.primary },
+                ]}
+              />
+              <Text
+                style={[styles.previewExName, { color: colors.text }]}
+                numberOfLines={1}
+              >
                 {ex.name}
               </Text>
-              <Text style={[styles.previewExMeta, { color: colors.textTertiary }]}>
+              <Text
+                style={[styles.previewExMeta, { color: colors.textTertiary }]}
+              >
                 {ex.duration
                   ? formatDuration(ex.duration)
                   : ex.sets && ex.reps
-                  ? `${ex.sets}×${ex.reps}`
-                  : ""}
+                    ? `${ex.sets}×${ex.reps}`
+                    : ""}
                 {ex.weight ? ` · ${ex.weight}kg` : ""}
               </Text>
             </View>
@@ -726,7 +813,6 @@ function WorkoutCard({
         </View>
       )}
 
-      {/* ── Footer ──────────────────────────────────────────────────────────── */}
       <View style={[styles.cardFooter, { borderTopColor: colors.divider }]}>
         <View style={styles.metaRow}>
           <Ionicons name="list-outline" size={13} color={colors.textTertiary} />
@@ -735,20 +821,41 @@ function WorkoutCard({
           </Text>
           {hasTimer && (
             <>
-              <View style={[styles.metaDot, { backgroundColor: colors.textTertiary }]} />
-              <Ionicons name="time-outline" size={13} color={colors.textTertiary} />
-              <Text style={[styles.metaText, { color: colors.textTertiary }]}>Timed</Text>
+              <View
+                style={[
+                  styles.metaDot,
+                  { backgroundColor: colors.textTertiary },
+                ]}
+              />
+              <Ionicons
+                name="time-outline"
+                size={13}
+                color={colors.textTertiary}
+              />
+              <Text style={[styles.metaText, { color: colors.textTertiary }]}>
+                Timed
+              </Text>
             </>
           )}
           {isFav && (
             <>
-              <View style={[styles.metaDot, { backgroundColor: colors.textTertiary }]} />
+              <View
+                style={[
+                  styles.metaDot,
+                  { backgroundColor: colors.textTertiary },
+                ]}
+              />
               <Ionicons name="heart" size={12} color="#ec4899" />
             </>
           )}
           {isPinned && (
             <>
-              <View style={[styles.metaDot, { backgroundColor: colors.textTertiary }]} />
+              <View
+                style={[
+                  styles.metaDot,
+                  { backgroundColor: colors.textTertiary },
+                ]}
+              />
               <Ionicons name="pin" size={12} color={colors.primary} />
             </>
           )}
@@ -783,7 +890,13 @@ function EmptyState({
   return (
     <View style={styles.emptyContainer}>
       <Ionicons
-        name={isFavFilter ? "heart-outline" : hasFilter ? "search-outline" : "barbell-outline"}
+        name={
+          isFavFilter
+            ? "heart-outline"
+            : hasFilter
+              ? "search-outline"
+              : "barbell-outline"
+        }
         size={64}
         color={colors.textTertiary}
       />
@@ -791,15 +904,15 @@ function EmptyState({
         {isFavFilter
           ? "No favourites yet"
           : hasFilter
-          ? "No matching workouts"
-          : "No workouts yet"}
+            ? "No matching workouts"
+            : "No workouts yet"}
       </Text>
       <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
         {isFavFilter
-          ? "Tap the heart icon on any workout to add it here"
+          ? "Tap the ♥ icon on any workout to add it here"
           : hasFilter
-          ? "Try a different search or filter"
-          : "Tap the + button to create your first workout"}
+            ? "Try a different search or filter"
+            : "Tap the + button to create your first workout"}
       </Text>
       {hasFilter && (
         <TouchableOpacity
@@ -822,8 +935,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   loadingText: { fontSize: 16 },
-
-  // Header
   header: {
     paddingTop: 60,
     paddingBottom: 14,
@@ -843,7 +954,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: { fontSize: 28, fontWeight: "bold" },
-  subtitleRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
+  subtitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
+  },
   subtitle: { fontSize: 14 },
   favBadge: {
     flexDirection: "row",
@@ -862,8 +978,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
-  // Search
   searchBarWrap: { overflow: "hidden", paddingHorizontal: 20, marginBottom: 4 },
   searchBar: {
     flexDirection: "row",
@@ -875,8 +989,6 @@ const styles = StyleSheet.create({
     height: 48,
   },
   searchInput: { flex: 1, fontSize: 16, paddingVertical: 0, fontWeight: "400" },
-
-  // Filters
   filterScrollView: { paddingHorizontal: 16 },
   filterContainer: { gap: 8, paddingRight: 16, paddingBottom: 2 },
   filterPill: {
@@ -886,8 +998,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   filterText: { fontSize: 14, fontWeight: "600" },
-
-  // Section headers
   sectionHeader: {
     paddingHorizontal: 16,
     paddingTop: 20,
@@ -903,11 +1013,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   pinnedDivider: { flex: 1, height: 1 },
-
-  // List
   listContent: { padding: 16, paddingBottom: 140 },
-
-  // Card
   card: {
     borderRadius: 20,
     padding: 16,
@@ -944,8 +1050,6 @@ const styles = StyleSheet.create({
   titleBlock: { flex: 1 },
   cardTitle: { fontSize: 15, fontWeight: "700", lineHeight: 21 },
   estimatedTime: { fontSize: 12, marginTop: 2 },
-
-  // Action icons
   cardActions: { flexDirection: "row", alignItems: "center", gap: 4 },
   actionIconBtn: {
     width: 32,
@@ -954,14 +1058,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
-  // Tags
-  tagRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginBottom: 10,
-  },
+  tagRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 10 },
   tagChip: {
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -969,8 +1066,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   tagText: { fontSize: 11, fontWeight: "500" },
-
-  // Exercise preview
   previewContainer: {
     borderRadius: 12,
     paddingHorizontal: 12,
@@ -978,34 +1073,16 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     gap: 6,
   },
-  previewRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  previewDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    flexShrink: 0,
-  },
-  previewExName: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "500",
-  },
-  previewExMeta: {
-    fontSize: 12,
-    fontWeight: "400",
-  },
+  previewRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  previewDot: { width: 6, height: 6, borderRadius: 3, flexShrink: 0 },
+  previewExName: { flex: 1, fontSize: 13, fontWeight: "500" },
+  previewExMeta: { fontSize: 12 },
   previewMore: {
     fontSize: 12,
     fontWeight: "600",
     marginTop: 2,
     paddingLeft: 14,
   },
-
-  // Card footer
   cardFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1018,8 +1095,6 @@ const styles = StyleSheet.create({
   metaText: { fontSize: 12 },
   metaDot: { width: 3, height: 3, borderRadius: 1.5, marginHorizontal: 2 },
   dateText: { fontSize: 12 },
-
-  // Empty state
   emptyContainer: {
     alignItems: "center",
     paddingTop: 100,
@@ -1027,16 +1102,20 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   emptyText: { fontSize: 20, fontWeight: "700", marginTop: 8 },
-  emptySubtext: { fontSize: 15, textAlign: "center", lineHeight: 22, opacity: 0.8 },
-  clearBtn: { marginTop: 12, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 30 },
-  clearBtnText: { fontSize: 16, fontWeight: "600" },
-
-  // FAB
-  fabWrap: {
-    position: "absolute",
-    right: 20,
-    bottom: 120,
+  emptySubtext: {
+    fontSize: 15,
+    textAlign: "center",
+    lineHeight: 22,
+    opacity: 0.8,
   },
+  clearBtn: {
+    marginTop: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 30,
+  },
+  clearBtnText: { fontSize: 16, fontWeight: "600" },
+  fabWrap: { position: "absolute", right: 20, bottom: 120 },
   fab: {
     width: 64,
     height: 64,

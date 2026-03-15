@@ -6,7 +6,8 @@ import {
   ScrollView,
   StatusBar,
 } from "react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { supabase } from "../../api/supabaseClient";
 import { User } from "@supabase/supabase-js";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,41 +15,83 @@ import { useTheme } from "../../context/ThemeContext";
 
 export default function Profile({ navigation }: any) {
   const [user, setUser] = useState<User | null>(null);
+  const [username, setUsername] = useState("");
+  const [workoutCount, setWorkoutCount] = useState(0);
+  const [streak, setStreak] = useState(0);
   const { theme, colors } = useTheme();
 
-  useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
-    };
-    getUser();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+    }, [])
+  );
+
+  async function loadProfile() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    setUser(user);
+
+    // Get username from user_profiles
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("username")
+      .eq("user_id", user.id)
+      .single();
+
+    setUsername(profile?.username || user.email?.split("@")[0] || "");
+
+    // Real workout count
+    const { count } = await supabase
+      .from("workout_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id);
+    setWorkoutCount(count ?? 0);
+
+    // Current streak from logs
+    const { data: logs } = await supabase
+      .from("workout_logs")
+      .select("completed_at")
+      .eq("user_id", user.id)
+      .order("completed_at", { ascending: false });
+
+    setStreak(calcStreak(logs ?? []));
+  }
+
+  function calcStreak(logs: { completed_at: string }[]): number {
+    if (!logs.length) return 0;
+    const days = [...new Set(logs.map((l) => new Date(l.completed_at).toDateString()))]
+      .map((d) => new Date(d))
+      .sort((a, b) => b.getTime() - a.getTime());
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const first = new Date(days[0]);
+    first.setHours(0, 0, 0, 0);
+    if ((today.getTime() - first.getTime()) / 86400000 > 1) return 0;
+
+    let count = 1;
+    for (let i = 1; i < days.length; i++) {
+      const prev = new Date(days[i - 1]); prev.setHours(0, 0, 0, 0);
+      const cur  = new Date(days[i]);     cur.setHours(0, 0, 0, 0);
+      if (Math.floor((prev.getTime() - cur.getTime()) / 86400000) === 1) {
+        count++;
+      } else break;
+    }
+    return count;
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar
-        barStyle={theme === "dark" ? "light-content" : "dark-content"}
-      />
+      <StatusBar barStyle={theme === "dark" ? "light-content" : "dark-content"} />
 
       <ScrollView contentContainerStyle={{ paddingBottom: 50 }}>
-        {/* Header Section */}
+        {/* Header */}
         <View style={[styles.header, { backgroundColor: colors.primary }]}>
-          <View
-            style={[
-              styles.avatar,
-              {
-                backgroundColor:
-                  theme === "dark" ? colors.primaryLight : "#6c63ff",
-              },
-            ]}
-          >
+          <View style={[styles.avatar, { backgroundColor: theme === "dark" ? colors.primaryLight : "#6c63ff" }]}>
             <Ionicons name="person" size={50} color="white" />
           </View>
-          <Text style={styles.username}>
-            {user?.email?.split("@")[0] || "Username"}
-          </Text>
+          <Text style={styles.username}>{username || "Username"}</Text>
           <Text style={styles.memberSince}>
             Member since{" "}
             {user ? new Date(user.created_at).toLocaleDateString() : "..."}
@@ -58,25 +101,25 @@ export default function Profile({ navigation }: any) {
         {/* Stats */}
         <View style={[styles.statsRow, { backgroundColor: colors.card }]}>
           <View style={styles.statItem}>
-            <Text style={[styles.statNumber, { color: colors.primary }]}>
-              0
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Workouts
-            </Text>
+            <Text style={[styles.statNumber, { color: colors.primary }]}>{workoutCount}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Workouts</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={[styles.statNumber, { color: colors.primary }]}>
-              0
+              {streak > 0 ? `${streak} 🔥` : "0"}
             </Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-              Streak
-            </Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Streak</Text>
           </View>
         </View>
 
-        {/* Action buttons */}
+        {/* Actions */}
         <View style={styles.actions}>
+          <ActionButton
+            label="Edit Profile"
+            icon="person-outline"
+            onPress={() => navigation.navigate("EditProfile")}
+            colors={colors}
+          />
           <ActionButton
             label="Recently Deleted"
             icon="trash-outline"
@@ -109,10 +152,7 @@ const ActionButton = ({ label, icon, onPress, danger, colors }: any) => (
   <TouchableOpacity
     style={[
       styles.actionButton,
-      {
-        backgroundColor: colors.card,
-        borderColor: colors.border,
-      },
+      { backgroundColor: colors.card, borderColor: colors.border },
       danger && { borderColor: colors.error },
     ]}
     onPress={onPress}
@@ -124,13 +164,7 @@ const ActionButton = ({ label, icon, onPress, danger, colors }: any) => (
         color={danger ? colors.error : colors.primary}
         style={{ marginRight: 10 }}
       />
-      <Text
-        style={[
-          styles.actionText,
-          { color: colors.text },
-          danger && { color: colors.error },
-        ]}
-      >
+      <Text style={[styles.actionText, { color: colors.text }, danger && { color: colors.error }]}>
         {label}
       </Text>
     </View>
@@ -139,9 +173,7 @@ const ActionButton = ({ label, icon, onPress, danger, colors }: any) => (
 );
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     alignItems: "center",
     paddingBottom: 40,
@@ -162,16 +194,8 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 5,
   },
-  username: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "white",
-  },
-  memberSince: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.8)",
-    marginTop: 4,
-  },
+  username: { fontSize: 22, fontWeight: "700", color: "white" },
+  memberSince: { fontSize: 14, color: "rgba(255,255,255,0.8)", marginTop: 4 },
   statsRow: {
     flexDirection: "row",
     justifyContent: "space-evenly",
@@ -186,21 +210,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  statItem: {
-    alignItems: "center",
-  },
-  statNumber: {
-    fontSize: 22,
-    fontWeight: "bold",
-  },
-  statLabel: {
-    fontSize: 13,
-    marginTop: 4,
-  },
-  actions: {
-    marginTop: 10,
-    paddingHorizontal: 20,
-  },
+  statItem: { alignItems: "center" },
+  statNumber: { fontSize: 22, fontWeight: "bold" },
+  statLabel: { fontSize: 13, marginTop: 4 },
+  actions: { marginTop: 10, paddingHorizontal: 20 },
   actionButton: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -210,8 +223,5 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  actionText: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
+  actionText: { fontSize: 16, fontWeight: "500" },
 });
