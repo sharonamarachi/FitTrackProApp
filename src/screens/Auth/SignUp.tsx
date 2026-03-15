@@ -86,7 +86,7 @@ const handleSignUp = async () => {
         console.error('Error creating profile:', profileError);
         setErrors({ general: 'Profile creation failed. Please contact support.' });
       } else {
-        setSuccessMessage('Account created successfully! Please check your email to confirm your account.');
+        setSuccessMessage('Account created successfully! Please login with your new credentials.');
       }
     }
   } catch (error: any) {
