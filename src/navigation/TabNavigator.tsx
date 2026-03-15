@@ -14,6 +14,27 @@ import WorkoutStack from "./WorkoutStack";
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
+// Helper: resets any stack-based tab to its first screen when tapped
+function resetOnPress(
+  e: any,
+  navigation: any,
+  tabName: string,
+  rootScreen: string,
+) {
+  e.preventDefault();
+  navigation.reset({
+    index: 0,
+    routes: [
+      {
+        name: tabName,
+        state: {
+          routes: [{ name: rootScreen }],
+        },
+      },
+    ],
+  });
+}
+
 export default function TabNavigator() {
   const { theme, colors } = useTheme();
 
@@ -32,7 +53,7 @@ export default function TabNavigator() {
         tabBarLabelStyle: styles.tabBarLabel,
       }}
     >
-      {/* Dashboard aka Home*/}
+      {/* ── Home ──────────────────────────────────────────────────────────── */}
       <Tab.Screen
         name="Dashboard"
         component={Home}
@@ -46,9 +67,18 @@ export default function TabNavigator() {
             />
           ),
         }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "Dashboard" }],
+            });
+          },
+        })}
       />
 
-      {/* Workouts Library */}
+      {/* ── Workouts Library ──────────────────────────────────────────────── */}
       <Tab.Screen
         name="WorkoutStack"
         component={WorkoutStack}
@@ -62,9 +92,13 @@ export default function TabNavigator() {
             />
           ),
         }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) =>
+            resetOnPress(e, navigation, "WorkoutStack", "WorkoutLibrary"),
+        })}
       />
 
-      {/* Quick Start */}
+      {/* ── Quick Start ───────────────────────────────────────────────────── */}
       <Tab.Screen
         name="QuickStartStack"
         component={QuickStartStack}
@@ -86,26 +120,12 @@ export default function TabNavigator() {
           ),
         }}
         listeners={({ navigation }) => ({
-          tabPress: (e) => {
-            e.preventDefault();
-
-            // Reset the stack by navigating to QuickStart and reset method to clear the navigation stack
-            navigation.reset({
-              index: 0,
-              routes: [
-                {
-                  name: "QuickStartStack",
-                  state: {
-                    routes: [{ name: "QuickStart" }],
-                  },
-                },
-              ],
-            });
-          },
+          tabPress: (e) =>
+            resetOnPress(e, navigation, "QuickStartStack", "QuickStart"),
         })}
       />
 
-      {/* Progress & Stats */}
+      {/* ── Progress & Stats ──────────────────────────────────────────────── */}
       <Tab.Screen
         name="Progress"
         component={Progress}
@@ -119,9 +139,18 @@ export default function TabNavigator() {
             />
           ),
         }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "Progress" }],
+            });
+          },
+        })}
       />
 
-      {/* Profile */}
+      {/* ── Profile ───────────────────────────────────────────────────────── */}
       <Tab.Screen
         name="Profile"
         component={Profile}
@@ -135,6 +164,15 @@ export default function TabNavigator() {
             />
           ),
         }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "Profile" }],
+            });
+          },
+        })}
       />
     </Tab.Navigator>
   );
