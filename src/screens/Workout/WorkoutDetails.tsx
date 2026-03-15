@@ -373,39 +373,7 @@ export default function WorkoutDetails({ route, navigation }: Props) {
               <View style={[styles.workoutTypeIcon, { backgroundColor: workoutTypeColor + "20" }]}>
                 <Ionicons name={workoutTypeIcon} size={24} color={workoutTypeColor} />
               </View>
-              {isEditingTitle ? (
-                <View style={styles.editTitleWrapper}>
-                  <TextInput
-                    style={[styles.titleInput, { color: colors.text, borderBottomColor: workoutTypeColor }]}
-                    value={tempTitle}
-                    onChangeText={setTempTitle}
-                    autoFocus
-                  />
-                  <View style={styles.titleEditButtons}>
-                    <TouchableOpacity
-                      style={[styles.saveTitleButton, { backgroundColor: workoutTypeColor }]}
-                      onPress={handleSaveTitle}
-                    >
-                      <Ionicons name="checkmark" size={20} color="#FFFFFF" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.cancelTitleButton, { backgroundColor: colors.surface }]}
-                      onPress={() => setIsEditingTitle(false)}
-                    >
-                      <Ionicons name="close" size={20} color={colors.text} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={styles.titleTouchable}
-                  onPress={() => { setIsEditingTitle(true); setTempTitle(workoutTitle); }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.workoutTitle, { color: colors.text }]}>{workoutTitle}</Text>
-                  <Ionicons name="pencil" size={18} color={colors.textSecondary} />
-                </TouchableOpacity>
-              )}
+              <Text style={[styles.workoutTitle, { color: colors.text }]}>{workoutTitle}</Text>
             </View>
           </View>
 
