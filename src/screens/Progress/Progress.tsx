@@ -24,10 +24,10 @@ import Svg, {
   LinearGradient,
   Stop,
 } from "react-native-svg";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
 import { supabase } from "../../api/supabaseClient";
 import { useFocusEffect } from "@react-navigation/native";
+import { usePreferences } from "../../context/UserPreferencesContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CHART_WIDTH = SCREEN_WIDTH - 48;
@@ -614,11 +614,13 @@ function WeightLineChart({
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
-const GOAL_KEY = "weekly_workout_goal";
-
 export default function Progress() {
   const { theme, colors } = useTheme();
   const isDark = theme === "dark";
+
+  // ── FIX: read weekly goal from shared prefs instead of AsyncStorage ──────
+  const { prefs, setPref } = usePreferences();
+  const weeklyGoal = prefs.weeklyWorkoutGoal;
 
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
   const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>([]);
@@ -626,9 +628,8 @@ export default function Progress() {
   const [loading, setLoading] = useState(true);
   const [periodTab, setPeriodTab] = useState<"week" | "month">("week");
   const [selectedPR, setSelectedPR] = useState<string | null>(null);
-  const [weeklyGoal, setWeeklyGoal] = useState(4);
   const [goalModalVisible, setGoalModalVisible] = useState(false);
-  const [goalInput, setGoalInput] = useState("4");
+  const [goalInput, setGoalInput] = useState(String(prefs.weeklyWorkoutGoal));
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -650,7 +651,8 @@ export default function Progress() {
         return;
       }
 
-      const [logsRes, exLogsRes, measRes, savedGoal] = await Promise.all([
+      // ── FIX: removed AsyncStorage.getItem(GOAL_KEY) from Promise.all ────
+      const [logsRes, exLogsRes, measRes] = await Promise.all([
         supabase
           .from("workout_logs")
           .select("*")
@@ -666,16 +668,11 @@ export default function Progress() {
           .select("*")
           .eq("user_id", user.id)
           .order("recorded_at", { ascending: true }),
-        AsyncStorage.getItem(GOAL_KEY),
       ]);
 
       setLogs(logsRes.data ?? []);
       setExerciseLogs(exLogsRes.data ?? []);
       setMeasurements(measRes.data ?? []);
-      if (savedGoal) {
-        const g = parseInt(savedGoal);
-        if (!isNaN(g) && g > 0) setWeeklyGoal(g);
-      }
 
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -696,14 +693,14 @@ export default function Progress() {
     }
   }
 
+  // ── FIX: write to prefs instead of AsyncStorage ──────────────────────────
   const saveGoal = async () => {
     const g = parseInt(goalInput);
     if (isNaN(g) || g < 1 || g > 14) {
       Alert.alert("Invalid", "Set a goal between 1 and 14 workouts per week.");
       return;
     }
-    setWeeklyGoal(g);
-    await AsyncStorage.setItem(GOAL_KEY, String(g));
+    await setPref("weeklyWorkoutGoal", g);
     setGoalModalVisible(false);
   };
 
