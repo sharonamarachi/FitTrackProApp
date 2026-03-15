@@ -28,6 +28,12 @@ import { useTheme } from "../../context/ThemeContext";
 import { supabase } from "../../api/supabaseClient";
 import { useFocusEffect } from "@react-navigation/native";
 import { usePreferences } from "../../context/UserPreferencesContext";
+import {
+  notifyWeeklyGoalReached,
+  scheduleStreakReminder,
+  scheduleStreakRiskAlert,
+  loadNotificationPrefs,
+} from "../../services/NotificationService";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CHART_WIDTH = SCREEN_WIDTH - 48;
@@ -407,8 +413,8 @@ function PRSparkline({
   history: { weight: number; reps: number; date: string }[];
   color: string;
 }) {
-  const W = 80;
-  const H = 36;
+  const W = 80,
+    H = 36;
   if (history.length < 2) {
     return (
       <View
@@ -481,9 +487,10 @@ function WeightLineChart({
   primaryColor: string;
   colors: any;
 }) {
-  const W = CHART_WIDTH;
-  const H = 140;
+  const W = CHART_WIDTH,
+    H = 140;
   const PAD = { top: 16, bottom: 28, left: 40, right: 16 };
+
   if (measurements.length < 2) {
     return (
       <View
@@ -495,6 +502,7 @@ function WeightLineChart({
       </View>
     );
   }
+
   const sorted = [...measurements].sort(
     (a, b) =>
       new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime(),
@@ -505,18 +513,21 @@ function WeightLineChart({
   const range = max - min || 1;
   const chartW = W - PAD.left - PAD.right;
   const chartH = H - PAD.top - PAD.bottom;
+
   const pts = sorted.map((m, i) => ({
     x: PAD.left + (i / (sorted.length - 1)) * chartW,
     y: PAD.top + chartH - ((m.weight_kg - min) / range) * chartH,
     weight: m.weight_kg,
     date: m.recorded_at,
   }));
+
   const linePath = pts
     .map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`)
     .join(" ");
   const areaPath =
     linePath +
     ` L${pts[pts.length - 1].x.toFixed(1)},${H - PAD.bottom} L${PAD.left},${H - PAD.bottom} Z`;
+
   const yLabels = [min, min + range / 2, max].map(
     (v) => Math.round(v * 10) / 10,
   );
@@ -618,7 +629,6 @@ export default function Progress() {
   const { theme, colors } = useTheme();
   const isDark = theme === "dark";
 
-  // ── FIX: read weekly goal from shared prefs instead of AsyncStorage ──────
   const { prefs, setPref } = usePreferences();
   const weeklyGoal = prefs.weeklyWorkoutGoal;
 
@@ -630,6 +640,9 @@ export default function Progress() {
   const [selectedPR, setSelectedPR] = useState<string | null>(null);
   const [goalModalVisible, setGoalModalVisible] = useState(false);
   const [goalInput, setGoalInput] = useState(String(prefs.weeklyWorkoutGoal));
+
+  // Track whether we already fired the weekly goal notification this session
+  const goalNotifiedRef = useRef(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -651,7 +664,6 @@ export default function Progress() {
         return;
       }
 
-      // ── FIX: removed AsyncStorage.getItem(GOAL_KEY) from Promise.all ────
       const [logsRes, exLogsRes, measRes] = await Promise.all([
         supabase
           .from("workout_logs")
@@ -670,9 +682,46 @@ export default function Progress() {
           .order("recorded_at", { ascending: true }),
       ]);
 
-      setLogs(logsRes.data ?? []);
+      const allLogs = logsRes.data ?? [];
+      setLogs(allLogs);
       setExerciseLogs(exLogsRes.data ?? []);
       setMeasurements(measRes.data ?? []);
+
+      // ── Streak-based notifications ──────────────────────────────────────
+      try {
+        const notifPrefs = await loadNotificationPrefs();
+        const streak = computeStreak(allLogs);
+
+        if (notifPrefs.streakReminder) {
+          await scheduleStreakReminder(
+            streak,
+            notifPrefs.reminderHour,
+            notifPrefs.reminderMinute,
+          );
+        }
+        if (notifPrefs.streakRiskAlert && streak > 0) {
+          await scheduleStreakRiskAlert(streak);
+        }
+
+        // Weekly goal — check if just reached on this load
+        if (!goalNotifiedRef.current && notifPrefs.weeklyGoal) {
+          const now = new Date();
+          const dow = now.getDay();
+          const diffToMon = dow === 0 ? -6 : 1 - dow;
+          const weekStart = new Date(now);
+          weekStart.setDate(now.getDate() + diffToMon);
+          weekStart.setHours(0, 0, 0, 0);
+
+          const thisWeekCount = allLogs.filter(
+            (l) => new Date(l.completed_at) >= weekStart,
+          ).length;
+
+          if (thisWeekCount === weeklyGoal) {
+            await notifyWeeklyGoalReached(weeklyGoal);
+            goalNotifiedRef.current = true;
+          }
+        }
+      } catch {}
 
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -693,7 +742,11 @@ export default function Progress() {
     }
   }
 
-  // ── FIX: write to prefs instead of AsyncStorage ──────────────────────────
+  // Reset goal-notified flag when goal changes so a new notification can fire
+  useEffect(() => {
+    goalNotifiedRef.current = false;
+  }, [weeklyGoal]);
+
   const saveGoal = async () => {
     const g = parseInt(goalInput);
     if (isNaN(g) || g < 1 || g > 14) {
@@ -704,6 +757,7 @@ export default function Progress() {
     setGoalModalVisible(false);
   };
 
+  // ── Derived stats ──────────────────────────────────────────────────────────
   const streak = computeStreak(logs);
   const totalWorkouts = logs.length;
 
@@ -713,6 +767,7 @@ export default function Progress() {
   const weekStart = new Date(now);
   weekStart.setDate(now.getDate() + diffToMon);
   weekStart.setHours(0, 0, 0, 0);
+
   const thisWeekCount = logs.filter(
     (l) => new Date(l.completed_at) >= weekStart,
   ).length;
@@ -789,7 +844,7 @@ export default function Progress() {
         <Animated.View
           style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
         >
-          {/* Stat Cards */}
+          {/* Stat cards */}
           <View style={styles.statsGrid}>
             {[
               {
@@ -1154,7 +1209,7 @@ export default function Progress() {
             )}
           </View>
 
-          {/* Body Weight Chart */}
+          {/* Body Weight */}
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Body Weight
@@ -1364,7 +1419,7 @@ export default function Progress() {
         </Animated.View>
       </ScrollView>
 
-      {/* Goal Modal */}
+      {/* Goal modal */}
       <Modal visible={goalModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
@@ -1427,6 +1482,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   loadingText: { fontSize: 16, fontWeight: "500" },
+
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1458,6 +1514,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   streakBadgeText: { fontSize: 16, fontWeight: "700" },
+
   statsGrid: { flexDirection: "row", flexWrap: "wrap", padding: 16, gap: 12 },
   statCard: {
     width: (SCREEN_WIDTH - 48 - 12) / 2,
@@ -1480,6 +1537,7 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 32, fontWeight: "900", letterSpacing: -1 },
   statSuffix: { fontSize: 16, fontWeight: "700", marginBottom: 6 },
   statLabel: { fontSize: 13, fontWeight: "600" },
+
   section: {
     marginHorizontal: 16,
     marginBottom: 16,
@@ -1511,6 +1569,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   editGoalText: { fontSize: 13, fontWeight: "600" },
+
   prCard: { borderRadius: 16, padding: 14, marginBottom: 10 },
   prCardTop: {
     flexDirection: "row",
@@ -1536,6 +1595,7 @@ const styles = StyleSheet.create({
   prHistoryRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   prHistoryBar: { flex: 1, height: 6, borderRadius: 3, overflow: "hidden" },
   prHistoryBarFill: { height: "100%", borderRadius: 3 },
+
   weightSummaryRow: {
     flexDirection: "row",
     borderRadius: 16,
@@ -1548,6 +1608,7 @@ const styles = StyleSheet.create({
   weightSummaryValue: { fontSize: 22, fontWeight: "800" },
   weightSummaryLabel: { fontSize: 11, fontWeight: "600" },
   weightDivider: { width: 1, height: 36 },
+
   emptySmall: {
     borderRadius: 16,
     padding: 24,
@@ -1555,6 +1616,7 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 4,
   },
+
   milestonesRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1575,6 +1637,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 14,
   },
+
   emptyCard: {
     margin: 16,
     borderRadius: 24,
@@ -1584,6 +1647,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 22, fontWeight: "800" },
   emptySubtitle: { fontSize: 15, textAlign: "center", lineHeight: 22 },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",

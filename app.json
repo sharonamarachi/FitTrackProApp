@@ -31,7 +31,12 @@
     "plugins": [
       "@react-native-community/datetimepicker",
       "expo-font",
-      "expo-audio"
+      "expo-audio",
+      ["expo-notifications", {
+        "icon": "./assets/notification-icon.png",
+        "color": "#4876EC",
+        "sounds": ["./assets/beep.mp3"]
+      }]
     ]
   }
 }

@@ -50,7 +50,7 @@ export default function Settings({ navigation }: any) {
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -137,6 +137,7 @@ export default function Settings({ navigation }: any) {
         <SettingItem
           label="Notifications"
           icon="notifications-outline"
+          onPress={() => navigation.navigate("Notifications")}
           colors={colors}
         />
 
@@ -161,6 +162,15 @@ export default function Settings({ navigation }: any) {
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
           Support
         </Text>
+
+        <SettingItem
+          label="Help & FAQ"
+          sublabel="Answers to common questions"
+          icon="help-circle-outline"
+          colors={colors}
+          onPress={() => navigation.navigate("FAQ")}
+        />
+
         <SettingItem
           label="Contact Us"
           icon="help-circle-outline"
@@ -204,10 +214,7 @@ const SettingItem = ({
     <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
       {icon && (
         <View
-          style={[
-            styles.iconWrap,
-            { backgroundColor: colors.primary + "18" },
-          ]}
+          style={[styles.iconWrap, { backgroundColor: colors.primary + "18" }]}
         >
           <Ionicons name={icon} size={18} color={colors.primary} />
         </View>
