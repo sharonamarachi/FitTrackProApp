@@ -8,6 +8,10 @@ import {
   TextInput,
   Alert,
   StatusBar,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
@@ -60,13 +64,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
   React.useEffect(() => {
     if (route?.params?.importedData) {
       const data = route.params.importedData;
-
-      // Set workout name
-      if (data.title) {
-        setWorkoutName(data.title);
-      }
-
-      // Set exercises
+      if (data.title) setWorkoutName(data.title);
       if (data.exercises && Array.isArray(data.exercises)) {
         const formattedExercises = data.exercises.map(
           (ex: any, index: number) => ({
@@ -80,20 +78,12 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
           }),
         );
         setExercises(formattedExercises);
-
-        // Auto-select template
         const hasTimedExercises = formattedExercises.some(
           (ex: Exercise) => ex.duration,
         );
         setSelectedTemplate(hasTimedExercises ? "timer" : "reps");
       }
-
-      // Set tags
-      if (data.tags && Array.isArray(data.tags)) {
-        setSelectedTags(data.tags);
-      }
-
-      // Add category as tag
+      if (data.tags && Array.isArray(data.tags)) setSelectedTags(data.tags);
       if (data.category && !data.tags?.includes(data.category)) {
         setSelectedTags((prev) => [...prev, data.category]);
       }
@@ -105,12 +95,10 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
       Alert.alert("Error", "Please enter an exercise name");
       return;
     }
-
     const newExercise: Exercise = {
       id: Date.now().toString(),
       name: currentExercise.name.trim(),
     };
-
     if (selectedTemplate === "reps") {
       if (currentExercise.sets)
         newExercise.sets = parseInt(currentExercise.sets);
@@ -126,7 +114,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
       if (currentExercise.restTime)
         newExercise.restTime = parseInt(currentExercise.restTime);
     }
-
     setExercises([...exercises, newExercise]);
     setCurrentExercise({
       name: "",
@@ -138,11 +125,11 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
       durationSec: "",
       restTime: "",
     });
+    Keyboard.dismiss();
   };
 
-  const removeExercise = (id: string) => {
+  const removeExercise = (id: string) =>
     setExercises(exercises.filter((ex) => ex.id !== id));
-  };
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
@@ -159,7 +146,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
       Alert.alert("Error", "Please add at least one exercise");
       return;
     }
-
     try {
       const {
         data: { user },
@@ -168,18 +154,14 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
         Alert.alert("Error", "You must be logged in");
         return;
       }
-
       const newWorkout = {
         title: workoutName,
-        exercises: exercises,
+        exercises,
         category: selectedTemplate === "reps" ? "strength" : "cardio",
         tags: selectedTags,
       };
-
       const { error } = await createWorkout(user.id, newWorkout);
-
       if (error) throw error;
-
       Alert.alert("Success", "Workout saved!", [
         { text: "OK", onPress: () => navigation.goBack() },
       ]);
@@ -188,6 +170,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
     }
   };
 
+  // ── Template selection (scrollable so user can scroll to bottom) ──────────
   if (!selectedTemplate) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -196,7 +179,11 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
         />
         <Header title="Create Workout" subtitle="Choose your template" />
 
-        <View style={styles.templateSelection}>
+        <ScrollView
+          contentContainerStyle={styles.templateScrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <TouchableOpacity
             style={[styles.templateCard, { backgroundColor: colors.card }]}
             onPress={() => setSelectedTemplate("reps")}
@@ -256,13 +243,30 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
               <FeatureTag icon="repeat" text="Auto Loop" colors={colors} />
             </View>
           </TouchableOpacity>
-        </View>
+
+          {/* Bottom padding so user can clearly see this is the last card */}
+          <View style={styles.templateBottomPadding}>
+            <Text
+              style={[
+                styles.templateBottomHint,
+                { color: colors.textTertiary },
+              ]}
+            >
+              Choose a template above to get started
+            </Text>
+          </View>
+        </ScrollView>
       </View>
     );
   }
 
+  // ── Workout form ──────────────────────────────────────────────────────────
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={0}
+    >
       <StatusBar
         barStyle={theme === "dark" ? "light-content" : "dark-content"}
       />
@@ -273,13 +277,15 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
             : "Interval Timer Workout"
         }
         subtitle="Build your workout"
-        rightAction={{
-          icon: "checkmark",
-          onPress: saveWorkout,
-        }}
+        rightAction={{ icon: "checkmark", onPress: saveWorkout }}
       />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+      >
         {/* Workout Name */}
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
@@ -298,6 +304,8 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
             placeholderTextColor={colors.textTertiary}
             value={workoutName}
             onChangeText={setWorkoutName}
+            returnKeyType="done"
+            onSubmitEditing={Keyboard.dismiss}
           />
         </View>
 
@@ -355,7 +363,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                 onPress={() => {
                   if (selectedTemplate === "timer" && exercises.length > 0) {
                     navigation.navigate("IntervalTimerPlayback", {
-                      exercises: exercises,
+                      exercises,
                       workoutName: workoutName || "Interval Workout",
                     });
                   }
@@ -371,10 +379,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                 key={exercise.id}
                 style={[
                   styles.exerciseItem,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                  },
+                  { backgroundColor: colors.card, borderColor: colors.border },
                 ]}
               >
                 <View style={styles.exerciseItemLeft}>
@@ -442,10 +447,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
           <View
             style={[
               styles.addExerciseCard,
-              {
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-              },
+              { backgroundColor: colors.card, borderColor: colors.border },
             ]}
           >
             <TextInput
@@ -463,6 +465,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
               onChangeText={(text) =>
                 setCurrentExercise({ ...currentExercise, name: text })
               }
+              returnKeyType="next"
             />
 
             {selectedTemplate === "reps" ? (
@@ -494,15 +497,14 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                       onChangeText={(text) =>
                         setCurrentExercise({ ...currentExercise, sets: text })
                       }
+                      returnKeyType="next"
                     />
                   </View>
-
                   <Text
                     style={[styles.separator, { color: colors.textTertiary }]}
                   >
                     ×
                   </Text>
-
                   <View style={styles.inputGroup}>
                     <Text
                       style={[
@@ -529,10 +531,10 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                       onChangeText={(text) =>
                         setCurrentExercise({ ...currentExercise, reps: text })
                       }
+                      returnKeyType="next"
                     />
                   </View>
                 </View>
-
                 <View style={styles.inputRow}>
                   <View style={styles.inputGroup}>
                     <Text
@@ -560,6 +562,8 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                       onChangeText={(text) =>
                         setCurrentExercise({ ...currentExercise, weight: text })
                       }
+                      returnKeyType="done"
+                      onSubmitEditing={Keyboard.dismiss}
                     />
                   </View>
                 </View>
@@ -592,9 +596,9 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                         durationMin: text,
                       })
                     }
+                    returnKeyType="next"
                   />
                 </View>
-
                 <Text
                   style={[
                     styles.durationLabel,
@@ -603,7 +607,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                 >
                   min
                 </Text>
-
                 <View style={styles.inputGroup}>
                   <Text
                     style={[styles.inputLabel, { color: colors.textSecondary }]}
@@ -630,9 +633,9 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                         durationSec: text,
                       })
                     }
+                    returnKeyType="next"
                   />
                 </View>
-
                 <Text
                   style={[
                     styles.durationLabel,
@@ -641,7 +644,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                 >
                   s
                 </Text>
-
                 <View style={styles.inputGroup}>
                   <Text
                     style={[styles.inputLabel, { color: colors.textSecondary }]}
@@ -665,6 +667,8 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                     onChangeText={(text) =>
                       setCurrentExercise({ ...currentExercise, restTime: text })
                     }
+                    returnKeyType="done"
+                    onSubmitEditing={Keyboard.dismiss}
                   />
                 </View>
               </View>
@@ -681,8 +685,8 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
           </View>
         </View>
 
-        {/* Bottom Spacing */}
-        <View style={{ height: 40 }} />
+        {/* Bottom spacing so save button doesn't cover content */}
+        <View style={{ height: exercises.length > 0 ? 100 : 40 }} />
       </ScrollView>
 
       {/* Save Button */}
@@ -706,7 +710,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
           </TouchableOpacity>
         </View>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -720,14 +724,24 @@ const FeatureTag = ({ icon, text, colors }: any) => (
 );
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  templateSelection: {
-    flex: 1,
+  container: { flex: 1 },
+
+  // Template selection - now in a ScrollView
+  templateScrollContent: {
     padding: 20,
     gap: 20,
+    paddingBottom: 40,
   },
+  templateBottomPadding: {
+    alignItems: "center",
+    paddingTop: 8,
+    paddingBottom: 20,
+  },
+  templateBottomHint: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+
   templateCard: {
     borderRadius: 24,
     padding: 24,
@@ -745,21 +759,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 20,
   },
-  templateTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-  templateDescription: {
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 20,
-  },
-  templateFeatures: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
+  templateTitle: { fontSize: 24, fontWeight: "700", marginBottom: 8 },
+  templateDescription: { fontSize: 15, lineHeight: 22, marginBottom: 20 },
+  templateFeatures: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   featureTag: {
     flexDirection: "row",
     alignItems: "center",
@@ -769,17 +771,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 4,
   },
-  featureTagText: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  section: {
-    marginBottom: 24,
-  },
+  featureTagText: { fontSize: 12, fontWeight: "500" },
+
+  // Form
+  content: { flex: 1, padding: 20 },
+  section: { marginBottom: 24 },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -807,11 +803,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     gap: 6,
   },
-  playAllText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
+  playAllText: { color: "#fff", fontSize: 14, fontWeight: "600" },
   exerciseItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -821,11 +813,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
   },
-  exerciseItemLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
+  exerciseItemLeft: { flexDirection: "row", alignItems: "center", flex: 1 },
   exerciseNumber: {
     width: 40,
     height: 40,
@@ -834,24 +822,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 12,
   },
-  exerciseNumberText: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  exerciseInfo: {
-    flex: 1,
-  },
-  exerciseName: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  exerciseMeta: {
-    fontSize: 14,
-  },
-  deleteButton: {
-    padding: 4,
-  },
+  exerciseNumberText: { fontSize: 16, fontWeight: "700" },
+  exerciseInfo: { flex: 1 },
+  exerciseName: { fontSize: 16, fontWeight: "600", marginBottom: 4 },
+  exerciseMeta: { fontSize: 14 },
+  deleteButton: { padding: 4 },
   addExerciseCard: {
     borderRadius: 20,
     padding: 20,
@@ -871,9 +846,7 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 12,
   },
-  inputGroup: {
-    flex: 1,
-  },
+  inputGroup: { flex: 1 },
   inputLabel: {
     fontSize: 12,
     fontWeight: "600",
@@ -881,77 +854,23 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  smallInput: {
-    textAlign: "center",
-    marginBottom: 0,
-  },
-  separator: {
-    fontSize: 24,
-    fontWeight: "700",
-    marginBottom: 14,
-  },
-  tagsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
+  smallInput: { textAlign: "center", marginBottom: 0 },
+  separator: { fontSize: 24, fontWeight: "700", marginBottom: 14 },
+  tagsContainer: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   tagChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     marginBottom: 4,
   },
-  tagText: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
+  tagText: { fontSize: 14, fontWeight: "500" },
   durationRow: {
     flexDirection: "row",
     alignItems: "flex-end",
     gap: 8,
     marginBottom: 12,
   },
-  durationLabel: {
-    fontSize: 14,
-    fontWeight: "500",
-    marginBottom: 14,
-  },
-  checkbox: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    borderWidth: 2,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 14,
-  },
-  progressBarTrack: {
-    height: 6,
-    borderRadius: 3,
-    overflow: "hidden",
-    backgroundColor: "#e5e7eb",
-  },
-  progressBarFill: {
-    height: "100%",
-    borderRadius: 3,
-    backgroundColor: "#10b981",
-  },
-  exerciseRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  metaText: {
-    fontSize: 14,
-    color: "#6b7280",
-  },
-  metaBold: {
-    fontWeight: "600",
-    color: "#1a1a1a",
-  },
+  durationLabel: { fontSize: 14, fontWeight: "500", marginBottom: 14 },
   addButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -960,15 +879,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 8,
   },
-  addButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  footer: {
-    padding: 20,
-    borderTopWidth: 1,
-  },
+  addButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  footer: { padding: 20, borderTopWidth: 1 },
   saveButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -982,9 +894,5 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  saveButtonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "700",
-  },
+  saveButtonText: { color: "#fff", fontSize: 18, fontWeight: "700" },
 });
