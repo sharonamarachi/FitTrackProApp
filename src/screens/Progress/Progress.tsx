@@ -11,6 +11,7 @@ import {
   TextInput,
   Modal,
   Alert,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, {
@@ -24,6 +25,7 @@ import Svg, {
   LinearGradient,
   Stop,
 } from "react-native-svg";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useTheme } from "../../context/ThemeContext";
 import { supabase } from "../../api/supabaseClient";
 import { useFocusEffect } from "@react-navigation/native";
@@ -489,7 +491,7 @@ function WeightLineChart({
 }) {
   const W = CHART_WIDTH,
     H = 140;
-  const PAD = { top: 16, bottom: 28, left: 40, right: 16 };
+  const PAD = { top: 16, bottom: 28, left: 20, right: 35 };
 
   if (measurements.length < 2) {
     return (
@@ -497,7 +499,7 @@ function WeightLineChart({
         style={{ height: H, alignItems: "center", justifyContent: "center" }}
       >
         <Text style={{ color: colors.textTertiary, fontSize: 13 }}>
-          Log your weight at least twice to see a chart
+          Add at least 2 entries to see your chart
         </Text>
       </View>
     );
@@ -623,6 +625,246 @@ function WeightLineChart({
   );
 }
 
+// ─── Weight Manage Modal ──────────────────────────────────────────────────────
+
+interface WeightManageModalProps {
+  visible: boolean;
+  editing: BodyMeasurement | null;
+  colors: any;
+  isDark: boolean;
+  onClose: () => void;
+  onSave: (weightKg: number, recordedAt: string, id?: string) => Promise<void>;
+}
+
+function WeightManageModal({
+  visible,
+  editing,
+  colors,
+  isDark,
+  onClose,
+  onSave,
+}: WeightManageModalProps) {
+  const [weightInput, setWeightInput] = useState("");
+  const [date, setDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (editing) {
+      setWeightInput(String(editing.weight_kg));
+      setDate(new Date(editing.recorded_at));
+    } else {
+      setWeightInput("");
+      setDate(new Date());
+    }
+    setError("");
+    setShowDatePicker(false);
+  }, [editing, visible]);
+
+  const handleSave = async () => {
+    const parsed = parseFloat(weightInput.replace(",", "."));
+    if (isNaN(parsed) || parsed <= 0 || parsed > 500) {
+      setError("Please enter a valid weight between 1 and 500 kg.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(parsed, date.toISOString(), editing?.id);
+    } catch {
+      Alert.alert("Error", "Could not save measurement. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDateChange = (_: any, selectedDate?: Date) => {
+    if (Platform.OS !== "ios") setShowDatePicker(false);
+    if (selectedDate) setDate(selectedDate);
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={wmStyles.overlay}>
+        <TouchableOpacity
+          style={wmStyles.backdrop}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+        <View style={[wmStyles.sheet, { backgroundColor: colors.card }]}>
+          {/* Handle */}
+          <View style={[wmStyles.handle, { backgroundColor: colors.border }]} />
+
+          {/* Header */}
+          <View style={wmStyles.header}>
+            <Text style={[wmStyles.title, { color: colors.text }]}>
+              {editing ? "Edit Weight Entry" : "Log Weight"}
+            </Text>
+            <TouchableOpacity
+              onPress={onClose}
+              style={[wmStyles.closeBtn, { backgroundColor: colors.surface }]}
+            >
+              <Ionicons name="close" size={18} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Info banner */}
+          <View
+            style={[
+              wmStyles.infoBanner,
+              {
+                backgroundColor: colors.primary + "14",
+                borderColor: colors.primary + "30",
+              },
+            ]}
+          >
+            <Ionicons
+              name="information-circle-outline"
+              size={16}
+              color={colors.primary}
+            />
+            <Text
+              style={[
+                wmStyles.infoText,
+                { color: isDark ? "#93c5fd" : colors.primary },
+              ]}
+            >
+              {editing
+                ? "Correct the weight or date below, then tap Save Changes."
+                : "Log your current weight. Each entry is saved to your progress chart and history."}
+            </Text>
+          </View>
+
+          {/* Weight input */}
+          <View style={wmStyles.fieldGroup}>
+            <Text style={[wmStyles.label, { color: colors.textSecondary }]}>
+              WEIGHT (KG)
+            </Text>
+            <View
+              style={[
+                wmStyles.inputRow,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: error ? "#ef4444" : colors.border,
+                },
+              ]}
+            >
+              <Ionicons
+                name="fitness-outline"
+                size={20}
+                color={colors.textSecondary}
+              />
+              <TextInput
+                style={[wmStyles.input, { color: colors.text }]}
+                placeholder="e.g. 72.5"
+                placeholderTextColor={colors.textTertiary}
+                keyboardType="decimal-pad"
+                value={weightInput}
+                onChangeText={(t) => {
+                  setWeightInput(t);
+                  setError("");
+                }}
+                autoFocus={!editing}
+              />
+              <Text style={[wmStyles.unit, { color: colors.textSecondary }]}>
+                kg
+              </Text>
+            </View>
+            {error ? <Text style={wmStyles.errorText}>{error}</Text> : null}
+          </View>
+
+          {/* Date picker */}
+          <View style={wmStyles.fieldGroup}>
+            <Text style={[wmStyles.label, { color: colors.textSecondary }]}>
+              DATE
+            </Text>
+            <TouchableOpacity
+              style={[
+                wmStyles.dateRow,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                },
+              ]}
+              onPress={() => setShowDatePicker((v) => !v)}
+            >
+              <Ionicons
+                name="calendar-outline"
+                size={18}
+                color={colors.textSecondary}
+              />
+              <Text style={[wmStyles.dateText, { color: colors.text }]}>
+                {date.toLocaleDateString("en", {
+                  weekday: "short",
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </Text>
+              <Ionicons
+                name={showDatePicker ? "chevron-up" : "chevron-down"}
+                size={16}
+                color={colors.textTertiary}
+              />
+            </TouchableOpacity>
+
+            {showDatePicker && (
+              <View
+                style={[
+                  wmStyles.datePickerWrap,
+                  { backgroundColor: colors.surface },
+                ]}
+              >
+                <DateTimePicker
+                  value={date}
+                  mode="date"
+                  display={Platform.OS === "ios" ? "inline" : "default"}
+                  maximumDate={new Date()}
+                  onChange={handleDateChange}
+                  themeVariant={isDark ? "dark" : "light"}
+                />
+              </View>
+            )}
+          </View>
+
+          {/* Save */}
+          <TouchableOpacity
+            style={[
+              wmStyles.saveBtn,
+              { backgroundColor: colors.primary },
+              saving && { opacity: 0.6 },
+            ]}
+            onPress={handleSave}
+            disabled={saving}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="checkmark-circle" size={20} color="#fff" />
+            <Text style={wmStyles.saveBtnText}>
+              {saving ? "Saving…" : editing ? "Save Changes" : "Log Weight"}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[wmStyles.cancelBtn, { borderColor: colors.border }]}
+            onPress={onClose}
+          >
+            <Text
+              style={[wmStyles.cancelText, { color: colors.textSecondary }]}
+            >
+              Cancel
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function Progress() {
@@ -641,7 +883,11 @@ export default function Progress() {
   const [goalModalVisible, setGoalModalVisible] = useState(false);
   const [goalInput, setGoalInput] = useState(String(prefs.weeklyWorkoutGoal));
 
-  // Track whether we already fired the weekly goal notification this session
+  // ── Body weight management state ──────────────────────────────────────────
+  const [weightModalVisible, setWeightModalVisible] = useState(false);
+  const [editingMeasurement, setEditingMeasurement] =
+    useState<BodyMeasurement | null>(null);
+
   const goalNotifiedRef = useRef(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -687,7 +933,6 @@ export default function Progress() {
       setExerciseLogs(exLogsRes.data ?? []);
       setMeasurements(measRes.data ?? []);
 
-      // ── Streak-based notifications ──────────────────────────────────────
       try {
         const notifPrefs = await loadNotificationPrefs();
         const streak = computeStreak(allLogs);
@@ -703,7 +948,6 @@ export default function Progress() {
           await scheduleStreakRiskAlert(streak);
         }
 
-        // Weekly goal — check if just reached on this load
         if (!goalNotifiedRef.current && notifPrefs.weeklyGoal) {
           const now = new Date();
           const dow = now.getDay();
@@ -742,7 +986,6 @@ export default function Progress() {
     }
   }
 
-  // Reset goal-notified flag when goal changes so a new notification can fire
   useEffect(() => {
     goalNotifiedRef.current = false;
   }, [weeklyGoal]);
@@ -757,7 +1000,91 @@ export default function Progress() {
     setGoalModalVisible(false);
   };
 
-  // ── Derived stats ──────────────────────────────────────────────────────────
+  // ── Body weight handlers ──────────────────────────────────────────────────
+
+  const handleWeightSave = async (
+    weightKg: number,
+    recordedAt: string,
+    id?: string,
+  ) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not logged in");
+
+    if (id) {
+      // Edit existing entry
+      const { error } = await supabase
+        .from("body_measurements")
+        .update({ weight_kg: weightKg, recorded_at: recordedAt })
+        .eq("id", id);
+      if (error) throw error;
+      setMeasurements((prev) =>
+        prev
+          .map((m) =>
+            m.id === id
+              ? { ...m, weight_kg: weightKg, recorded_at: recordedAt }
+              : m,
+          )
+          .sort(
+            (a, b) =>
+              new Date(a.recorded_at).getTime() -
+              new Date(b.recorded_at).getTime(),
+          ),
+      );
+    } else {
+      // Insert new entry
+      const { data, error } = await supabase
+        .from("body_measurements")
+        .insert({
+          user_id: user.id,
+          weight_kg: weightKg,
+          recorded_at: recordedAt,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      if (data) {
+        setMeasurements((prev) =>
+          [...prev, data].sort(
+            (a, b) =>
+              new Date(a.recorded_at).getTime() -
+              new Date(b.recorded_at).getTime(),
+          ),
+        );
+      }
+    }
+    setWeightModalVisible(false);
+    setEditingMeasurement(null);
+  };
+
+  const handleDeleteMeasurement = (m: BodyMeasurement) => {
+    Alert.alert(
+      "Delete Entry",
+      `Remove ${m.weight_kg} kg on ${new Date(m.recorded_at).toLocaleDateString("en", { day: "numeric", month: "short", year: "numeric" })}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            const { error } = await supabase
+              .from("body_measurements")
+              .delete()
+              .eq("id", m.id);
+            if (!error) {
+              setMeasurements((prev) => prev.filter((x) => x.id !== m.id));
+            } else {
+              Alert.alert("Error", "Could not delete this entry.");
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  // ── Derived stats ─────────────────────────────────────────────────────────
+
   const streak = computeStreak(logs);
   const totalWorkouts = logs.length;
 
@@ -810,11 +1137,24 @@ export default function Progress() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
+      {/* ── Weight Modal ─────────────────────────────────────────────────── */}
+      <WeightManageModal
+        visible={weightModalVisible}
+        editing={editingMeasurement}
+        colors={colors}
+        isDark={isDark}
+        onClose={() => {
+          setWeightModalVisible(false);
+          setEditingMeasurement(null);
+        }}
+        onSave={handleWeightSave}
+      />
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
       >
-        {/* Header */}
+        {/* ── Header ──────────────────────────────────────────────────────── */}
         <View style={[styles.header, { backgroundColor: colors.card }]}>
           <View>
             <Text
@@ -844,7 +1184,7 @@ export default function Progress() {
         <Animated.View
           style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
         >
-          {/* Stat cards */}
+          {/* ── Stat cards ──────────────────────────────────────────────── */}
           <View style={styles.statsGrid}>
             {[
               {
@@ -914,7 +1254,7 @@ export default function Progress() {
             ))}
           </View>
 
-          {/* Weekly Goal */}
+          {/* ── Weekly Goal ─────────────────────────────────────────────── */}
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <View style={styles.sectionHeaderRow}>
               <View>
@@ -956,7 +1296,7 @@ export default function Progress() {
             </View>
           </View>
 
-          {/* Activity */}
+          {/* ── Activity ────────────────────────────────────────────────── */}
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -1045,7 +1385,7 @@ export default function Progress() {
             )}
           </View>
 
-          {/* Personal Records */}
+          {/* ── Personal Records ────────────────────────────────────────── */}
           <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Personal Records
@@ -1209,19 +1549,44 @@ export default function Progress() {
             )}
           </View>
 
-          {/* Body Weight */}
+          {/* ── Body Weight ─────────────────────────────────────────────── */}
           <View style={[styles.section, { backgroundColor: colors.card }]}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Body Weight
-            </Text>
-            <Text
-              style={[styles.sectionSubtitle, { color: colors.textSecondary }]}
-            >
-              {measurements.length > 0
-                ? `${measurements.length} measurements recorded`
-                : "Update your weight in Edit Profile to track changes"}
-            </Text>
+            <View style={styles.sectionHeaderRow}>
+              <View>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  Body Weight
+                </Text>
+                <Text
+                  style={[
+                    styles.sectionSubtitle,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {measurements.length > 0
+                    ? `${measurements.length} measurement${measurements.length !== 1 ? "s" : ""} recorded`
+                    : "No measurements yet"}
+                </Text>
+              </View>
+              {/* ── Add button ─────────────────────────────────────────── */}
+              <TouchableOpacity
+                style={[
+                  styles.editGoalBtn,
+                  { backgroundColor: colors.primary + "22" },
+                ]}
+                onPress={() => {
+                  setEditingMeasurement(null);
+                  setWeightModalVisible(true);
+                }}
+              >
+                <Ionicons name="add" size={16} color={colors.primary} />
+                <Text style={[styles.editGoalText, { color: colors.primary }]}>
+                  Add
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             {measurements.length === 0 ? (
+              // ── Empty state ───────────────────────────────────────────
               <View
                 style={[styles.emptySmall, { backgroundColor: colors.surface }]}
               >
@@ -1233,12 +1598,28 @@ export default function Progress() {
                     textAlign: "center",
                   }}
                 >
-                  Go to Profile → Edit Profile and save your weight to start
-                  tracking.
+                  Tap "Add" to log your first weight reading. Each entry builds
+                  your progress chart.
                 </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.editGoalBtn,
+                    { backgroundColor: colors.primary, marginTop: 4 },
+                  ]}
+                  onPress={() => {
+                    setEditingMeasurement(null);
+                    setWeightModalVisible(true);
+                  }}
+                >
+                  <Ionicons name="add" size={14} color="#fff" />
+                  <Text style={[styles.editGoalText, { color: "#fff" }]}>
+                    Log Weight Now
+                  </Text>
+                </TouchableOpacity>
               </View>
             ) : (
               <>
+                {/* ── Summary row ──────────────────────────────────────── */}
                 <View
                   style={[
                     styles.weightSummaryRow,
@@ -1332,16 +1713,183 @@ export default function Progress() {
                     </>
                   )}
                 </View>
-                <WeightLineChart
+
+                {/* ── Chart ────────────────────────────────────────────── */}
+                <WeightLineChart 
                   measurements={measurements}
                   primaryColor={colors.primary}
                   colors={colors}
+                
+                  
                 />
+
+                {/* ── History list ─────────────────────────────────────── */}
+                <View style={styles.weightHistoryHeader}>
+                  <Text
+                    style={[
+                      styles.weightHistoryTitle,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    ALL ENTRIES
+                  </Text>
+                  <Text
+                    style={[
+                      styles.weightHistoryHint,
+                      { color: colors.textTertiary },
+                    ]}
+                  >
+                    Tap ✏️ to correct a mistake
+                  </Text>
+                </View>
+
+                <View style={styles.weightList}>
+                  {[...measurements].reverse().map((m, i) => {
+                    const isLatest = i === 0;
+                    // Compare against previous entry (reversed list, so [i+1] is older)
+                    const olderEntry = [...measurements].reverse()[i + 1];
+                    const change =
+                      olderEntry != null
+                        ? m.weight_kg - olderEntry.weight_kg
+                        : null;
+
+                    return (
+                      <View
+                        key={m.id}
+                        style={[
+                          styles.weightRow,
+                          {
+                            backgroundColor: isDark
+                              ? colors.surface
+                              : "#F9FAFB",
+                            borderColor: isLatest
+                              ? colors.primary
+                              : colors.border,
+                            borderWidth: isLatest ? 1.5 : 1,
+                          },
+                        ]}
+                      >
+                        {/* Colour dot */}
+                        <View
+                          style={[
+                            styles.weightDot,
+                            {
+                              backgroundColor: isLatest
+                                ? colors.primary
+                                : colors.textTertiary,
+                            },
+                          ]}
+                        />
+
+                        {/* Main info */}
+                        <View style={{ flex: 1 }}>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 8,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.weightRowValue,
+                                { color: colors.text },
+                              ]}
+                            >
+                              {m.weight_kg} kg
+                            </Text>
+                            {isLatest && (
+                              <View
+                                style={[
+                                  styles.latestBadge,
+                                  {
+                                    backgroundColor: colors.primary + "22",
+                                  },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.latestBadgeText,
+                                    { color: colors.primary },
+                                  ]}
+                                >
+                                  Latest
+                                </Text>
+                              </View>
+                            )}
+                            {change !== null && change !== 0 && (
+                              <Text
+                                style={[
+                                  styles.weightChange,
+                                  {
+                                    color: change < 0 ? "#10b981" : "#f97316",
+                                  },
+                                ]}
+                              >
+                                {change > 0 ? "+" : ""}
+                                {change.toFixed(1)} kg
+                              </Text>
+                            )}
+                          </View>
+                          <Text
+                            style={[
+                              styles.weightRowDate,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            {new Date(m.recorded_at).toLocaleDateString("en", {
+                              weekday: "short",
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </Text>
+                        </View>
+
+                        {/* Edit button */}
+                        <TouchableOpacity
+                          style={[
+                            styles.weightActionBtn,
+                            { backgroundColor: colors.primary + "18" },
+                          ]}
+                          onPress={() => {
+                            setEditingMeasurement(m);
+                            setWeightModalVisible(true);
+                          }}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
+                        >
+                          <Ionicons
+                            name="create-outline"
+                            size={16}
+                            color={colors.primary}
+                          />
+                        </TouchableOpacity>
+
+                        {/* Delete button */}
+                        <TouchableOpacity
+                          style={[
+                            styles.weightActionBtn,
+                            { backgroundColor: "#ef444418" },
+                          ]}
+                          onPress={() => handleDeleteMeasurement(m)}
+                          hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                        >
+                          <Ionicons
+                            name="trash-outline"
+                            size={16}
+                            color="#ef4444"
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </View>
               </>
             )}
           </View>
 
-          {/* Milestones */}
+          {/* ── Milestones ──────────────────────────────────────────────── */}
           {totalWorkouts > 0 && (
             <View style={[styles.section, { backgroundColor: colors.card }]}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -1354,7 +1902,11 @@ export default function Progress() {
                     label: "First Workout",
                     unlocked: totalWorkouts >= 1,
                   },
-                  { emoji: "🔥", label: "3-Day Streak", unlocked: streak >= 3 },
+                  {
+                    emoji: "🔥",
+                    label: "3-Day Streak",
+                    unlocked: streak >= 3,
+                  },
                   {
                     emoji: "⚡",
                     label: "10 Workouts",
@@ -1419,7 +1971,7 @@ export default function Progress() {
         </Animated.View>
       </ScrollView>
 
-      {/* Goal modal */}
+      {/* ── Weekly Goal Modal ────────────────────────────────────────────── */}
       <Modal visible={goalModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
@@ -1472,6 +2024,115 @@ export default function Progress() {
     </View>
   );
 }
+
+// ─── Weight Modal Styles ──────────────────────────────────────────────────────
+
+const wmStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  sheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 12,
+    paddingHorizontal: 24,
+    paddingBottom: 44,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 20,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  title: { fontSize: 20, fontWeight: "800" },
+  closeBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  infoBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 20,
+  },
+  infoText: { flex: 1, fontSize: 12, lineHeight: 18 },
+  fieldGroup: { marginBottom: 16 },
+  label: {
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  input: {
+    flex: 1,
+    fontSize: 24,
+    fontWeight: "700",
+  },
+  unit: { fontSize: 14, fontWeight: "600" },
+  errorText: { color: "#ef4444", fontSize: 12, marginTop: 4, marginLeft: 4 },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  dateText: { flex: 1, fontSize: 15, fontWeight: "500" },
+  datePickerWrap: {
+    borderRadius: 14,
+    marginTop: 8,
+    overflow: "hidden",
+    padding: 8,
+  },
+  saveBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: 18,
+    borderRadius: 18,
+    marginBottom: 10,
+  },
+  saveBtnText: { color: "#fff", fontSize: 17, fontWeight: "800" },
+  cancelBtn: {
+    padding: 15,
+    borderRadius: 16,
+    alignItems: "center",
+    borderWidth: 1.5,
+  },
+  cancelText: { fontSize: 15, fontWeight: "600" },
+});
+
+// ─── Main Styles ──────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
@@ -1596,6 +2257,7 @@ const styles = StyleSheet.create({
   prHistoryBar: { flex: 1, height: 6, borderRadius: 3, overflow: "hidden" },
   prHistoryBarFill: { height: "100%", borderRadius: 3 },
 
+  // ── Body weight ──────────────────────────────────────────────────────────
   weightSummaryRow: {
     flexDirection: "row",
     borderRadius: 16,
@@ -1608,6 +2270,53 @@ const styles = StyleSheet.create({
   weightSummaryValue: { fontSize: 22, fontWeight: "800" },
   weightSummaryLabel: { fontSize: 11, fontWeight: "600" },
   weightDivider: { width: 1, height: 36 },
+
+  weightHistoryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  weightHistoryTitle: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  weightHistoryHint: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  weightList: { gap: 8 },
+  weightRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 14,
+    padding: 12,
+  },
+  weightDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
+  weightRowValue: { fontSize: 16, fontWeight: "700" },
+  latestBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  latestBadgeText: { fontSize: 10, fontWeight: "700" },
+  weightChange: { fontSize: 12, fontWeight: "600" },
+  weightRowDate: { fontSize: 12, marginTop: 2 },
+  weightActionBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
   emptySmall: {
     borderRadius: 16,
