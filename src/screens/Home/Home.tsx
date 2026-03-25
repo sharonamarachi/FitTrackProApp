@@ -23,6 +23,7 @@ import {
   type WorkoutOption,
 } from "../../services/workoutRecommendations";
 import { usePreferences } from "@/context/UserPreferencesContext";
+import StreakCalendar from "../../components/StreakCalendar";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -208,6 +209,9 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // ── NEW: Streak calendar state ─────────────────────────────────────────────
+  const [calendarVisible, setCalendarVisible] = useState(false);
+
   // Animations
   const headerAnim = useRef(new Animated.Value(0)).current;
   const statsAnim = useRef(new Animated.Value(0)).current;
@@ -239,7 +243,6 @@ export default function HomeScreen() {
         .eq("user_id", user.id)
         .single();
 
-      // Prefer username → email prefix
       setUserName(
         profile?.username ||
         user.email?.split("@")[0] ||
@@ -257,7 +260,6 @@ export default function HomeScreen() {
         .order("completed_at", { ascending: false });
       setLogs(logData ?? []);
 
-      // Recent workouts (library) — for display cards
       const { data: workoutData } = await supabase
         .from("workouts")
         .select("id, title, category, exercises")
@@ -267,7 +269,6 @@ export default function HomeScreen() {
         .limit(6);
       setRecentWorkouts(workoutData ?? []);
 
-      // All workouts — for recommendation engine
       const { data: allWorkoutData } = await supabase
         .from("workouts")
         .select("id, title, category, exercises")
@@ -276,7 +277,6 @@ export default function HomeScreen() {
       const allW: WorkoutOption[] = allWorkoutData ?? [];
       setAllWorkouts(allW);
 
-      // Compute recommendation from logs + full library
       const reco = getWorkoutRecommendation(
         (logData ?? []) as RecoLog[],
         allW
@@ -295,7 +295,6 @@ export default function HomeScreen() {
     loadData(true);
   };
 
-  // Derived stats
   const { current: currentStreak, longest: longestStreak } = calcStreak(logs);
   const lastSevenDays = getLastSevenDays(logs);
   const thisWeekCount = lastSevenDays.filter(Boolean).length;
@@ -314,6 +313,15 @@ export default function HomeScreen() {
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
+
+        {/* ── Streak Calendar Modal ─────────────────────────────────────── */}
+        <StreakCalendar
+          visible={calendarVisible}
+          onClose={() => setCalendarVisible(false)}
+          logs={logs}
+          currentStreak={currentStreak}
+          longestStreak={longestStreak}
+        />
 
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -342,11 +350,18 @@ export default function HomeScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={[styles.greetingEmoji]}>{emoji}</Text>
                 <Text style={[styles.greetingText, { color: colors.text }]}>{greeting}</Text>
-                <Text style={[styles.greetingSubtext, { color: colors.textSecondary }]}>
-                  {currentStreak > 0
-                    ? `${currentStreak}-day streak 🔥 Keep it up!`
-                    : "Ready to crush today's workout?"}
-                </Text>
+                {/* ── Tappable streak text in greeting ─────────────────────── */}
+                <TouchableOpacity
+                  onPress={() => setCalendarVisible(true)}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                >
+                  <Text style={[styles.greetingSubtext, { color: colors.textSecondary }]}>
+                    {currentStreak > 0
+                      ? `${currentStreak}-day streak 🔥  Tap to view activity`
+                      : "Ready to crush today's workout?"}
+                  </Text>
+                </TouchableOpacity>
               </View>
               <TouchableOpacity
                 style={[styles.profileBtn, { backgroundColor: isDark ? colors.surface : colors.card }]}
@@ -389,7 +404,7 @@ export default function HomeScreen() {
               },
             ]}
           >
-            {/* Big stat card */}
+            {/* ── Big stat card — streak side is tappable ──────────────────── */}
             <View style={[styles.bigStatCard, { backgroundColor: colors.primary }]}>
               <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
                 <Defs>
@@ -401,8 +416,12 @@ export default function HomeScreen() {
               </Svg>
 
               <View style={styles.bigStatContent}>
-                {/* Left: streak */}
-                <View style={styles.bigStatLeft}>
+                {/* ── LEFT: streak — tappable → opens calendar ─────────────── */}
+                <TouchableOpacity
+                  style={[styles.bigStatLeft, styles.streakTapArea]}
+                  onPress={() => setCalendarVisible(true)}
+                  activeOpacity={0.7}
+                >
                   <View style={styles.streakBadge}>
                     <Text style={styles.streakFire}>🔥</Text>
                     <Text style={styles.streakNumber}>{currentStreak}</Text>
@@ -411,11 +430,16 @@ export default function HomeScreen() {
                   <Text style={styles.bigStatSublabel}>
                     Best: {longestStreak} days
                   </Text>
-                </View>
+                  {/* Small "tap" hint */}
+                  <View style={styles.tapHint}>
+                    <Ionicons name="calendar-outline" size={11} color="rgba(255,255,255,0.7)" />
+                    <Text style={styles.tapHintText}>View calendar</Text>
+                  </View>
+                </TouchableOpacity>
 
                 <View style={styles.bigStatDivider} />
 
-                {/* Right: this week */}
+                {/* RIGHT: this week */}
                 <View style={styles.bigStatRight}>
                   <View style={styles.weekDots}>
                     {DAY_LABELS.map((day, i) => (
@@ -571,9 +595,7 @@ export default function HomeScreen() {
                       }
                       activeOpacity={0.8}
                     >
-                      {/* Top accent bar */}
                       <View style={[styles.workoutCardAccent, { backgroundColor: color }]} />
-
                       <View style={styles.workoutCardBody}>
                         <View style={[styles.workoutCardIcon, { backgroundColor: color + "20" }]}>
                           <Ionicons
@@ -590,7 +612,6 @@ export default function HomeScreen() {
                           {w.category ? ` · ${w.category}` : ""}
                         </Text>
                       </View>
-
                       <View style={[styles.workoutCardFooter, { borderTopColor: colors.border }]}>
                         <Text style={[styles.workoutCardStart, { color: color }]}>
                           Start →
@@ -603,7 +624,7 @@ export default function HomeScreen() {
             </Animated.View>
           )}
 
-          {/* ── Empty state if nothing yet ─────────────────────────────────── */}
+          {/* ── Empty state ────────────────────────────────────────────────── */}
           {!loading && logs.length === 0 && recentWorkouts.length === 0 && (
             <View style={styles.emptyState}>
               <Text style={{ fontSize: 56 }}>💪</Text>
@@ -613,7 +634,6 @@ export default function HomeScreen() {
               <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
                 Create your first workout and track your progress here.
               </Text>
-              {/* ── FIX: navigate via WorkoutStack tab ── */}
               <TouchableOpacity
                 style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
                 onPress={() =>
@@ -642,7 +662,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { paddingBottom: 32 },
 
-  // Header
   headerSection: {
     paddingTop: 68,
     paddingHorizontal: 20,
@@ -664,7 +683,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
 
-  // Big stat card
   bigStatCard: {
     marginHorizontal: 20,
     marginTop: 16,
@@ -679,6 +697,24 @@ const styles = StyleSheet.create({
   },
   bigStatContent: { flexDirection: "row", alignItems: "center" },
   bigStatLeft: { flex: 1, alignItems: "center", gap: 4 },
+  // ── NEW: make streak side feel tappable ────────────────────────────────────
+  streakTapArea: {
+    borderRadius: 16,
+    padding: 8,
+    marginLeft: -8,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  tapHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 6,
+  },
+  tapHintText: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.65)',
+    fontWeight: '600',
+  },
   bigStatRight: { flex: 1, alignItems: "center", gap: 6 },
   bigStatDivider: { width: 1, height: 64, backgroundColor: "rgba(255,255,255,0.25)", marginHorizontal: 16 },
   streakBadge: { flexDirection: "row", alignItems: "center", gap: 4 },
@@ -691,7 +727,6 @@ const styles = StyleSheet.create({
   weekDot: { width: 10, height: 10, borderRadius: 5 },
   weekDayLabel: { fontSize: 9, color: "rgba(255,255,255,0.6)", fontWeight: "600" },
 
-  // Mini stats
   miniStatsRow: {
     flexDirection: "row",
     paddingHorizontal: 20,
@@ -705,7 +740,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
   },
 
-  // Section headers
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -717,7 +751,6 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 20, fontWeight: "800" },
   seeAll: { fontSize: 14, fontWeight: "700" },
 
-  // Recent activity
   recentList: { paddingHorizontal: 20, gap: 10 },
   recentCard: {
     flexDirection: "row",
@@ -734,7 +767,6 @@ const styles = StyleSheet.create({
   recentMeta: { fontSize: 13, fontWeight: "500" },
   recentCheckBadge: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
 
-  // Workout cards
   workoutCardScroll: { paddingHorizontal: 20, gap: 12, paddingRight: 20 },
   workoutCard: {
     width: 156,
@@ -753,7 +785,6 @@ const styles = StyleSheet.create({
   },
   workoutCardStart: { fontSize: 13, fontWeight: "700" },
 
-  // Empty state
   emptyState: {
     alignItems: "center",
     paddingTop: 48,
@@ -835,11 +866,9 @@ function RecommendationCard({
           },
         ]}
       >
-        {/* Subtle left accent stripe */}
         <View style={[recoStyles.accentStripe, { backgroundColor: workoutColor }]} />
 
         <View style={recoStyles.inner}>
-          {/* Top row: confidence badge + label */}
           <View style={recoStyles.topRow}>
             <View style={[recoStyles.confBadge, { backgroundColor: conf.color + "20" }]}>
               <Ionicons name={conf.icon} size={11} color={conf.color} />
@@ -852,7 +881,6 @@ function RecommendationCard({
             </Text>
           </View>
 
-          {/* Middle: icon + workout name */}
           <View style={recoStyles.middleRow}>
             <View style={[recoStyles.workoutIcon, { backgroundColor: workoutColor + "20" }]}>
               <Ionicons name={workoutIcon as any} size={24} color={workoutColor} />
@@ -870,7 +898,6 @@ function RecommendationCard({
             </View>
           </View>
 
-          {/* Bottom: quick meta pills */}
           <View style={recoStyles.metaRow}>
             <View style={[recoStyles.metaPill, { backgroundColor: isDark ? colors.surface : "#F3F4F6" }]}>
               <Ionicons name="list-outline" size={11} color={colors.textSecondary} />
@@ -914,15 +941,8 @@ const recoStyles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
   },
-  accentStripe: {
-    width: 4,
-    alignSelf: "stretch",
-  },
-  inner: {
-    flex: 1,
-    padding: 16,
-    gap: 12,
-  },
+  accentStripe: { width: 4, alignSelf: "stretch" },
+  inner: { flex: 1, padding: 16, gap: 12 },
   topRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -936,54 +956,21 @@ const recoStyles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 20,
   },
-  confText: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
-  suggestedLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  middleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
+  confText: { fontSize: 11, fontWeight: "700", letterSpacing: 0.3 },
+  suggestedLabel: { fontSize: 12, fontWeight: "500" },
+  middleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   workoutIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
+    width: 48, height: 48, borderRadius: 14,
+    alignItems: "center", justifyContent: "center", flexShrink: 0,
   },
-  workoutInfo: {
-    flex: 1,
-    gap: 3,
-  },
-  workoutName: {
-    fontSize: 17,
-    fontWeight: "800",
-    lineHeight: 22,
-  },
-  reason: {
-    fontSize: 13,
-    lineHeight: 17,
-  },
+  workoutInfo: { flex: 1, gap: 3 },
+  workoutName: { fontSize: 17, fontWeight: "800", lineHeight: 22 },
+  reason: { fontSize: 13, lineHeight: 17 },
   goBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: "center", justifyContent: "center", flexShrink: 0,
   },
-  metaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
+  metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   metaPill: {
     flexDirection: "row",
     alignItems: "center",
@@ -992,8 +979,5 @@ const recoStyles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 12,
   },
-  metaPillText: {
-    fontSize: 11,
-    fontWeight: "500",
-  },
+  metaPillText: { fontSize: 11, fontWeight: "500" },
 });
