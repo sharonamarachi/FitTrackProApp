@@ -102,6 +102,15 @@ function formatDuration(seconds: number): string {
   return `${m}m ${s}s`;
 }
 
+// ── NEW: derive which exercises matched the query (for the match badge) ────────
+function matchingExercises(w: Workout, query: string): string[] {
+  if (!query.trim()) return [];
+  const q = query.trim().toLowerCase();
+  return (w.exercises ?? [])
+    .filter((e: any) => e.name?.toLowerCase().includes(q))
+    .map((e: any) => e.name as string);
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function WorkoutLibrary({ navigation }: Props) {
@@ -241,12 +250,11 @@ export default function WorkoutLibrary({ navigation }: Props) {
 
   const filterOptions = useMemo(() => buildFilterOptions(workouts), [workouts]);
 
-  // ── FIX: Handle __fav__ filter properly inside filteredWorkouts ──────────────
+  // ── Filtering: title + tags + category + EXERCISE NAMES ───────────────────
   const filteredWorkouts = useMemo(() => {
     let list = workouts;
 
     if (activeFilter === "__fav__") {
-      // Show only favourited workouts
       list = list.filter((w) => w.is_favorited);
     } else if (activeFilter !== "all") {
       list = list.filter((w) => workoutMatchesFilter(w, activeFilter));
@@ -255,14 +263,30 @@ export default function WorkoutLibrary({ navigation }: Props) {
     const q = searchQuery.trim().toLowerCase();
     if (q) {
       list = list.filter((w) => {
-        const inTitle = w.title.toLowerCase().includes(q);
-        const inTags = (w.tags ?? []).some((t) => t.toLowerCase().includes(q));
+        const inTitle    = w.title.toLowerCase().includes(q);
+        const inTags     = (w.tags ?? []).some((t) => t.toLowerCase().includes(q));
         const inCategory = (w.category ?? "").toLowerCase().includes(q);
-        return inTitle || inTags || inCategory;
+        // ── NEW: search exercise names inside each workout ─────────────
+        const inExercises = (w.exercises ?? []).some(
+          (e: any) => e.name?.toLowerCase().includes(q),
+        );
+        return inTitle || inTags || inCategory || inExercises;
       });
     }
     return list;
   }, [workouts, activeFilter, searchQuery]);
+
+  // ── Detect whether the query is matching via exercise names ───────────────
+  const isExerciseSearch = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return false;
+    return filteredWorkouts.some((w) => {
+      const inTitle    = w.title.toLowerCase().includes(q);
+      const inTags     = (w.tags ?? []).some((t) => t.toLowerCase().includes(q));
+      const inCategory = (w.category ?? "").toLowerCase().includes(q);
+      return !inTitle && !inTags && !inCategory; // only exercise matched
+    });
+  }, [filteredWorkouts, searchQuery]);
 
   const sections = useMemo(() => {
     const pinned = filteredWorkouts.filter((w) => w.is_pinned);
@@ -341,7 +365,6 @@ export default function WorkoutLibrary({ navigation }: Props) {
           </View>
 
           <View style={styles.headerActions}>
-            {/* Favourites filter toggle */}
             <TouchableOpacity
               style={[
                 styles.iconBtn,
@@ -387,7 +410,7 @@ export default function WorkoutLibrary({ navigation }: Props) {
           </View>
         </View>
 
-        {/* Animated search bar */}
+        {/* ── Animated search bar ──────────────────────────────────────────── */}
         <Animated.View
           style={[
             styles.searchBarWrap,
@@ -407,7 +430,7 @@ export default function WorkoutLibrary({ navigation }: Props) {
             <Ionicons name="search" size={18} color={colors.textTertiary} />
             <TextInput
               style={[styles.searchInput, { color: colors.text }]}
-              placeholder="Search by name or tag…"
+              placeholder="Search workouts or exercises…"
               placeholderTextColor={colors.textTertiary}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -430,7 +453,27 @@ export default function WorkoutLibrary({ navigation }: Props) {
           </View>
         </Animated.View>
 
-        {/* Filter pills */}
+        {/* ── Exercise search hint banner ──────────────────────────────────── */}
+        {searchQuery.trim().length > 0 && isExerciseSearch && (
+          <View
+            style={[
+              styles.exerciseSearchBanner,
+              {
+                backgroundColor: colors.primary + "14",
+                borderColor: colors.primary + "30",
+              },
+            ]}
+          >
+            <Ionicons name="barbell-outline" size={13} color={colors.primary} />
+            <Text
+              style={[styles.exerciseSearchText, { color: colors.primary }]}
+            >
+              Showing workouts that contain the exercise "{searchQuery.trim()}"
+            </Text>
+          </View>
+        )}
+
+        {/* ── Filter pills ─────────────────────────────────────────────────── */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -548,6 +591,7 @@ export default function WorkoutLibrary({ navigation }: Props) {
               colors={colors}
               theme={theme}
               isToggling={togglingId === item.id}
+              searchQuery={searchQuery}
               onPress={() =>
                 navigation.navigate("WorkoutDetails", { workoutId: item.id })
               }
@@ -607,6 +651,7 @@ interface CardProps {
   colors: any;
   theme: string;
   isToggling: boolean;
+  searchQuery: string;  // ← NEW
   onPress: () => void;
   onDelete: () => void;
   onTogglePin: () => void;
@@ -618,6 +663,7 @@ function WorkoutCard({
   colors,
   theme,
   isToggling,
+  searchQuery,
   onPress,
   onDelete,
   onTogglePin,
@@ -655,6 +701,15 @@ function WorkoutCard({
     return sum;
   }, 0);
   const estimatedMins = Math.round(totalSeconds / 60);
+
+  const matchedExercises = matchingExercises(workout, searchQuery);
+  const q = searchQuery.trim().toLowerCase();
+  const titleOrTagMatch =
+    !q ||
+    workout.title.toLowerCase().includes(q) ||
+    (workout.tags ?? []).some((t) => t.toLowerCase().includes(q)) ||
+    (workout.category ?? "").toLowerCase().includes(q);
+  const showExerciseMatch = matchedExercises.length > 0 && !titleOrTagMatch;
 
   return (
     <TouchableOpacity
@@ -748,6 +803,7 @@ function WorkoutCard({
         </View>
       </View>
 
+      {/* ── Tags row ──────────────────────────────────────────────────────── */}
       {visibleTags.length > 0 && (
         <View style={styles.tagRow}>
           {visibleTags.map((tag) => {
@@ -772,6 +828,32 @@ function WorkoutCard({
         </View>
       )}
 
+      {/* ──Matched exercise badge ──────────────────────────────────── */}
+      {showExerciseMatch && (
+        <View
+          style={[
+            styles.exerciseMatchBanner,
+            {
+              backgroundColor: colors.primary + (isDark ? "20" : "12"),
+              borderColor: colors.primary + "30",
+            },
+          ]}
+        >
+          <Ionicons name="barbell-outline" size={12} color={colors.primary} />
+          <Text
+            style={[styles.exerciseMatchText, { color: colors.primary }]}
+            numberOfLines={1}
+          >
+            Contains:{" "}
+            {matchedExercises.slice(0, 3).join(", ")}
+            {matchedExercises.length > 3
+              ? ` +${matchedExercises.length - 3} more`
+              : ""}
+          </Text>
+        </View>
+      )}
+
+      {/* Exercise preview list ────────────────────────────────────────── */}
       {previewExercises.length > 0 && (
         <View
           style={[
@@ -779,32 +861,51 @@ function WorkoutCard({
             { backgroundColor: isDark ? colors.surface : "#F8F9FA" },
           ]}
         >
-          {previewExercises.map((ex) => (
-            <View key={ex.id} style={styles.previewRow}>
-              <View
-                style={[
-                  styles.previewDot,
-                  { backgroundColor: hasTimer ? "#f97316" : colors.primary },
-                ]}
-              />
-              <Text
-                style={[styles.previewExName, { color: colors.text }]}
-                numberOfLines={1}
-              >
-                {ex.name}
-              </Text>
-              <Text
-                style={[styles.previewExMeta, { color: colors.textTertiary }]}
-              >
-                {ex.duration
-                  ? formatDuration(ex.duration)
-                  : ex.sets && ex.reps
+          {previewExercises.map((ex) => {
+            // Highlight exercise name if it matches the query
+            const isMatch =
+              q && ex.name?.toLowerCase().includes(q);
+            return (
+              <View key={ex.id} style={styles.previewRow}>
+                <View
+                  style={[
+                    styles.previewDot,
+                    {
+                      backgroundColor: isMatch
+                        ? colors.primary
+                        : hasTimer
+                        ? "#f97316"
+                        : colors.primary,
+                    },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.previewExName,
+                    { color: colors.text },
+                    isMatch && {
+                      color: colors.primary,
+                      fontWeight: "700",
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {ex.name}
+                  {isMatch && " ✓"}
+                </Text>
+                <Text
+                  style={[styles.previewExMeta, { color: colors.textTertiary }]}
+                >
+                  {ex.duration
+                    ? formatDuration(ex.duration)
+                    : ex.sets && ex.reps
                     ? `${ex.sets}×${ex.reps}`
                     : ""}
-                {ex.weight ? ` · ${ex.weight}kg` : ""}
-              </Text>
-            </View>
-          ))}
+                  {ex.weight ? ` · ${ex.weight}kg` : ""}
+                </Text>
+              </View>
+            );
+          })}
           {remainingCount > 0 && (
             <Text style={[styles.previewMore, { color: colors.primary }]}>
               +{remainingCount} more exercise{remainingCount > 1 ? "s" : ""}
@@ -813,6 +914,7 @@ function WorkoutCard({
         </View>
       )}
 
+      {/* ── Card footer ──────────────────────────────────────────────────── */}
       <View style={[styles.cardFooter, { borderTopColor: colors.divider }]}>
         <View style={styles.metaRow}>
           <Ionicons name="list-outline" size={13} color={colors.textTertiary} />
@@ -894,8 +996,8 @@ function EmptyState({
           isFavFilter
             ? "heart-outline"
             : hasFilter
-              ? "search-outline"
-              : "barbell-outline"
+            ? "search-outline"
+            : "barbell-outline"
         }
         size={64}
         color={colors.textTertiary}
@@ -904,15 +1006,17 @@ function EmptyState({
         {isFavFilter
           ? "No favourites yet"
           : hasFilter
-            ? "No matching workouts"
-            : "No workouts yet"}
+          ? "No matching workouts"
+          : "No workouts yet"}
       </Text>
       <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
         {isFavFilter
           ? "Tap the ♥ icon on any workout to add it here"
           : hasFilter
-            ? "Try a different search or filter"
-            : "Tap the + button to create your first workout"}
+          ? query
+            ? `No workouts or exercises matching "${query}"`
+            : "Try a different filter"
+          : "Tap the + button to create your first workout"}
       </Text>
       {hasFilter && (
         <TouchableOpacity
@@ -989,6 +1093,25 @@ const styles = StyleSheet.create({
     height: 48,
   },
   searchInput: { flex: 1, fontSize: 16, paddingVertical: 0, fontWeight: "400" },
+
+  // ── NEW: exercise search banner ────────────────────────────────────────────
+  exerciseSearchBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginHorizontal: 20,
+    marginBottom: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  exerciseSearchText: {
+    fontSize: 12,
+    fontWeight: "600",
+    flex: 1,
+  },
+
   filterScrollView: { paddingHorizontal: 16 },
   filterContainer: { gap: 8, paddingRight: 16, paddingBottom: 2 },
   filterPill: {
@@ -1066,6 +1189,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   tagText: { fontSize: 11, fontWeight: "500" },
+
+  // ── NEW: exercise match banner on card ────────────────────────────────────
+  exerciseMatchBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 10,
+  },
+  exerciseMatchText: {
+    fontSize: 11,
+    fontWeight: "600",
+    flex: 1,
+  },
+
   previewContainer: {
     borderRadius: 12,
     paddingHorizontal: 12,
