@@ -1,0 +1,19 @@
+{
+  "name": "fittrack-backend",
+  "version": "1.0.0",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "youtube-transcript-plus": "^1.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "@types/express": "^5.0.6",
+    "@types/node": "^20.0.0"
+  }
+}
