@@ -4,15 +4,15 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ActivityIndicator, View, StyleSheet, Text } from "react-native";
 
-import Login from "./mobile-app/src/screens/Auth/Login";
-import SignUp from "./mobile-app/src/screens/Auth/SignUp";
-import TabNavigator from "./mobile-app/src/navigation/TabNavigator";
-import { RootStackParamList } from "./mobile-app/src/navigation/types";
-import EditProfile from "./mobile-app/src/screens/Profile/EditProfile";
-import SettingsStack from "./mobile-app/src/navigation/SettingsStack";
-import RecentlyDeleted from "./mobile-app/src/screens/Profile/RecentlyDeleted";
-import { ThemeProvider } from "./mobile-app/src/context/ThemeContext";
-import { PreferencesProvider } from "./mobile-app/src/context/UserPreferencesContext";
+import Login from "./src/screens/Auth/Login";
+import SignUp from "./src/screens/Auth/SignUp";
+import TabNavigator from "./src/navigation/TabNavigator";
+import { RootStackParamList } from "./src/navigation/types";
+import EditProfile from "./src/screens/Profile/EditProfile";
+import SettingsStack from "./src/navigation/SettingsStack";
+import RecentlyDeleted from "./src/screens/Profile/RecentlyDeleted";
+import { ThemeProvider } from "./src/context/ThemeContext";
+import { PreferencesProvider } from "./src/context/UserPreferencesContext";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
