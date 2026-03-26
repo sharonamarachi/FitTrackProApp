@@ -25,7 +25,7 @@ import {
 // iOS Simulator: http://localhost:4000
 // Android Emulator: http://10.0.2.2:4000
 // Physical device: http://<your-machine-ip>:4000
-const BACKEND_URL = "http://localhost:4000";
+const BACKEND_URL = "process.env.EXPO_PUBLIC_API_URL";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface TranscriptSegment {

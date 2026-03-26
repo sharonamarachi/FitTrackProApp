@@ -18,7 +18,7 @@ import {
   isWorkoutTranscript,
 } from "../../services/TranscriptNLPService";
 
-const BACKEND_URL = "http://192.168.1.100:4000";
+const BACKEND_URL = process.env.EXPO_PUBLIC_API_URL;
 
 type Step =
   | "idle"
