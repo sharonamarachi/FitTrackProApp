@@ -263,12 +263,12 @@ export default function WorkoutLibrary({ navigation }: Props) {
     const q = searchQuery.trim().toLowerCase();
     if (q) {
       list = list.filter((w) => {
-        const inTitle    = w.title.toLowerCase().includes(q);
-        const inTags     = (w.tags ?? []).some((t) => t.toLowerCase().includes(q));
+        const inTitle = w.title.toLowerCase().includes(q);
+        const inTags = (w.tags ?? []).some((t) => t.toLowerCase().includes(q));
         const inCategory = (w.category ?? "").toLowerCase().includes(q);
         // ── NEW: search exercise names inside each workout ─────────────
-        const inExercises = (w.exercises ?? []).some(
-          (e: any) => e.name?.toLowerCase().includes(q),
+        const inExercises = (w.exercises ?? []).some((e: any) =>
+          e.name?.toLowerCase().includes(q),
         );
         return inTitle || inTags || inCategory || inExercises;
       });
@@ -281,8 +281,8 @@ export default function WorkoutLibrary({ navigation }: Props) {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return false;
     return filteredWorkouts.some((w) => {
-      const inTitle    = w.title.toLowerCase().includes(q);
-      const inTags     = (w.tags ?? []).some((t) => t.toLowerCase().includes(q));
+      const inTitle = w.title.toLowerCase().includes(q);
+      const inTags = (w.tags ?? []).some((t) => t.toLowerCase().includes(q));
       const inCategory = (w.category ?? "").toLowerCase().includes(q);
       return !inTitle && !inTags && !inCategory; // only exercise matched
     });
@@ -651,7 +651,7 @@ interface CardProps {
   colors: any;
   theme: string;
   isToggling: boolean;
-  searchQuery: string;  // ← NEW
+  searchQuery: string; // ← NEW
   onPress: () => void;
   onDelete: () => void;
   onTogglePin: () => void;
@@ -844,8 +844,7 @@ function WorkoutCard({
             style={[styles.exerciseMatchText, { color: colors.primary }]}
             numberOfLines={1}
           >
-            Contains:{" "}
-            {matchedExercises.slice(0, 3).join(", ")}
+            Contains: {matchedExercises.slice(0, 3).join(", ")}
             {matchedExercises.length > 3
               ? ` +${matchedExercises.length - 3} more`
               : ""}
@@ -863,8 +862,7 @@ function WorkoutCard({
         >
           {previewExercises.map((ex) => {
             // Highlight exercise name if it matches the query
-            const isMatch =
-              q && ex.name?.toLowerCase().includes(q);
+            const isMatch = q && ex.name?.toLowerCase().includes(q);
             return (
               <View key={ex.id} style={styles.previewRow}>
                 <View
@@ -874,8 +872,8 @@ function WorkoutCard({
                       backgroundColor: isMatch
                         ? colors.primary
                         : hasTimer
-                        ? "#f97316"
-                        : colors.primary,
+                          ? "#f97316"
+                          : colors.primary,
                     },
                   ]}
                 />
@@ -899,8 +897,8 @@ function WorkoutCard({
                   {ex.duration
                     ? formatDuration(ex.duration)
                     : ex.sets && ex.reps
-                    ? `${ex.sets}×${ex.reps}`
-                    : ""}
+                      ? `${ex.sets}×${ex.reps}`
+                      : ""}
                   {ex.weight ? ` · ${ex.weight}kg` : ""}
                 </Text>
               </View>
@@ -996,8 +994,8 @@ function EmptyState({
           isFavFilter
             ? "heart-outline"
             : hasFilter
-            ? "search-outline"
-            : "barbell-outline"
+              ? "search-outline"
+              : "barbell-outline"
         }
         size={64}
         color={colors.textTertiary}
@@ -1006,17 +1004,17 @@ function EmptyState({
         {isFavFilter
           ? "No favourites yet"
           : hasFilter
-          ? "No matching workouts"
-          : "No workouts yet"}
+            ? "No matching workouts"
+            : "No workouts yet"}
       </Text>
       <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
         {isFavFilter
           ? "Tap the ♥ icon on any workout to add it here"
           : hasFilter
-          ? query
-            ? `No workouts or exercises matching "${query}"`
-            : "Try a different filter"
-          : "Tap the + button to create your first workout"}
+            ? query
+              ? `No workouts or exercises matching "${query}"`
+              : "Try a different filter"
+            : "Tap the + button to create your first workout"}
       </Text>
       {hasFilter && (
         <TouchableOpacity

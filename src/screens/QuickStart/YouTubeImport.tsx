@@ -1,5 +1,5 @@
 // src/screens/QuickStart/YouTubeImport.tsx
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -12,20 +12,20 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../context/ThemeContext';
-import Header from '../../components/Header';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "../../context/ThemeContext";
+import Header from "../../components/Header";
 import {
   parseTranscript,
   isWorkoutTranscript,
-} from '../../services/transcriptNLPService';
+} from "../../services/TranscriptNLPService";
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 // iOS Simulator: http://localhost:4000
 // Android Emulator: http://10.0.2.2:4000
 // Physical device: http://<your-machine-ip>:4000
-const BACKEND_URL = 'http://localhost:4000';
+const BACKEND_URL = "http://localhost:4000";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface TranscriptSegment {
@@ -43,31 +43,31 @@ interface TranscriptResult {
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function YouTubeImport({ navigation }: any) {
   const { colors, theme } = useTheme();
-  const isDark = theme === 'dark';
+  const isDark = theme === "dark";
 
-  const [url, setUrl]               = useState('');
-  const [isLoading, setIsLoading]   = useState(false);
-  const [status, setStatus]         = useState('');
-  const [result, setResult]         = useState<TranscriptResult | null>(null);
-  const [viewMode, setViewMode]     = useState<'full' | 'segments'>('full');
+  const [url, setUrl] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [status, setStatus] = useState("");
+  const [result, setResult] = useState<TranscriptResult | null>(null);
+  const [viewMode, setViewMode] = useState<"full" | "segments">("full");
 
   // ── Fetch transcript ──────────────────────────────────────────────────────
 
   const handleFetch = async () => {
     const trimmed = url.trim();
     if (!trimmed) {
-      Alert.alert('No URL', 'Paste a YouTube URL first.');
+      Alert.alert("No URL", "Paste a YouTube URL first.");
       return;
     }
 
     setIsLoading(true);
-    setStatus('Fetching transcript…');
+    setStatus("Fetching transcript…");
     setResult(null);
 
     try {
       const response = await fetch(`${BACKEND_URL}/transcript`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: trimmed }),
       });
 
@@ -79,18 +79,18 @@ export default function YouTubeImport({ navigation }: any) {
 
       setResult(data as TranscriptResult);
     } catch (err: any) {
-      const msg: string = err.message ?? 'Unknown error';
-      if (msg.includes('Network request failed') || msg.includes('fetch')) {
+      const msg: string = err.message ?? "Unknown error";
+      if (msg.includes("Network request failed") || msg.includes("fetch")) {
         Alert.alert(
-          'Cannot reach backend',
-          'Make sure the server is running:\n\n  npx ts-node src/backend/server.ts\n\nThen try again.',
+          "Cannot reach backend",
+          "Make sure the server is running:\n\n  npx ts-node src/backend/server.ts\n\nThen try again.",
         );
       } else {
-        Alert.alert('Failed', msg);
+        Alert.alert("Failed", msg);
       }
     } finally {
       setIsLoading(false);
-      setStatus('');
+      setStatus("");
     }
   };
 
@@ -101,40 +101,40 @@ export default function YouTubeImport({ navigation }: any) {
 
     if (!isWorkoutTranscript(result.transcript)) {
       Alert.alert(
-        'Not a workout video',
+        "Not a workout video",
         "This video doesn't seem to contain workout instructions. Try a different video.",
       );
       return;
     }
 
     setIsLoading(true);
-    setStatus('Extracting exercises with AI…');
+    setStatus("Extracting exercises with AI…");
 
     try {
       const parsed = await parseTranscript(result.transcript);
 
       if (parsed.exercises.length === 0) {
         Alert.alert(
-          'No exercises found',
-          'Try a video with clearer exercise instructions.',
+          "No exercises found",
+          "Try a video with clearer exercise instructions.",
         );
         return;
       }
 
-      navigation.navigate('CreateWorkoutTemplate', {
+      navigation.navigate("CreateWorkoutTemplate", {
         importedData: {
           title: parsed.title,
           category: parsed.category,
           exercises: parsed.exercises.map(({ confidence, ...ex }) => ex),
           tags: parsed.tags,
         },
-        importSource: 'youtube',
+        importSource: "youtube",
       });
     } catch (err: any) {
-      Alert.alert('Extraction failed', err.message ?? 'Unknown error');
+      Alert.alert("Extraction failed", err.message ?? "Unknown error");
     } finally {
       setIsLoading(false);
-      setStatus('');
+      setStatus("");
     }
   };
 
@@ -143,7 +143,7 @@ export default function YouTubeImport({ navigation }: any) {
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
     const s = Math.floor(secs % 60);
-    return `${m}:${s.toString().padStart(2, '0')}`;
+    return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
   const wordCount = result?.transcript.split(/\s+/).length ?? 0;
@@ -153,9 +153,9 @@ export default function YouTubeImport({ navigation }: any) {
   return (
     <KeyboardAvoidingView
       style={[styles.root, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
       <Header
         title="YouTube Import"
@@ -169,7 +169,12 @@ export default function YouTubeImport({ navigation }: any) {
         showsVerticalScrollIndicator={false}
       >
         {/* ── URL input ────────────────────────────────────────────────── */}
-        <View style={[styles.inputCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View
+          style={[
+            styles.inputCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
           <View style={styles.inputRow}>
             <Ionicons name="logo-youtube" size={22} color="#FF0000" />
             <TextInput
@@ -177,14 +182,26 @@ export default function YouTubeImport({ navigation }: any) {
               placeholder="https://youtube.com/watch?v=..."
               placeholderTextColor={colors.textTertiary}
               value={url}
-              onChangeText={(t) => { setUrl(t); setResult(null); }}
+              onChangeText={(t) => {
+                setUrl(t);
+                setResult(null);
+              }}
               autoCapitalize="none"
               autoCorrect={false}
               editable={!isLoading}
             />
             {url.length > 0 && !isLoading && (
-              <TouchableOpacity onPress={() => { setUrl(''); setResult(null); }}>
-                <Ionicons name="close-circle" size={20} color={colors.textTertiary} />
+              <TouchableOpacity
+                onPress={() => {
+                  setUrl("");
+                  setResult(null);
+                }}
+              >
+                <Ionicons
+                  name="close-circle"
+                  size={20}
+                  color={colors.textTertiary}
+                />
               </TouchableOpacity>
             )}
           </View>
@@ -194,10 +211,16 @@ export default function YouTubeImport({ navigation }: any) {
         {!result && !isLoading && (
           <TouchableOpacity
             style={[styles.exampleBtn, { borderColor: colors.border }]}
-            onPress={() => setUrl('https://www.youtube.com/watch?v=ml6cT4AZdqI')}
+            onPress={() =>
+              setUrl("https://www.youtube.com/watch?v=ml6cT4AZdqI")
+            }
             activeOpacity={0.7}
           >
-            <Ionicons name="flask-outline" size={14} color={colors.textSecondary} />
+            <Ionicons
+              name="flask-outline"
+              size={14}
+              color={colors.textSecondary}
+            />
             <Text style={[styles.exampleText, { color: colors.textSecondary }]}>
               Try an example workout video
             </Text>
@@ -237,29 +260,47 @@ export default function YouTubeImport({ navigation }: any) {
                 <Text style={[styles.statValue, { color: colors.primary }]}>
                   {result.segments.length}
                 </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>segments</Text>
+                <Text
+                  style={[styles.statLabel, { color: colors.textSecondary }]}
+                >
+                  segments
+                </Text>
               </View>
-              <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+              <View
+                style={[styles.statDivider, { backgroundColor: colors.border }]}
+              />
               <View style={styles.stat}>
                 <Text style={[styles.statValue, { color: colors.primary }]}>
                   {wordCount.toLocaleString()}
                 </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>words</Text>
+                <Text
+                  style={[styles.statLabel, { color: colors.textSecondary }]}
+                >
+                  words
+                </Text>
               </View>
-              <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+              <View
+                style={[styles.statDivider, { backgroundColor: colors.border }]}
+              />
               <View style={styles.stat}>
                 <Text style={[styles.statValue, { color: colors.primary }]}>
                   {result.segments.length > 0
-                    ? formatTime(result.segments[result.segments.length - 1].offset)
-                    : '—'}
+                    ? formatTime(
+                        result.segments[result.segments.length - 1].offset,
+                      )
+                    : "—"}
                 </Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>length</Text>
+                <Text
+                  style={[styles.statLabel, { color: colors.textSecondary }]}
+                >
+                  length
+                </Text>
               </View>
             </View>
 
             {/* View mode toggle */}
             <View style={[styles.toggleRow, { backgroundColor: colors.card }]}>
-              {(['full', 'segments'] as const).map((mode) => (
+              {(["full", "segments"] as const).map((mode) => (
                 <TouchableOpacity
                   key={mode}
                   style={[
@@ -269,19 +310,29 @@ export default function YouTubeImport({ navigation }: any) {
                   onPress={() => setViewMode(mode)}
                   activeOpacity={0.8}
                 >
-                  <Text style={[
-                    styles.toggleBtnText,
-                    { color: viewMode === mode ? '#fff' : colors.textSecondary },
-                  ]}>
-                    {mode === 'full' ? 'Full Text' : 'Timed Segments'}
+                  <Text
+                    style={[
+                      styles.toggleBtnText,
+                      {
+                        color:
+                          viewMode === mode ? "#fff" : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    {mode === "full" ? "Full Text" : "Timed Segments"}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
             {/* Transcript content */}
-            <View style={[styles.transcriptCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              {viewMode === 'full' ? (
+            <View
+              style={[
+                styles.transcriptCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              {viewMode === "full" ? (
                 <Text style={[styles.fullText, { color: colors.text }]}>
                   {result.transcript}
                 </Text>
@@ -297,7 +348,9 @@ export default function YouTubeImport({ navigation }: any) {
                       },
                     ]}
                   >
-                    <Text style={[styles.segmentTime, { color: colors.primary }]}>
+                    <Text
+                      style={[styles.segmentTime, { color: colors.primary }]}
+                    >
                       {formatTime(seg.offset)}
                     </Text>
                     <Text style={[styles.segmentText, { color: colors.text }]}>
@@ -328,10 +381,18 @@ export default function YouTubeImport({ navigation }: any) {
                 <>
                   <Ionicons name="flash" size={22} color="#fff" />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.extractBtnTitle}>Extract Workout with AI</Text>
-                    <Text style={styles.extractBtnSub}>Powered by Groq · Llama 3</Text>
+                    <Text style={styles.extractBtnTitle}>
+                      Extract Workout with AI
+                    </Text>
+                    <Text style={styles.extractBtnSub}>
+                      Powered by Groq · Llama 3
+                    </Text>
                   </View>
-                  <Ionicons name="arrow-forward" size={20} color="rgba(255,255,255,0.8)" />
+                  <Ionicons
+                    name="arrow-forward"
+                    size={20}
+                    color="rgba(255,255,255,0.8)"
+                  />
                 </>
               )}
             </TouchableOpacity>
@@ -346,7 +407,7 @@ export default function YouTubeImport({ navigation }: any) {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root:   { flex: 1 },
+  root: { flex: 1 },
   scroll: { padding: 20, paddingBottom: 40 },
 
   inputCard: {
@@ -356,8 +417,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
   input: {
@@ -367,48 +428,48 @@ const styles = StyleSheet.create({
   },
 
   exampleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 6,
     marginBottom: 14,
   },
-  exampleText: { fontSize: 12, fontWeight: '600' },
+  exampleText: { fontSize: 12, fontWeight: "600" },
 
   fetchBtn: {
     height: 54,
     borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 20,
   },
   fetchBtnText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     marginLeft: 8,
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  row: { flexDirection: "row", alignItems: "center", gap: 8 },
 
   statsBar: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderRadius: 14,
     padding: 14,
     marginBottom: 12,
-    alignItems: 'center',
-    justifyContent: 'space-around',
+    alignItems: "center",
+    justifyContent: "space-around",
   },
-  stat:        { alignItems: 'center', gap: 2 },
-  statValue:   { fontSize: 20, fontWeight: '800' },
-  statLabel:   { fontSize: 11, fontWeight: '600' },
+  stat: { alignItems: "center", gap: 2 },
+  statValue: { fontSize: 20, fontWeight: "800" },
+  statLabel: { fontSize: 11, fontWeight: "600" },
   statDivider: { width: 1, height: 32 },
 
   toggleRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderRadius: 12,
     padding: 4,
     marginBottom: 12,
@@ -418,9 +479,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: "center",
   },
-  toggleBtnText: { fontSize: 13, fontWeight: '700' },
+  toggleBtnText: { fontSize: 13, fontWeight: "700" },
 
   transcriptCard: {
     borderRadius: 16,
@@ -434,13 +495,13 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   segmentRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     paddingVertical: 10,
   },
   segmentTime: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     width: 42,
     paddingTop: 2,
   },
@@ -451,17 +512,17 @@ const styles = StyleSheet.create({
   },
 
   extractBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderRadius: 18,
     padding: 18,
     gap: 14,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.18,
     shadowRadius: 12,
     elevation: 6,
   },
-  extractBtnTitle: { color: '#fff', fontSize: 16, fontWeight: '800' },
-  extractBtnSub:   { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
+  extractBtnTitle: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  extractBtnSub: { color: "rgba(255,255,255,0.8)", fontSize: 12, marginTop: 2 },
 });

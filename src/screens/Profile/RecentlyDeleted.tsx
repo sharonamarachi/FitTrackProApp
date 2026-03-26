@@ -61,7 +61,10 @@ export default function RecentlyDeleted({ navigation }: Props) {
       const { data, error } = await fetchDeletedWorkouts(user.id);
 
       if (error) {
-        Alert.alert("Error", "Failed to load deleted workouts: " + error.message);
+        Alert.alert(
+          "Error",
+          "Failed to load deleted workouts: " + error.message,
+        );
       } else if (data) {
         setDeletedWorkouts(data);
       } else {
@@ -87,11 +90,15 @@ export default function RecentlyDeleted({ navigation }: Props) {
             } = await supabase.auth.getUser();
 
             if (user) {
-              const { error } = await restoreWorkout(user.id, workout.id, workout);
+              const { error } = await restoreWorkout(
+                user.id,
+                workout.id,
+                workout,
+              );
               if (error) {
                 Alert.alert(
                   "Error",
-                  "Failed to restore workout: " + error.message
+                  "Failed to restore workout: " + error.message,
                 );
               } else {
                 Alert.alert("Success", "Workout restored!");
@@ -119,7 +126,10 @@ export default function RecentlyDeleted({ navigation }: Props) {
             try {
               const { error } = await permanentlyDeleteWorkout(workout.id);
               if (error) {
-                Alert.alert("Error", "Failed to delete workout: " + error.message);
+                Alert.alert(
+                  "Error",
+                  "Failed to delete workout: " + error.message,
+                );
               } else {
                 Alert.alert("Success", "Workout permanently deleted");
                 loadDeletedWorkouts();
@@ -129,7 +139,7 @@ export default function RecentlyDeleted({ navigation }: Props) {
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -162,7 +172,10 @@ export default function RecentlyDeleted({ navigation }: Props) {
       />
 
       {/* Header */}
-        < Header title="Recently Deleted" subtitle="Items will be permanently deleted in 30 days" />
+      <Header
+        title="Recently Deleted"
+        subtitle="Items will be permanently deleted in 30 days"
+      />
 
       {/* Deleted Workouts List */}
       <FlatList
@@ -220,7 +233,9 @@ export default function RecentlyDeleted({ navigation }: Props) {
                     size={14}
                     color={colors.textTertiary}
                   />
-                  <Text style={[styles.metaText, { color: colors.textTertiary }]}>
+                  <Text
+                    style={[styles.metaText, { color: colors.textTertiary }]}
+                  >
                     {item.category}
                   </Text>
                 </View>

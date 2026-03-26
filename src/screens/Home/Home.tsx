@@ -21,7 +21,7 @@ import {
   type Recommendation,
   type WorkoutLog as RecoLog,
   type WorkoutOption,
-} from "../../services/workoutRecommendations";
+} from "../../services/WorkoutRecommendations";
 import { usePreferences } from "@/context/UserPreferencesContext";
 import StreakCalendar from "../../components/StreakCalendar";
 
