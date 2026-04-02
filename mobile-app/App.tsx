@@ -6,6 +6,8 @@ import { ActivityIndicator, View, StyleSheet, Text } from "react-native";
 
 import Login from "./src/screens/Auth/Login";
 import SignUp from "./src/screens/Auth/SignUp";
+import Onboarding from "./src/screens/Auth/Onboarding";
+
 import TabNavigator from "./src/navigation/TabNavigator";
 import { RootStackParamList } from "./src/navigation/types";
 import EditProfile from "./src/screens/Profile/EditProfile";
@@ -59,6 +61,11 @@ export default function App() {
           >
             <Stack.Screen name="Login" component={Login} />
             <Stack.Screen name="SignUp" component={SignUp} />
+            <Stack.Screen
+              name="Onboarding"
+              component={Onboarding}
+              options={{ animation: "fade", gestureEnabled: false }}
+            />
             <Stack.Screen name="Home" component={TabNavigator} />
             <Stack.Screen
               name="SettingsStack"

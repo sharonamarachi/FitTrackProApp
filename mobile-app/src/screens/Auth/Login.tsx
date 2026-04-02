@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, TextInput, Alert, StyleSheet, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { supabase } from '../../api/supabaseClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { checkOnboardingStatus } from '../Auth/Onboarding';
 import { LoginScreenProps } from '../../navigation/types';
 
 
@@ -55,10 +55,15 @@ export default function Login({ navigation }: LoginScreenProps) {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      setSuccessMessage('Login successful! Redirecting to dashboard...');
-      setTimeout(() => {
-        navigation.replace('Home');
-      }, 1500);
+      const needsOnboarding = await checkOnboardingStatus();
+      if (needsOnboarding) {
+        navigation.replace('Onboarding');
+      } else {
+        setSuccessMessage('Login successful! Redirecting...');
+        setTimeout(() => {
+          navigation.replace('Home');
+        }, 800);
+      }
     }
   };
 

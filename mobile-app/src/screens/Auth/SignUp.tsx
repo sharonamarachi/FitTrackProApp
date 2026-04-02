@@ -6,6 +6,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../api/supabaseClient';
 import { SignUpScreenProps } from '../../navigation/types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 
 export default function SignUp({ navigation }: SignUpScreenProps) {
   const [email, setEmail] = useState('');
@@ -69,7 +71,18 @@ export default function SignUp({ navigation }: SignUpScreenProps) {
           console.error('Error creating profile:', profileError);
           setErrors({ general: 'Profile creation failed. Please contact support.' });
         } else {
-          setSuccessMessage('Account created! Please login with your new credentials.');
+          // Auto-sign-in the new user and go straight to onboarding
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+            email: email.trim().toLowerCase(),
+            password: password.trim(),
+          });
+          if (!signInError && signInData?.session?.access_token) {
+            await AsyncStorage.setItem('userToken', signInData.session.access_token);
+            navigation.replace('Onboarding');
+          } else {
+            // Fallback: ask them to log in manually (email confirmation may be required)
+            setSuccessMessage('Account created! Please log in to continue.');
+          }
         }
       }
     } catch (error: any) {
