@@ -10,6 +10,7 @@ import {
   YoutubeTranscriptTooManyRequestError,
   YoutubeTranscriptInvalidVideoIdError,
 } from 'youtube-transcript-plus';
+import { ProxyAgent } from 'undici';
 
 const app = express();
 app.use(cors());
@@ -20,6 +21,105 @@ const transcriptCache = new InMemoryCache(30 * 60 * 1000); // 30 mins
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36';
 
+// Build Webshare residential proxies from environment variables
+function getWebshareProxies(): string[] {
+  const baseUser = process.env.WEBSHARE_USER;
+  const password = process.env.WEBSHARE_PASS ;
+  const host = process.env.WEBSHARE_HOST;
+  const port = process.env.WEBSHARE_PORT ;
+  const count = parseInt(process.env.WEBSHARE_PROXY_COUNT, 10);
+
+  if (!password) {
+    console.warn('⚠️ WEBSHARE_PASS not set. YouTube transcripts may fail.');
+  }
+
+  const proxies: string[] = [];
+  for (let i = 1; i <= count; i++) {
+    proxies.push(`http://${baseUser}-IE-${i}:${password}@${host}:${port}`);
+  }
+  return proxies;
+}
+
+const WEBSHARE_PROXIES = getWebshareProxies();
+
+console.log(`✅ Loaded ${WEBSHARE_PROXIES.length} Webshare proxies`);
+
+async function fetchTranscriptWithProxyRetry(
+  url: string,
+  maxRetries: number = 5,
+) {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const proxyUrl = WEBSHARE_PROXIES[attempt % WEBSHARE_PROXIES.length];
+
+    try {
+      console.log(
+        `🌐 Attempt ${attempt + 1}/${maxRetries} with proxy: ${WEBSHARE_PROXIES.indexOf(proxyUrl) + 1}/${WEBSHARE_PROXIES.length}`,
+      );
+
+      return await YoutubeTranscript.fetchTranscript(url, {
+        lang: 'en',
+        userAgent: USER_AGENT,
+        cache: transcriptCache,
+        videoFetch: async ({ url, lang, userAgent }) => {
+          const dispatcher = new ProxyAgent(proxyUrl);
+          return fetch(url, {
+            dispatcher,
+            headers: {
+              'User-Agent': userAgent || USER_AGENT,
+              ...(lang ? { 'Accept-Language': lang } : {}),
+              Cookie: 'CONSENT=YES+1; SOCS=CAI',
+              Accept:
+                'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            },
+          } as any);
+        },
+        playerFetch: async ({ url, method, body, headers, lang, userAgent }) => {
+          const dispatcher = new ProxyAgent(proxyUrl);
+          return fetch(url, {
+            dispatcher,
+            method,
+            body: body as BodyInit | null | undefined,
+            headers: {
+              ...(headers as Record<string, string>),
+              'User-Agent': userAgent || USER_AGENT,
+              ...(lang ? { 'Accept-Language': lang } : {}),
+              Cookie: 'CONSENT=YES+1; SOCS=CAI',
+            },
+          } as any);
+        },
+        transcriptFetch: async ({ url, lang, userAgent }) => {
+          const dispatcher = new ProxyAgent(proxyUrl);
+          return fetch(url, {
+            dispatcher,
+            headers: {
+              'User-Agent': userAgent || USER_AGENT,
+              ...(lang ? { 'Accept-Language': lang } : {}),
+              Cookie: 'CONSENT=YES+1; SOCS=CAI',
+              Accept: '*/*',
+            },
+          } as any);
+        },
+      });
+    } catch (err) {
+      lastError = err as Error;
+      if (err instanceof YoutubeTranscriptTooManyRequestError) {
+        if (attempt < maxRetries - 1) {
+          console.log(
+            `⏳ Rate limited. Retrying with different proxy (attempt ${attempt + 1}/${maxRetries})`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          continue;
+        }
+      }
+      throw err;
+    }
+  }
+
+  throw lastError;
+}
+
 app.post('/transcript', async (req, res) => {
   const { url } = req.body;
 
@@ -28,11 +128,7 @@ app.post('/transcript', async (req, res) => {
   }
 
   try {
-    const segments = await YoutubeTranscript.fetchTranscript(url, {
-      lang: 'en',
-      userAgent: USER_AGENT,
-      cache: transcriptCache,
-    });
+    const segments = await fetchTranscriptWithProxyRetry(url);
 
     if (!segments || segments.length === 0) {
       return res.status(404).json({
