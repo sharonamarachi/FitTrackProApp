@@ -63,43 +63,58 @@ async function fetchTranscriptWithProxyRetry(
         userAgent: USER_AGENT,
         cache: transcriptCache,
         videoFetch: async ({ url, lang, userAgent }) => {
-          const dispatcher = new ProxyAgent(proxyUrl);
-          return fetch(url, {
-            dispatcher,
-            headers: {
-              'User-Agent': userAgent || USER_AGENT,
-              ...(lang ? { 'Accept-Language': lang } : {}),
-              Cookie: 'CONSENT=YES+1; SOCS=CAI',
-              Accept:
-                'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            },
-          } as any);
+          try {
+            const dispatcher = new ProxyAgent(proxyUrl);
+            return fetch(url, {
+              dispatcher,
+              headers: {
+                'User-Agent': userAgent || USER_AGENT,
+                ...(lang ? { 'Accept-Language': lang } : {}),
+                Cookie: 'CONSENT=YES+1; SOCS=CAI',
+                Accept:
+                  'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+              },
+            } as any);
+          } catch (e) {
+            console.error(`❌ videoFetch error:`, e instanceof Error ? e.message : e);
+            throw e;
+          }
         },
         playerFetch: async ({ url, method, body, headers, lang, userAgent }) => {
-          const dispatcher = new ProxyAgent(proxyUrl);
-          return fetch(url, {
-            dispatcher,
-            method,
-            body: body as BodyInit | null | undefined,
-            headers: {
-              ...(headers as Record<string, string>),
-              'User-Agent': userAgent || USER_AGENT,
-              ...(lang ? { 'Accept-Language': lang } : {}),
-              Cookie: 'CONSENT=YES+1; SOCS=CAI',
-            },
-          } as any);
+          try {
+            const dispatcher = new ProxyAgent(proxyUrl);
+            return fetch(url, {
+              dispatcher,
+              method,
+              body: body as BodyInit | null | undefined,
+              headers: {
+                ...(headers as Record<string, string>),
+                'User-Agent': userAgent || USER_AGENT,
+                ...(lang ? { 'Accept-Language': lang } : {}),
+                Cookie: 'CONSENT=YES+1; SOCS=CAI',
+              },
+            } as any);
+          } catch (e) {
+            console.error(`❌ playerFetch error:`, e instanceof Error ? e.message : e);
+            throw e;
+          }
         },
         transcriptFetch: async ({ url, lang, userAgent }) => {
-          const dispatcher = new ProxyAgent(proxyUrl);
-          return fetch(url, {
-            dispatcher,
-            headers: {
-              'User-Agent': userAgent || USER_AGENT,
-              ...(lang ? { 'Accept-Language': lang } : {}),
-              Cookie: 'CONSENT=YES+1; SOCS=CAI',
-              Accept: '*/*',
-            },
-          } as any);
+          try {
+            const dispatcher = new ProxyAgent(proxyUrl);
+            return fetch(url, {
+              dispatcher,
+              headers: {
+                'User-Agent': userAgent || USER_AGENT,
+                ...(lang ? { 'Accept-Language': lang } : {}),
+                Cookie: 'CONSENT=YES+1; SOCS=CAI',
+                Accept: '*/*',
+              },
+            } as any);
+          } catch (e) {
+            console.error(`❌ transcriptFetch error:`, e instanceof Error ? e.message : e);
+            throw e;
+          }
         },
       });
     } catch (err) {
