@@ -1,5 +1,4 @@
-import express, { Request, Response } from 'express';
-import 'dotenv/config';
+import express from 'express';
 import cors from 'cors';
 import {
   YoutubeTranscript,
@@ -11,7 +10,7 @@ import {
   YoutubeTranscriptTooManyRequestError,
   YoutubeTranscriptInvalidVideoIdError,
 } from 'youtube-transcript-plus';
-import { ProxyAgent } from 'undici';
+import { ProxyAgent, setGlobalDispatcher } from 'undici';
 
 const app = express();
 app.use(cors());
@@ -57,10 +56,7 @@ const WEBSHARE_PROXIES = getWebshareProxies();
 console.log('WEBSHARE_USER:', process.env.WEBSHARE_USER ?? 'missing');
 console.log('WEBSHARE_HOST:', process.env.WEBSHARE_HOST ?? 'missing');
 console.log('WEBSHARE_PORT:', process.env.WEBSHARE_PORT ?? 'missing');
-console.log(
-  'WEBSHARE_PROXY_COUNT:',
-  process.env.WEBSHARE_PROXY_COUNT ?? 'missing',
-);
+console.log('WEBSHARE_PROXY_COUNT:', process.env.WEBSHARE_PROXY_COUNT ?? 'missing');
 console.log(`✅ Loaded ${WEBSHARE_PROXIES.length} Webshare proxies`);
 
 async function fetchTranscriptWithProxyRetry(
@@ -71,7 +67,7 @@ async function fetchTranscriptWithProxyRetry(
     throw new Error('No Webshare proxies were generated. Check env vars.');
   }
 
-  let lastError: unknown = null;
+  let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const proxyIndex = attempt % WEBSHARE_PROXIES.length;
@@ -82,16 +78,18 @@ async function fetchTranscriptWithProxyRetry(
         `🌐 Attempt ${attempt + 1}/${maxRetries} with proxy ${proxyIndex + 1}/${WEBSHARE_PROXIES.length}`,
       );
 
-      return await YoutubeTranscript.fetchTranscript(url, {
+      // Set proxy globally for this attempt
+      setGlobalDispatcher(new ProxyAgent(proxyUrl));
+
+      const segments = await YoutubeTranscript.fetchTranscript(url, {
         lang: 'en',
         userAgent: USER_AGENT,
         cache: transcriptCache,
 
         videoFetch: async ({ url, lang, userAgent }) => {
-          const dispatcher = new ProxyAgent(proxyUrl);
+          console.log('🎬 videoFetch', url);
 
           return fetch(url, {
-            dispatcher,
             headers: {
               'User-Agent': userAgent || USER_AGENT,
               ...(lang ? { 'Accept-Language': lang } : {}),
@@ -99,14 +97,13 @@ async function fetchTranscriptWithProxyRetry(
               Accept:
                 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             },
-          } as any);
+          });
         },
 
         playerFetch: async ({ url, method, body, headers, lang, userAgent }) => {
-          const dispatcher = new ProxyAgent(proxyUrl);
+          console.log('🎮 playerFetch', url);
 
           return fetch(url, {
-            dispatcher,
             method,
             body: body as BodyInit | null | undefined,
             headers: {
@@ -115,39 +112,42 @@ async function fetchTranscriptWithProxyRetry(
               ...(lang ? { 'Accept-Language': lang } : {}),
               Cookie: 'CONSENT=YES+1; SOCS=CAI',
             },
-          } as any);
+          });
         },
 
         transcriptFetch: async ({ url, lang, userAgent }) => {
-          const dispatcher = new ProxyAgent(proxyUrl);
+          console.log('📝 transcriptFetch', url);
 
           return fetch(url, {
-            dispatcher,
             headers: {
               'User-Agent': userAgent || USER_AGENT,
               ...(lang ? { 'Accept-Language': lang } : {}),
               Cookie: 'CONSENT=YES+1; SOCS=CAI',
               Accept: '*/*',
             },
-          } as any);
+          });
         },
       });
+
+      return segments;
     } catch (err: any) {
       lastError = err;
+
       console.error(`❌ Attempt ${attempt + 1} failed:`, err?.message);
       console.error(`❌ Cause:`, err?.cause);
 
-      if (
-        err instanceof YoutubeTranscriptTooManyRequestError &&
-        attempt < maxRetries - 1
-      ) {
-        console.log('⏳ Rate limited. Retrying with another proxy...');
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        continue;
+      if (err instanceof YoutubeTranscriptTooManyRequestError) {
+        if (attempt < maxRetries - 1) {
+          console.log(
+            `⏳ Rate limited. Retrying with next proxy (${attempt + 2}/${maxRetries})`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          continue;
+        }
       }
 
       if (attempt < maxRetries - 1) {
-        console.log('🔁 Retrying after failure...');
+        console.log(`🔁 Retrying with next proxy...`);
         await new Promise((resolve) => setTimeout(resolve, 1000));
         continue;
       }
@@ -159,8 +159,8 @@ async function fetchTranscriptWithProxyRetry(
   throw lastError;
 }
 
-app.post('/transcript', async (req: Request, res: Response) => {
-  const { url } = req.body as { url?: string };
+app.post('/transcript', async (req, res) => {
+  const { url } = req.body;
 
   console.log('📥 Incoming request:', url);
 
@@ -196,55 +196,56 @@ app.post('/transcript', async (req: Request, res: Response) => {
       })),
     });
   } catch (err: unknown) {
+    console.error('[/transcript] Raw error:', err);
+
     const error = err as any;
+    if (error?.cause) {
+      console.error('[/transcript] Cause:', error.cause);
+    }
 
-    console.error('[/transcript] Raw error:', error);
-    console.error('[/transcript] Cause:', error?.cause);
-
-    if (error instanceof YoutubeTranscriptDisabledError) {
+    if (err instanceof YoutubeTranscriptDisabledError) {
       return res.status(422).json({
         error: 'Captions are disabled for this video.',
       });
     }
 
-    if (error instanceof YoutubeTranscriptNotAvailableLanguageError) {
+    if (err instanceof YoutubeTranscriptNotAvailableLanguageError) {
       return res.status(422).json({
         error: 'Transcript not available in English. Try another video.',
       });
     }
 
-    if (error instanceof YoutubeTranscriptNotAvailableError) {
+    if (err instanceof YoutubeTranscriptNotAvailableError) {
       return res.status(404).json({
         error: 'No transcript found. Make sure the video has captions enabled.',
       });
     }
 
-    if (error instanceof YoutubeTranscriptTooManyRequestError) {
+    if (err instanceof YoutubeTranscriptTooManyRequestError) {
       return res.status(429).json({
         error: 'Rate limited by YouTube. Wait a moment and try again.',
       });
     }
 
     if (
-      error instanceof YoutubeTranscriptVideoUnavailableError ||
-      error instanceof YoutubeTranscriptInvalidVideoIdError
+      err instanceof YoutubeTranscriptVideoUnavailableError ||
+      err instanceof YoutubeTranscriptInvalidVideoIdError
     ) {
       return res.status(404).json({
         error: 'Video is unavailable or has been removed.',
       });
     }
 
-    const msg = error instanceof Error ? error.message : 'Unknown error';
-
+    const msg = err instanceof Error ? err.message : 'Unknown error';
     return res.status(500).json({
       error: `Failed to fetch transcript. ${msg}`,
-      cause: error?.cause?.message ?? null,
+      cause: error?.cause?.message || null,
     });
   }
 });
 
-app.get('/health', (_req: Request, res: Response) => {
-  return res.json({ status: 'ok' });
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok' });
 });
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;
