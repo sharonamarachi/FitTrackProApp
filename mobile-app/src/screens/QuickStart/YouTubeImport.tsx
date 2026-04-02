@@ -25,7 +25,7 @@ import {
 // iOS Simulator: http://localhost:4000
 // Android Emulator: http://10.0.2.2:4000
 // Physical device: http://<your-machine-ip>:4000
-const BACKEND_URL = "process.env.EXPO_PUBLIC_API_URL";
+const BACKEND_URL = process.env.EXPO_PUBLIC_API_URL;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface TranscriptSegment {
@@ -83,7 +83,7 @@ export default function YouTubeImport({ navigation }: any) {
       if (msg.includes("Network request failed") || msg.includes("fetch")) {
         Alert.alert(
           "Cannot reach backend",
-          "Make sure the server is running:\n\n  npx ts-node src/backend/server.ts\n\nThen try again.",
+          "The app couldn't connect to the server. Please try again in a moment.",
         );
       } else {
         Alert.alert("Failed", msg);
