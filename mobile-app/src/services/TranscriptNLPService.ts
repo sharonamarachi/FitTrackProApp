@@ -22,17 +22,33 @@ export interface ParseResult {
 
 export function isWorkoutTranscript(text: string): boolean {
   const lower = text.toLowerCase();
+
   const workoutSignals = [
-    'exercise','workout','reps','sets','seconds','rest','core','abs',
-    'plank','squat','push','pull','jump','crunch','raise','curl',
-    'press','lift','breathe','engage','muscle','burn','rounds',
+    "exercise",
+    "workout",
+    "reps",
+    "sets",
+    "seconds",
+    "rest",
+    "plank",
+    "squat",
+    "squats",
+    "jump",
+    "jumps",
+    "crunch",
+    "high knees",
+    "toe touches",
+    "walkouts",
+    "lunges",
+    "burpees",
+    "mountain climbers",
+    "fast feet",
+    "power jacks",
   ];
-  const musicSignals = [
-    '[music]','[applause]','cherry lips','dance floor','sugar how',
-  ];
-  const signalCount = workoutSignals.filter(w => lower.includes(w)).length;
-  const musicCount  = musicSignals.filter(w => lower.includes(w)).length;
-  return signalCount >= 3 && musicCount === 0;
+
+  const signalCount = workoutSignals.filter((w) => lower.includes(w)).length;
+
+  return signalCount >= 3;
 }
 
 function titleCase(str: string): string {

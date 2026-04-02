@@ -100,11 +100,7 @@ export default function YouTubeImport({ navigation }: any) {
     if (!result) return;
 
     if (!isWorkoutTranscript(result.transcript)) {
-      Alert.alert(
-        "Not a workout video",
-        "This video doesn't seem to contain workout instructions. Try a different video.",
-      );
-      return;
+      const shouldContinue = true; // or use Alert with Continue option
     }
 
     setIsLoading(true);
