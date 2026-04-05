@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_API_URL;
 
 type Step =
   | "idle"
+  | "checking"
   | "picked"
   | "uploading"
   | "transcribing"
@@ -45,12 +46,43 @@ export default function VideoImport({ navigation }: any) {
   const [progress, setProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [ffmpegAvailable, setFfmpegAvailable] = useState<boolean | null>(null);
+
+  // ── Check ffmpeg availability on mount ────────────────────────────────────
+  useEffect(() => {
+    checkFfmpeg();
+  }, []);
+
+  const checkFfmpeg = async () => {
+    if (!BACKEND_URL) {
+      setFfmpegAvailable(false);
+      setErrorMessage("EXPO_PUBLIC_API_URL is not set in your .env file.");
+      return;
+    }
+    try {
+      const res = await fetch(`${BACKEND_URL}/check-ffmpeg`);
+      const data = await res.json();
+      setFfmpegAvailable(data.available);
+      if (!data.available) {
+        setErrorMessage(
+          "ffmpeg is not installed on the backend server.\n\n" +
+            "macOS:  brew install ffmpeg\n" +
+            "Linux:  sudo apt install ffmpeg\n\n" +
+            "Restart the backend server after installing.",
+        );
+      }
+    } catch {
+      // Backend not reachable — don't block the UI, just warn
+      setFfmpegAvailable(null);
+    }
+  };
 
   const formatSize = (bytes: number) => {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  // ── Pick video file ───────────────────────────────────────────────────────
   const handlePickVideo = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -59,13 +91,20 @@ export default function VideoImport({ navigation }: any) {
       });
 
       if (result.canceled || !result.assets?.[0]) return;
-
       const asset = result.assets[0];
+
+      if (asset.size && asset.size > 500 * 1024 * 1024) {
+        Alert.alert(
+          "File Too Large",
+          `This video is ${formatSize(asset.size)}. Max supported size is 500 MB.`,
+        );
+        return;
+      }
 
       if (asset.size && asset.size > 200 * 1024 * 1024) {
         Alert.alert(
-          "Large File",
-          `This video is ${formatSize(asset.size)}. Processing may take a few minutes. Continue?`,
+          "Large File Warning",
+          `This video is ${formatSize(asset.size)}. Processing may take several minutes. Continue?`,
           [
             { text: "Cancel", style: "cancel" },
             {
@@ -96,13 +135,21 @@ export default function VideoImport({ navigation }: any) {
     }
   };
 
+  // ── Process video ─────────────────────────────────────────────────────────
   const handleProcess = async () => {
     if (!pickedFile) return;
+    if (!BACKEND_URL) {
+      Alert.alert(
+        "Setup Error",
+        "EXPO_PUBLIC_API_URL is not configured in your .env file.",
+      );
+      return;
+    }
 
     try {
-      // ── Step 1: Upload & extract audio ───────────────────────────────────
+      // Step 1: Upload video
       setStep("uploading");
-      setProgress(10);
+      setProgress(15);
       setStatusMessage("Uploading video to local server...");
 
       const formData = new FormData();
@@ -112,7 +159,7 @@ export default function VideoImport({ navigation }: any) {
         type: pickedFile.mimeType,
       } as any);
 
-      setProgress(25);
+      setProgress(30);
       setStatusMessage("Extracting audio with ffmpeg...");
 
       const response = await fetch(`${BACKEND_URL}/transcribe-video`, {
@@ -121,9 +168,9 @@ export default function VideoImport({ navigation }: any) {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      // ── Step 2: Whisper transcription (server-side) ───────────────────────
+      // Step 2: Whisper transcription (runs server-side)
       setStep("transcribing");
-      setProgress(55);
+      setProgress(60);
       setStatusMessage("Transcribing speech with Whisper AI...");
 
       if (!response.ok) {
@@ -139,24 +186,26 @@ export default function VideoImport({ navigation }: any) {
         );
       }
 
-      // Warn if it looks like a music-only video
+      // Warn for music-heavy videos
       if (!isWorkoutTranscript(transcript)) {
-        Alert.alert(
-          "🎵 Music-Only Video Detected",
-          "The transcribed audio looks like music rather than a workout. Exercise extraction may not work well for this video.\n\nTip: Use Transcript Import and paste the video's chapter list instead.",
-          [
-            { text: "Continue Anyway" },
-            { text: "Cancel", onPress: reset, style: "cancel" },
-          ],
-        );
+        await new Promise<void>((resolve, reject) => {
+          Alert.alert(
+            "🎵 Music-Only Video Detected",
+            "The transcribed audio looks like music rather than a workout. Exercise extraction may not work well.\n\nTip: Use Transcript Import and paste the video's chapter list instead.",
+            [
+              { text: "Cancel", onPress: () => reject(new Error("cancelled")) },
+              { text: "Continue Anyway", onPress: () => resolve() },
+            ],
+          );
+        });
       }
 
-      // ── Step 3: AI exercise extraction via Groq ───────────────────────────
+      // Step 3: AI exercise extraction
       setStep("parsing");
       setProgress(80);
       setStatusMessage("Extracting exercises with AI (Llama 3)...");
 
-      const parsed = await parseTranscript(transcript); // ← async Groq call
+      const parsed = await parseTranscript(transcript);
 
       if (parsed.exercises.length === 0) {
         throw new Error(
@@ -171,7 +220,7 @@ export default function VideoImport({ navigation }: any) {
       // Clean up cached video file
       try {
         await FileSystem.deleteAsync(pickedFile.uri, { idempotent: true });
-      } catch (_) {}
+      } catch {}
 
       setTimeout(() => {
         navigation.navigate("CreateWorkoutTemplate", {
@@ -185,13 +234,17 @@ export default function VideoImport({ navigation }: any) {
         });
       }, 800);
     } catch (err: any) {
+      if (err.message === "cancelled") {
+        reset();
+        return;
+      }
       setStep("error");
       setErrorMessage(err.message || "Processing failed");
       setProgress(0);
       try {
         if (pickedFile)
           await FileSystem.deleteAsync(pickedFile.uri, { idempotent: true });
-      } catch (_) {}
+      } catch {}
     }
   };
 
@@ -206,8 +259,8 @@ export default function VideoImport({ navigation }: any) {
   const isProcessing = ["uploading", "transcribing", "parsing"].includes(step);
 
   const STEPS = [
-    { label: "Upload", threshold: 25 },
-    { label: "Whisper", threshold: 55 },
+    { label: "Upload", threshold: 30 },
+    { label: "Whisper", threshold: 60 },
     { label: "AI Parse", threshold: 80 },
     { label: "Done", threshold: 100 },
   ];
@@ -217,6 +270,29 @@ export default function VideoImport({ navigation }: any) {
       <Header title="Video Import" subtitle="Upload your own workout video" />
 
       <ScrollView contentContainerStyle={styles.content}>
+        {/* ffmpeg not available warning */}
+        {ffmpegAvailable === false && (
+          <View
+            style={[
+              styles.warnCard,
+              {
+                backgroundColor: isDark ? "#450a0a" : "#fee2e2",
+                borderColor: colors.error,
+              },
+            ]}
+          >
+            <Ionicons name="warning" size={20} color={colors.error} />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={[styles.warnTitle, { color: colors.error }]}>
+                ffmpeg not available
+              </Text>
+              <Text style={[styles.warnBody, { color: colors.error }]}>
+                {errorMessage}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Privacy badge */}
         <View
           style={[
@@ -238,8 +314,9 @@ export default function VideoImport({ navigation }: any) {
                 { color: isDark ? "#6ee7b7" : "#065f46" },
               ]}
             >
-              Video is processed on your local server — never sent to the cloud.
-              Deleted immediately after transcription.
+              Video is uploaded to your backend server, converted to audio, and
+              the audio is sent to Groq Whisper for transcription. Temporary
+              files are deleted immediately after processing.
             </Text>
           </View>
         </View>
@@ -306,9 +383,10 @@ export default function VideoImport({ navigation }: any) {
               {
                 backgroundColor: colors.surface,
                 borderColor: pickedFile ? colors.success : colors.primary,
+                opacity: ffmpegAvailable === false ? 0.5 : 1,
               },
             ]}
-            onPress={handlePickVideo}
+            onPress={ffmpegAvailable === false ? undefined : handlePickVideo}
             activeOpacity={0.8}
           >
             <Ionicons
@@ -334,7 +412,7 @@ export default function VideoImport({ navigation }: any) {
                   Tap to choose video
                 </Text>
                 <Text style={[styles.dropSub, { color: colors.textSecondary }]}>
-                  MP4, MOV, AVI · Max 500MB
+                  MP4, MOV, AVI · Max 500 MB
                 </Text>
               </>
             )}
@@ -358,7 +436,6 @@ export default function VideoImport({ navigation }: any) {
                 {statusMessage}
               </Text>
             </View>
-
             <View
               style={[
                 styles.progressTrack,
@@ -379,7 +456,6 @@ export default function VideoImport({ navigation }: any) {
             <Text style={[styles.progressPct, { color: colors.textSecondary }]}>
               {progress}%
             </Text>
-
             <View style={styles.stepsRow}>
               {STEPS.map((s, i) => {
                 const done = progress >= s.threshold;
@@ -403,9 +479,7 @@ export default function VideoImport({ navigation }: any) {
                     <Text
                       style={[
                         styles.stepLabel,
-                        {
-                          color: done ? colors.success : colors.textTertiary,
-                        },
+                        { color: done ? colors.success : colors.textTertiary },
                       ]}
                     >
                       {s.label}
@@ -472,34 +546,6 @@ export default function VideoImport({ navigation }: any) {
           </TouchableOpacity>
         )}
 
-        {/* Requirements note */}
-        {step === "idle" && (
-          <View
-            style={[
-              styles.noteCard,
-              {
-                backgroundColor: isDark ? colors.surface : "#fefce8",
-                borderColor: colors.warning,
-              },
-            ]}
-          >
-            <Ionicons
-              name="information-circle"
-              size={18}
-              color={colors.warning}
-            />
-            <Text
-              style={[
-                styles.noteText,
-                { color: isDark ? colors.textSecondary : "#92400e" },
-              ]}
-            >
-              Requires the local backend server to be running (`npm run server`)
-              with ffmpeg and Whisper installed.
-            </Text>
-          </View>
-        )}
-
         <View style={{ height: 40 }} />
       </ScrollView>
     </View>
@@ -509,7 +555,16 @@ export default function VideoImport({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 20 },
-
+  warnCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 14,
+    marginBottom: 16,
+  },
+  warnTitle: { fontSize: 14, fontWeight: "700", marginBottom: 4 },
+  warnBody: { fontSize: 12, lineHeight: 18 },
   privacyBadge: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -520,7 +575,6 @@ const styles = StyleSheet.create({
   },
   privacyTitle: { fontSize: 14, fontWeight: "700", marginBottom: 2 },
   privacyText: { fontSize: 13, lineHeight: 18 },
-
   card: {
     borderRadius: 20,
     padding: 20,
@@ -532,7 +586,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardTitle: { fontSize: 17, fontWeight: "700", marginBottom: 16 },
-
   howStep: {
     flexDirection: "row",
     alignItems: "center",
@@ -547,7 +600,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   howStepText: { fontSize: 14, flex: 1 },
-
   dropZone: {
     borderRadius: 20,
     borderWidth: 2,
@@ -559,7 +611,6 @@ const styles = StyleSheet.create({
   },
   dropTitle: { fontSize: 16, fontWeight: "700" },
   dropSub: { fontSize: 13 },
-
   progressHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -575,7 +626,6 @@ const styles = StyleSheet.create({
   },
   progressFill: { height: "100%", borderRadius: 4 },
   progressPct: { fontSize: 12, textAlign: "right", marginBottom: 16 },
-
   stepsRow: { flexDirection: "row", justifyContent: "space-between" },
   stepIndicator: { alignItems: "center", gap: 6 },
   stepDot: {
@@ -587,7 +637,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   stepLabel: { fontSize: 11, fontWeight: "600" },
-
   errorCard: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -598,7 +647,6 @@ const styles = StyleSheet.create({
   },
   errorTitle: { fontSize: 14, fontWeight: "700", marginBottom: 4 },
   errorText: { fontSize: 13, lineHeight: 18 },
-
   actionBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -607,22 +655,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     gap: 10,
     marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
   },
   actionBtnText: { color: "#fff", fontSize: 17, fontWeight: "800" },
-
-  noteCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    marginTop: 8,
-  },
-  noteText: { flex: 1, fontSize: 13, lineHeight: 19 },
 });

@@ -1,5 +1,10 @@
 import express from 'express';
 import cors from 'cors';
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+
 import {
   YoutubeTranscript,
   InMemoryCache,
@@ -11,10 +16,19 @@ import {
   YoutubeTranscriptInvalidVideoIdError,
 } from 'youtube-transcript-plus';
 import { ProxyAgent, setGlobalDispatcher } from 'undici';
+import { extractAudioToWav, checkFfmpegAvailable } from './services/ffmpegService';
+import { transcribeAudioWithGroq } from './services/groqTranscriptionService';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+const upload = multer({
+  dest: path.join(os.tmpdir(), 'video-imports'),
+  limits: {
+    fileSize: 500 * 1024 * 1024, // 500 MB
+  },
+});
 
 const transcriptCache = new InMemoryCache(30 * 60 * 1000); // 30 mins
 
@@ -78,7 +92,6 @@ async function fetchTranscriptWithProxyRetry(
         `🌐 Attempt ${attempt + 1}/${maxRetries} with proxy ${proxyIndex + 1}/${WEBSHARE_PROXIES.length}`,
       );
 
-      // Set proxy globally for this attempt
       setGlobalDispatcher(new ProxyAgent(proxyUrl));
 
       const segments = await YoutubeTranscript.fetchTranscript(url, {
@@ -87,8 +100,6 @@ async function fetchTranscriptWithProxyRetry(
         cache: transcriptCache,
 
         videoFetch: async ({ url, lang, userAgent }) => {
-          console.log('🎬 videoFetch', url);
-
           return fetch(url, {
             headers: {
               'User-Agent': userAgent || USER_AGENT,
@@ -101,8 +112,6 @@ async function fetchTranscriptWithProxyRetry(
         },
 
         playerFetch: async ({ url, method, body, headers, lang, userAgent }) => {
-          console.log('🎮 playerFetch', url);
-
           return fetch(url, {
             method,
             body: body as BodyInit | null | undefined,
@@ -116,8 +125,6 @@ async function fetchTranscriptWithProxyRetry(
         },
 
         transcriptFetch: async ({ url, lang, userAgent }) => {
-          console.log('📝 transcriptFetch', url);
-
           return fetch(url, {
             headers: {
               'User-Agent': userAgent || USER_AGENT,
@@ -134,21 +141,9 @@ async function fetchTranscriptWithProxyRetry(
       lastError = err;
 
       console.error(`❌ Attempt ${attempt + 1} failed:`, err?.message);
-      console.error(`❌ Cause:`, err?.cause);
-
-      if (err instanceof YoutubeTranscriptTooManyRequestError) {
-        if (attempt < maxRetries - 1) {
-          console.log(
-            `⏳ Rate limited. Retrying with next proxy (${attempt + 2}/${maxRetries})`,
-          );
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-          continue;
-        }
-      }
 
       if (attempt < maxRetries - 1) {
-        console.log(`🔁 Retrying with next proxy...`);
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1200));
         continue;
       }
 
@@ -159,10 +154,21 @@ async function fetchTranscriptWithProxyRetry(
   throw lastError;
 }
 
+// ---- health + ffmpeg ------------------------------------------------------
+
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok' });
+});
+
+app.get('/check-ffmpeg', async (_req, res) => {
+  const available = await checkFfmpegAvailable();
+  res.json({ available });
+});
+
+// ---- youtube transcript route ---------------------------------------------
+
 app.post('/transcript', async (req, res) => {
   const { url } = req.body;
-
-  console.log('📥 Incoming request:', url);
 
   if (!url || typeof url !== 'string') {
     return res.status(400).json({ error: 'Missing or invalid URL' });
@@ -170,8 +176,6 @@ app.post('/transcript', async (req, res) => {
 
   try {
     const segments = await fetchTranscriptWithProxyRetry(url);
-
-    console.log('📊 Segments length:', segments?.length ?? 0);
 
     if (!segments || segments.length === 0) {
       return res.status(404).json({
@@ -196,17 +200,10 @@ app.post('/transcript', async (req, res) => {
       })),
     });
   } catch (err: unknown) {
-    console.error('[/transcript] Raw error:', err);
-
     const error = err as any;
-    if (error?.cause) {
-      console.error('[/transcript] Cause:', error.cause);
-    }
 
     if (err instanceof YoutubeTranscriptDisabledError) {
-      return res.status(422).json({
-        error: 'Captions are disabled for this video.',
-      });
+      return res.status(422).json({ error: 'Captions are disabled for this video.' });
     }
 
     if (err instanceof YoutubeTranscriptNotAvailableLanguageError) {
@@ -244,8 +241,56 @@ app.post('/transcript', async (req, res) => {
   }
 });
 
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok' });
+// ---- local video -> groq whisper route ------------------------------------
+
+app.post('/transcribe-video', upload.single('video'), async (req, res) => {
+  const uploadedFile = req.file;
+
+  if (!uploadedFile) {
+    return res.status(400).json({ error: 'No video file uploaded.' });
+  }
+
+  const inputPath = uploadedFile.path;
+  const audioPath = `${inputPath}.wav`;
+
+  try {
+    console.log(`📥 Uploaded video: ${uploadedFile.originalname}`);
+
+    await extractAudioToWav(inputPath, audioPath);
+    console.log('🎵 Audio extracted');
+
+    const result = await transcribeAudioWithGroq(audioPath);
+    console.log(`📝 Transcript length: ${result.transcript.length}`);
+
+    if (!result.transcript || result.transcript.length < 5) {
+      return res.status(422).json({
+        error: 'No speech detected in the uploaded video.',
+      });
+    }
+
+    return res.json({
+      transcript: result.transcript,
+      segments: result.segments,
+      language: result.language ?? 'en',
+      duration: result.duration ?? null,
+    });
+  } catch (err: any) {
+    console.error('[/transcribe-video] Error:', err);
+
+    return res.status(500).json({
+      error: err?.message || 'Failed to transcribe video.',
+    });
+  } finally {
+    for (const filePath of [inputPath, audioPath]) {
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (cleanupErr) {
+        console.warn('Cleanup failed for:', filePath, cleanupErr);
+      }
+    }
+  }
 });
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;

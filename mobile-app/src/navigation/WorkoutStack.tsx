@@ -18,6 +18,7 @@ export type WorkoutsStackParamList = {
       restTime: number;
     }>;
     workoutName: string;
+    workoutId?: string;
   };
 };
 
@@ -54,3 +55,13 @@ export default function WorkoutStack() {
     </Stack.Navigator>
   );
 }
+
+// Also update navigation/types.ts — the duplicate WorkoutsStackParamList
+// there needs the same workoutId fix:
+//
+// WorkoutsStackParamList in types.ts:
+//   IntervalTimerPlayback: {
+//     exercises: Array<{ name: string; duration: number; restTime: number }>;
+//     workoutName: string;
+//     workoutId?: string;  ← add this
+//   };

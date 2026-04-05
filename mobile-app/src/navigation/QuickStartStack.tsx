@@ -1,20 +1,19 @@
 // src/navigation/QuickStartStack.tsx
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-
-import {
-  QuickStartStackParamList,
-} from "./types";
-
+ 
+import { QuickStartStackParamList } from "./types";
+ 
 import QuickStart from "../screens/QuickStart/QuickStart";
 import QuickTimer from "../screens/QuickStart/QuickTimer";
 import YouTubeImport from "../screens/QuickStart/YouTubeImport";
 import TimerScreen from "../screens/QuickStart/TimerScreen";
 import TranscriptImport from "../screens/QuickStart/TranscriptImport";
+import VideoImport from "../screens/QuickStart/VideoImport"; // ← WAS MISSING
 import CreateWorkoutTemplate from "../screens/Workout/CreateWorkoutTemplate";
-
+ 
 const Stack = createNativeStackNavigator<QuickStartStackParamList>();
-
+ 
 export default function QuickStartStack() {
   return (
     <Stack.Navigator
@@ -27,10 +26,8 @@ export default function QuickStartStack() {
       <Stack.Screen name="YouTubeImport" component={YouTubeImport} />
       <Stack.Screen name="TimerScreen" component={TimerScreen} />
       <Stack.Screen name="TranscriptImport" component={TranscriptImport} />
+      <Stack.Screen name="VideoImport" component={VideoImport} /> {/* ← WAS MISSING */}
       <Stack.Screen name="CreateWorkoutTemplate" component={CreateWorkoutTemplate} />
-      
     </Stack.Navigator>
   );
 }
-
-

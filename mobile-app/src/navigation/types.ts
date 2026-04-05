@@ -53,6 +53,7 @@ export type WorkoutsStackParamList = {
       restTime: number;
     }>;
     workoutName: string;
+    workoutId?: string;
   };
 };
 
