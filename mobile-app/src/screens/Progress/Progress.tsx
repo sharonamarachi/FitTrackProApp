@@ -35,6 +35,7 @@ import {
   scheduleStreakReminder,
   scheduleStreakRiskAlert,
   loadNotificationPrefs,
+  notifyPlateauAlert,
 } from "../../services/NotificationService";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -74,6 +75,50 @@ interface PREntry {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+async function checkProgressiveOverload(
+  exerciseLogs: ExerciseLog[],
+  userId: string,
+): Promise<void> {
+  const prefs = await loadNotificationPrefs();
+  if (!prefs.overloadNudge) return;
+
+  // Group logs by exercise name, keep only weighted entries
+  const byExercise: Record<string, { weight: number; date: Date }[]> = {};
+  exerciseLogs.forEach((log) => {
+    if (!log.weight_kg || !log.exercise_name) return;
+    const key = log.exercise_name.toLowerCase().trim();
+    if (!byExercise[key]) byExercise[key] = [];
+    byExercise[key].push({
+      weight: log.weight_kg,
+      date: new Date(log.logged_at),
+    });
+  });
+
+  const fourWeeksAgo = new Date();
+  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+
+  for (const [name, entries] of Object.entries(byExercise)) {
+    // Only check exercises with at least 3 sessions in the last 4 weeks
+    const recent = entries.filter((e) => e.date >= fourWeeksAgo);
+    if (recent.length < 3) continue;
+
+    const weights = recent.map((e) => e.weight);
+    const maxWeight = Math.max(...weights);
+    const minWeight = Math.min(...weights);
+
+    // Stagnation = max and min are the same (no increase at all)
+    if (maxWeight === minWeight) {
+      const displayName = name
+        .split(" ")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+
+      await notifyPlateauAlert(displayName, 4);
+      // Only alert one exercise per check to avoid notification spam
+      break;
+    }
+  }
+}
 function isSameDay(a: Date, b: Date) {
   return (
     a.getFullYear() === b.getFullYear() &&
@@ -930,8 +975,18 @@ export default function Progress() {
 
       const allLogs = logsRes.data ?? [];
       setLogs(allLogs);
-      setExerciseLogs(exLogsRes.data ?? []);
+      
+      const exLogs = exLogsRes.data ?? [];
+      setExerciseLogs(exLogs);
+      
       setMeasurements(measRes.data ?? []);
+
+      // ── Progressive overload check ─────────────────────────────────────
+      try {
+        await checkProgressiveOverload(exLogs, user.id);
+      } catch (e) {
+        console.warn("[Overload check] failed silently:", e);
+      }
 
       try {
         const notifPrefs = await loadNotificationPrefs();
@@ -1715,12 +1770,10 @@ export default function Progress() {
                 </View>
 
                 {/* ── Chart ────────────────────────────────────────────── */}
-                <WeightLineChart 
+                <WeightLineChart
                   measurements={measurements}
                   primaryColor={colors.primary}
                   colors={colors}
-                
-                  
                 />
 
                 {/* ── History list ─────────────────────────────────────── */}
