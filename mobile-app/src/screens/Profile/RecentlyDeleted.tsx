@@ -421,3 +421,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
+
+// There is a cron job on Supabase Cron to delete expired items every 24 hours at 3am:
