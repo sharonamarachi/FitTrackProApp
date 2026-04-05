@@ -17,9 +17,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../../api/supabaseClient";
 import { useTheme } from "../../context/ThemeContext";
 import { usePreferences } from "../../context/UserPreferencesContext";
+import {
+  requestNotificationPermission,
+  getPermissionStatus,
+} from "../../services/NotificationService";
 
 const ONBOARDING_KEY = "onboardingComplete";
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 const WEEKLY_GOAL_OPTIONS = [3, 4, 5, 6, 7];
 
@@ -54,8 +58,8 @@ function StepDots({
                 i === current
                   ? primaryColor
                   : i < current
-                  ? primaryColor + "55"
-                  : "transparent",
+                    ? primaryColor + "55"
+                    : "transparent",
               borderColor: i < current ? "transparent" : primaryColor + "55",
               width: i === current ? 24 : 8,
             },
@@ -121,7 +125,12 @@ export default function Onboarding({ navigation }: any) {
 
   // ── Navigation ────────────────────────────────────────────────────────────
 
-  const goNext = () => {
+  const goNext = async () => {
+    if (step === 3) {
+      await handleNotificationStepContinue();
+      return;
+    }
+
     if (step < TOTAL_STEPS - 1) {
       animateToStep(step + 1);
     } else {
@@ -183,16 +192,39 @@ export default function Onboarding({ navigation }: any) {
     }
   };
 
+  const handleNotificationStepContinue = async () => {
+    try {
+      const granted = await requestNotificationPermission();
+
+      setData((d) => ({
+        ...d,
+        notificationsEnabled: granted,
+      }));
+
+      if (!granted) {
+        Alert.alert(
+          "Notifications Off",
+          "You can still use the app normally. You can enable notifications later in Settings.",
+        );
+      }
+
+      animateToStep(step + 1);
+    } catch {
+      setData((d) => ({
+        ...d,
+        notificationsEnabled: false,
+      }));
+      animateToStep(step + 1);
+    }
+  };
+
   // ── Step content ──────────────────────────────────────────────────────────
 
   const stepContent = [
     // ── Step 0: Welcome ──────────────────────────────────────────────────────
     <View key="welcome" style={styles.stepBody}>
       <View
-        style={[
-          styles.iconCircle,
-          { backgroundColor: colors.primary + "20" },
-        ]}
+        style={[styles.iconCircle, { backgroundColor: colors.primary + "20" }]}
       >
         <Ionicons name="barbell" size={48} color={colors.primary} />
       </View>
@@ -242,12 +274,7 @@ export default function Onboarding({ navigation }: any) {
 
     // ── Step 1: Body metrics ──────────────────────────────────────────────────
     <View key="body" style={styles.stepBody}>
-      <View
-        style={[
-          styles.iconCircle,
-          { backgroundColor: "#10b981" + "20" },
-        ]}
-      >
+      <View style={[styles.iconCircle, { backgroundColor: "#10b981" + "20" }]}>
         <Ionicons name="fitness-outline" size={48} color="#10b981" />
       </View>
       <Text style={[styles.stepTitle, { color: colors.text }]}>
@@ -271,7 +298,11 @@ export default function Onboarding({ navigation }: any) {
             },
           ]}
         >
-          <Ionicons name="scale-outline" size={20} color={colors.textSecondary} />
+          <Ionicons
+            name="scale-outline"
+            size={20}
+            color={colors.textSecondary}
+          />
           <TextInput
             style={[styles.textInput, { color: colors.text }]}
             placeholder="e.g. 72.5"
@@ -284,7 +315,8 @@ export default function Onboarding({ navigation }: any) {
           <Text style={[styles.unit, { color: colors.textSecondary }]}>kg</Text>
         </View>
         <Text style={[styles.fieldHint, { color: colors.textTertiary }]}>
-          This is never shared and only used to build your personal weight chart.
+          This is never shared and only used to build your personal weight
+          chart.
         </Text>
       </View>
 
@@ -297,12 +329,10 @@ export default function Onboarding({ navigation }: any) {
           },
         ]}
       >
-        <Ionicons
-          name="information-circle-outline"
-          size={16}
-          color="#10b981"
-        />
-        <Text style={[styles.bannerText, { color: isDark ? "#6ee7b7" : "#065f46" }]}>
+        <Ionicons name="information-circle-outline" size={16} color="#10b981" />
+        <Text
+          style={[styles.bannerText, { color: isDark ? "#6ee7b7" : "#065f46" }]}
+        >
           You can log weight any time from the Progress tab or Edit Profile.
         </Text>
       </View>
@@ -310,12 +340,7 @@ export default function Onboarding({ navigation }: any) {
 
     // ── Step 2: Weekly goal ───────────────────────────────────────────────────
     <View key="goal" style={styles.stepBody}>
-      <View
-        style={[
-          styles.iconCircle,
-          { backgroundColor: "#f97316" + "20" },
-        ]}
-      >
+      <View style={[styles.iconCircle, { backgroundColor: "#f97316" + "20" }]}>
         <Ionicons name="flag-outline" size={48} color="#f97316" />
       </View>
       <Text style={[styles.stepTitle, { color: colors.text }]}>
@@ -338,8 +363,8 @@ export default function Onboarding({ navigation }: any) {
                   backgroundColor: active
                     ? "#f97316"
                     : isDark
-                    ? colors.surface
-                    : "#F3F4F6",
+                      ? colors.surface
+                      : "#F3F4F6",
                   borderColor: active ? "#f97316" : colors.border,
                 },
               ]}
@@ -357,7 +382,11 @@ export default function Onboarding({ navigation }: any) {
               <Text
                 style={[
                   styles.goalLabel,
-                  { color: active ? "rgba(255,255,255,0.8)" : colors.textSecondary },
+                  {
+                    color: active
+                      ? "rgba(255,255,255,0.8)"
+                      : colors.textSecondary,
+                  },
                 ]}
               >
                 /week
@@ -374,11 +403,31 @@ export default function Onboarding({ navigation }: any) {
         ]}
       >
         {[
-          { goal: 3, label: "Casual", desc: "Great for beginners or busy schedules" },
-          { goal: 4, label: "Balanced", desc: "The sweet spot for steady progress" },
-          { goal: 5, label: "Dedicated", desc: "Solid consistency with recovery time" },
-          { goal: 6, label: "Intense", desc: "Advanced athletes and focused training" },
-          { goal: 7, label: "Elite", desc: "Daily training — plan active recovery days" },
+          {
+            goal: 3,
+            label: "Casual",
+            desc: "Great for beginners or busy schedules",
+          },
+          {
+            goal: 4,
+            label: "Balanced",
+            desc: "The sweet spot for steady progress",
+          },
+          {
+            goal: 5,
+            label: "Dedicated",
+            desc: "Solid consistency with recovery time",
+          },
+          {
+            goal: 6,
+            label: "Intense",
+            desc: "Advanced athletes and focused training",
+          },
+          {
+            goal: 7,
+            label: "Elite",
+            desc: "Daily training — plan active recovery days",
+          },
         ]
           .filter((d) => d.goal === data.weeklyGoal)
           .map((d) => (
@@ -386,7 +435,9 @@ export default function Onboarding({ navigation }: any) {
               <Text style={[styles.goalDescLabel, { color: "#f97316" }]}>
                 {d.label}
               </Text>
-              <Text style={[styles.goalDescText, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.goalDescText, { color: colors.textSecondary }]}
+              >
                 {d.desc}
               </Text>
             </View>
@@ -394,13 +445,78 @@ export default function Onboarding({ navigation }: any) {
       </View>
     </View>,
 
-    // ── Step 3: Done ──────────────────────────────────────────────────────────
-    <View key="done" style={styles.stepBody}>
+    // ── Step 3: Notifications ───────────────────────────────────────────────────
+    <View key="notifications" style={styles.stepBody}>
+      <View style={[styles.iconCircle, { backgroundColor: "#3b82f6" + "20" }]}>
+        <Ionicons name="notifications-outline" size={48} color="#3b82f6" />
+      </View>
+
+      <Text style={[styles.stepTitle, { color: colors.text }]}>
+        Stay on track
+      </Text>
+      <Text style={[styles.stepSubtitle, { color: colors.textSecondary }]}>
+        Turn on notifications for timer phase changes, streak reminders, workout
+        completion, and weekly goal nudges.
+      </Text>
+
       <View
         style={[
-          styles.iconCircle,
-          { backgroundColor: colors.primary + "20" },
+          styles.summaryCard,
+          { backgroundColor: colors.card, borderColor: colors.border },
         ]}
+      >
+        <SummaryRow
+          icon="timer-outline"
+          label="Timer phases"
+          value="Get alerts in the background during workouts"
+          color="#10b981"
+          colors={colors}
+        />
+        <View
+          style={[styles.summaryDivider, { backgroundColor: colors.border }]}
+        />
+        <SummaryRow
+          icon="flame-outline"
+          label="Streak reminders"
+          value="Stay consistent and protect your streak"
+          color="#f97316"
+          colors={colors}
+        />
+        <View
+          style={[styles.summaryDivider, { backgroundColor: colors.border }]}
+        />
+        <SummaryRow
+          icon="notifications-outline"
+          label="Workout updates"
+          value="Completion alerts and weekly goal celebrations"
+          color="#3b82f6"
+          colors={colors}
+        />
+      </View>
+
+      <View
+        style={[
+          styles.infoBanner,
+          {
+            backgroundColor: "#3b82f6" + "12",
+            borderColor: "#3b82f6" + "30",
+          },
+        ]}
+      >
+        <Ionicons name="shield-checkmark-outline" size={16} color="#3b82f6" />
+        <Text
+          style={[styles.bannerText, { color: isDark ? "#93c5fd" : "#1d4ed8" }]}
+        >
+          We’ll ask for permission on the next tap. You can change this later in
+          Settings.
+        </Text>
+      </View>
+    </View>,
+
+    // ── Step 4: Done ──────────────────────────────────────────────────────────
+    <View key="done" style={styles.stepBody}>
+      <View
+        style={[styles.iconCircle, { backgroundColor: colors.primary + "20" }]}
       >
         <Ionicons name="checkmark-circle" size={48} color={colors.primary} />
       </View>
@@ -439,22 +555,23 @@ export default function Onboarding({ navigation }: any) {
           color="#10b981"
           colors={colors}
         />
+
         <View
           style={[styles.summaryDivider, { backgroundColor: colors.border }]}
         />
         <SummaryRow
-          icon="settings-outline"
-          label="Preferences"
-          value="Notifications & appearance"
-          color={colors.primary}
+          icon="notifications-outline"
+          label="Notifications"
+          value={data.notificationsEnabled ? "Enabled" : "Not enabled"}
+          color="#3b82f6"
           colors={colors}
           hint="Customise in Settings → Display & Notifications"
         />
       </View>
 
       <Text style={[styles.finalHint, { color: colors.textTertiary }]}>
-        Ready to start your first workout? Head to the Quick Start tab or
-        browse your Workout Library.
+        Ready to start your first workout? Head to the Quick Start tab or browse
+        your Workout Library.
       </Text>
     </View>,
   ];
@@ -537,8 +654,8 @@ export default function Onboarding({ navigation }: any) {
             {saving
               ? "Saving…"
               : step === TOTAL_STEPS - 1
-              ? "Get started"
-              : "Continue"}
+                ? "Get started"
+                : "Continue"}
           </Text>
           {!saving && (
             <Ionicons

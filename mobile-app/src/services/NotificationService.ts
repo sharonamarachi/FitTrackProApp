@@ -1,13 +1,3 @@
-/**
- * NotificationService.ts — Fixed for expo-notifications SDK 0.28+ (Expo SDK 51+)
- *
- * Fixes applied:
- *  1. handleNotification: shouldShowBanner + shouldShowList replace shouldShowAlert
- *  2. TIME_INTERVAL trigger: add explicit `type` field
- *  3. DAILY trigger: remove `repeats` (daily triggers always repeat by design)
- *  4. IntervalTimerPlayback: `weeklyGoal` pref is a number — comparison fixed
- */
-
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
@@ -22,7 +12,6 @@ const KEYS = {
   PREFS:          'notif_prefs_v1',
 };
 
-// ─── Fix 1: handler return type requires shouldShowBanner + shouldShowList ─────
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -172,7 +161,6 @@ export async function scheduleTimerNotifications(
     let body  = phases[i].label;
     if (isLast) { title = '🏁 Last Exercise!'; body = `${phases[i].label} — final push!`; }
 
-    // Fix 2: TIME_INTERVAL trigger requires explicit `type` field
     const id = await Notifications.scheduleNotificationAsync({
       content: {
         title,
@@ -235,7 +223,6 @@ export async function scheduleStreakReminder(
     ? `Don't break your ${currentStreak}-day streak 🔥`
     : 'Start a new streak today 💪';
 
-  // Fix 3: DAILY trigger has no `repeats` field — it repeats implicitly
   const id = await Notifications.scheduleNotificationAsync({
     content: {
       title: '⏰ Time to Train!',
@@ -273,7 +260,6 @@ export async function scheduleStreakRiskAlert(currentStreak: number): Promise<vo
   const granted = await requestNotificationPermission();
   if (!granted) return;
 
-  // Fix 3 (same): DAILY trigger — no repeats field
   const id = await Notifications.scheduleNotificationAsync({
     content: {
       title: '⚠️ Streak at Risk!',
