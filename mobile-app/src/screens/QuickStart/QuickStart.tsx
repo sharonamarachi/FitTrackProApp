@@ -48,6 +48,14 @@ export default function QuickStart({ navigation }: QuickStartScreenProps) {
       description: "Choose presets or customize intervals",
       color: "#FF9500",
     },
+    {
+      key: "video",
+      icon: "videocam-outline",
+      title: "Video Import",
+      description: "Import workouts from video sources",
+      color: "#AF52DE",
+      onPress: () => navigation.navigate("VideoImport"),
+    }
   ];
 
   return (
@@ -76,6 +84,8 @@ export default function QuickStart({ navigation }: QuickStartScreenProps) {
                 navigation.navigate("TranscriptImport");
               } else if (action.key === "quickLog") {
                 navigation.navigate("CreateWorkoutTemplate");
+              } else if (action.key === "video") {
+                navigation.navigate("VideoImport");
               }
             }}
           >
