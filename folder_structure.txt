@@ -6,84 +6,105 @@
 │   ├── package-lock.json
 │   ├── package.json
 │   ├── src
+│   │   ├── routes
+│   │   │   └── transcriptRoutes.ts
+│   │   ├── server.ts
+│   │   └── services
+│   │       ├── ffmpegService.ts
+│   │       └── groqTranscriptionService.ts
 │   └── tsconfig.json
 ├── folder_structure.txt
-├── mobile-app
-│   ├── App.tsx
-│   ├── app.json
-│   ├── assets
-│   │   ├── adaptive-icon.png
-│   │   ├── beep.mp3
-│   │   ├── favicon.png
-│   │   ├── icon.png
-│   │   └── splash-icon.png
-│   ├── package.json
-│   └── src
-│       ├── api
-│       │   └── supabaseClient.ts
-│       ├── components
-│       │   ├── CountdownOverlay.tsx
-│       │   ├── Header.tsx
-│       │   ├── StreakCalendar.tsx
-│       │   └── WeightManageModal.tsx
-│       ├── context
-│       │   ├── ThemeContext.tsx
-│       │   └── UserPreferencesContext.tsx
-│       ├── data
-│       │   ├── exercises.csv
-│       │   └── exercises.ts
-│       ├── domain
-│       │   └── workout.ts
-│       ├── hooks
-│       │   └── useWorkouts.ts
-│       ├── navigation
-│       │   ├── QuickStartStack.tsx
-│       │   ├── SettingsStack.tsx
-│       │   ├── TabNavigator.tsx
-│       │   ├── WorkoutStack.tsx
-│       │   └── types.ts
-│       ├── screens
-│       │   ├── Auth
-│       │   │   ├── Login.tsx
-│       │   │   └── SignUp.tsx
-│       │   ├── Home
-│       │   │   └── Home.tsx
-│       │   ├── Profile
-│       │   │   ├── AppearanceAndPreferencesScreen.tsx
-│       │   │   ├── EditProfile.tsx
-│       │   │   ├── Profile.tsx
-│       │   │   └── RecentlyDeleted.tsx
-│       │   ├── Progress
-│       │   │   └── Progress.tsx
-│       │   ├── QuickStart
-│       │   │   ├── QuickStart.tsx
-│       │   │   ├── QuickTimer.tsx
-│       │   │   ├── TimerScreen.tsx
-│       │   │   ├── TranscriptImport.tsx
-│       │   │   ├── VideoImport.tsx
-│       │   │   ├── WorkoutEditor.tsx
-│       │   │   └── YouTubeImport.tsx
-│       │   ├── Settings
-│       │   │   ├── ContactUs.tsx
-│       │   │   ├── Faq.tsx
-│       │   │   ├── Notifications.tsx
-│       │   │   ├── PrivacyPolicy.tsx
-│       │   │   ├── Settings.tsx
-│       │   │   └── TermsOfUse.tsx
-│       │   └── Workout
-│       │       ├── CreateWorkoutTemplate.tsx
-│       │       ├── EditWorkout.tsx
-│       │       ├── IntervalTimerPlayback.tsx
-│       │       ├── WorkoutDetails.tsx
-│       │       ├── WorkoutLibrary.tsx
-│       │       └── components
-│       │           ├── ExerciseRow.tsx
-│       │           └── WorkoutCard.tsx
-│       └── services
-│           ├── NotificationService.ts
-│           ├── TranscriptNLPService.ts
-│           ├── WorkoutRecommendations.ts
-│           └── WorkoutService.ts
-└── tsconfig.json
+└── mobile-app
+    ├── App.tsx
+    ├── app.json
+    ├── assets
+    │   ├── adaptive-icon.png
+    │   ├── beep.mp3
+    │   ├── favicon.png
+    │   ├── icon.png
+    │   └── splash-icon.png
+    ├── package-lock.json
+    ├── package.json
+    ├── src
+    │   ├── api
+    │   │   └── supabaseClient.ts
+    │   ├── components
+    │   │   ├── CountdownOverlay.tsx
+    │   │   ├── Header.tsx
+    │   │   ├── StreakCalendar.tsx
+    │   │   └── WeightManageModal.tsx
+    │   ├── context
+    │   │   ├── ThemeContext.tsx
+    │   │   └── UserPreferencesContext.tsx
+    │   ├── data
+    │   │   ├── exercises.csv
+    │   │   └── exercises.ts
+    │   ├── domain
+    │   │   └── workout.ts
+    │   ├── hooks
+    │   │   └── useWorkouts.ts
+    │   ├── navigation
+    │   │   ├── QuickStartStack.tsx
+    │   │   ├── SettingsStack.tsx
+    │   │   ├── TabNavigator.tsx
+    │   │   ├── WorkoutStack.tsx
+    │   │   └── types.ts
+    │   ├── screens
+    │   │   ├── Auth
+    │   │   │   ├── Login.tsx
+    │   │   │   ├── Onboarding.tsx
+    │   │   │   └── SignUp.tsx
+    │   │   ├── Home
+    │   │   │   └── Home.tsx
+    │   │   ├── Profile
+    │   │   │   ├── AppearanceAndPreferencesScreen.tsx
+    │   │   │   ├── EditProfile.tsx
+    │   │   │   ├── Profile.tsx
+    │   │   │   └── RecentlyDeleted.tsx
+    │   │   ├── Progress
+    │   │   │   ├── Progress.tsx
+    │   │   │   ├── components
+    │   │   │   │   ├── AnimatedNumber.tsx
+    │   │   │   │   ├── BadgeUnlockModal.tsx
+    │   │   │   │   ├── GoalRing.tsx
+    │   │   │   │   ├── HeatmapGrid.tsx
+    │   │   │   │   ├── PRSparkline.tsx
+    │   │   │   │   ├── WeekBarChart.tsx
+    │   │   │   │   ├── WeightLineChart.tsx
+    │   │   │   │   └── WeightManageModal.tsx
+    │   │   │   ├── types.ts
+    │   │   │   └── utils
+    │   │   │       ├── constants.ts
+    │   │   │       └── progressHelpers.ts
+    │   │   ├── QuickStart
+    │   │   │   ├── QuickStart.tsx
+    │   │   │   ├── QuickTimer.tsx
+    │   │   │   ├── TimerScreen.tsx
+    │   │   │   ├── TranscriptImport.tsx
+    │   │   │   ├── VideoImport.tsx
+    │   │   │   ├── WorkoutEditor.tsx
+    │   │   │   └── YouTubeImport.tsx
+    │   │   ├── Settings
+    │   │   │   ├── ContactUs.tsx
+    │   │   │   ├── Faq.tsx
+    │   │   │   ├── Notifications.tsx
+    │   │   │   ├── PrivacyPolicy.tsx
+    │   │   │   ├── Settings.tsx
+    │   │   │   └── TermsOfUse.tsx
+    │   │   └── Workout
+    │   │       ├── CreateWorkoutTemplate.tsx
+    │   │       ├── EditWorkout.tsx
+    │   │       ├── IntervalTimerPlayback.tsx
+    │   │       ├── WorkoutDetails.tsx
+    │   │       ├── WorkoutLibrary.tsx
+    │   │       └── components
+    │   │           ├── ExerciseRow.tsx
+    │   │           └── WorkoutCard.tsx
+    │   └── services
+    │       ├── NotificationService.ts
+    │       ├── TranscriptNLPService.ts
+    │       ├── WorkoutRecommendations.ts
+    │       └── WorkoutService.ts
+    └── tsconfig.json
 
-24 directories, 63 files
+28 directories, 80 files
