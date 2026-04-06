@@ -241,7 +241,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // ── NEW: Streak calendar state ─────────────────────────────────────────────
+  // Streak calendar state
   const [calendarVisible, setCalendarVisible] = useState(false);
 
   // Animations
@@ -360,7 +360,7 @@ export default function HomeScreen() {
           translucent
         />
 
-        {/* ── Streak Calendar Modal ─────────────────────────────────────── */}
+        {/* Streak Calendar Modal */}
         <StreakCalendar
           visible={calendarVisible}
           onClose={() => setCalendarVisible(false)}
@@ -381,7 +381,7 @@ export default function HomeScreen() {
             />
           }
         >
-          {/* ── Greeting header ─────────────────────────────────────────────── */}
+          {/* Greeting header */}
           <Animated.View
             style={[
               styles.headerSection,
@@ -404,7 +404,6 @@ export default function HomeScreen() {
                 <Text style={[styles.greetingText, { color: colors.text }]}>
                   {greeting}
                 </Text>
-                {/* ── Tappable streak text in greeting ─────────────────────── */}
                 <TouchableOpacity
                   onPress={() => setCalendarVisible(true)}
                   activeOpacity={0.7}
@@ -435,21 +434,21 @@ export default function HomeScreen() {
             </View>
           </Animated.View>
 
-          {/* ── Smart Recommendation ────────────────────────────────────────── */}
-          {recommendation && (
-            <Animated.View
-              style={{
-                opacity: statsAnim,
-                transform: [
-                  {
-                    translateY: statsAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [18, 0],
-                    }),
-                  },
-                ],
-              }}
-            >
+          {/* Smart Recommendation OR fallback */}
+          <Animated.View
+            style={{
+              opacity: statsAnim,
+              transform: [
+                {
+                  translateY: statsAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [18, 0],
+                  }),
+                },
+              ],
+            }}
+          >
+            {recommendation ? (
               <RecommendationCard
                 recommendation={recommendation}
                 colors={colors}
@@ -461,10 +460,93 @@ export default function HomeScreen() {
                   })
                 }
               />
-            </Animated.View>
-          )}
+            ) : !loading && logs.length > 0 ? (
+              // Has workouts but no recommendation yet
+              <TouchableOpacity
+                style={[
+                  noRecoStyles.card,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+                onPress={() =>
+                  navigation.navigate("WorkoutStack", {
+                    screen: "WorkoutLibrary",
+                  })
+                }
+                activeOpacity={0.8}
+              >
+                <View
+                  style={[
+                    noRecoStyles.icon,
+                    { backgroundColor: colors.primary + "18" },
+                  ]}
+                >
+                  <Ionicons
+                    name="analytics-outline"
+                    size={24}
+                    color={colors.primary}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[noRecoStyles.title, { color: colors.text }]}>
+                    Complete a few more workouts
+                  </Text>
+                  <Text
+                    style={[noRecoStyles.sub, { color: colors.textSecondary }]}
+                  >
+                    Once you have a training history, a personalised
+                    recommendation will appear here.
+                  </Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={colors.textTertiary}
+                />
+              </TouchableOpacity>
+            ) : !loading && logs.length === 0 ? (
+              // No workouts at all
+              <TouchableOpacity
+                style={[
+                  noRecoStyles.card,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+                onPress={() =>
+                  navigation.navigate("WorkoutStack", {
+                    screen: "CreateWorkoutTemplate",
+                  })
+                }
+                activeOpacity={0.8}
+              >
+                <View
+                  style={[noRecoStyles.icon, { backgroundColor: "#10b98118" }]}
+                >
+                  <Ionicons
+                    name="add-circle-outline"
+                    size={24}
+                    color="#10b981"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[noRecoStyles.title, { color: colors.text }]}>
+                    Create your first workout
+                  </Text>
+                  <Text
+                    style={[noRecoStyles.sub, { color: colors.textSecondary }]}
+                  >
+                    Build a routine and track your progress — your smart
+                    suggestion will show up here.
+                  </Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={colors.textTertiary}
+                />
+              </TouchableOpacity>
+            ) : null}
+          </Animated.View>
 
-          {/* ── Stats row ───────────────────────────────────────────────────── */}
+          {/* Stats row */}
           <Animated.View
             style={[
               {
@@ -480,7 +562,7 @@ export default function HomeScreen() {
               },
             ]}
           >
-            {/* ── Big stat card — streak side is tappable ──────────────────── */}
+            {/* Big stat card */}
             <View
               style={[styles.bigStatCard, { backgroundColor: colors.primary }]}
             >
@@ -500,7 +582,7 @@ export default function HomeScreen() {
               </Svg>
 
               <View style={styles.bigStatContent}>
-                {/* ── LEFT: streak — tappable → opens calendar ─────────────── */}
+                {/* Left: Streak (tappable) */}
                 <TouchableOpacity
                   style={[styles.bigStatLeft, styles.streakTapArea]}
                   onPress={() => setCalendarVisible(true)}
@@ -514,7 +596,6 @@ export default function HomeScreen() {
                   <Text style={styles.bigStatSublabel}>
                     Best: {longestStreak} days
                   </Text>
-                  {/* Small "tap" hint */}
                   <View style={styles.tapHint}>
                     <Ionicons
                       name="calendar-outline"
@@ -527,7 +608,7 @@ export default function HomeScreen() {
 
                 <View style={styles.bigStatDivider} />
 
-                {/* RIGHT: this week */}
+                {/* Right: This week */}
                 <View style={styles.bigStatRight}>
                   <View style={styles.weekDots}>
                     {DAY_LABELS.map((day, i) => (
@@ -599,7 +680,7 @@ export default function HomeScreen() {
             </View>
           </Animated.View>
 
-          {/* ── Recent activity ─────────────────────────────────────────────── */}
+          {/* Recent Activity */}
           {recentLogs.length > 0 && (
             <Animated.View
               style={{
@@ -679,7 +760,7 @@ export default function HomeScreen() {
             </Animated.View>
           )}
 
-          {/* ── Continue workouts ────────────────────────────────────────────── */}
+          {/* Your Workouts */}
           {recentWorkouts.length > 0 && (
             <Animated.View
               style={{
@@ -797,7 +878,7 @@ export default function HomeScreen() {
             </Animated.View>
           )}
 
-          {/* ── Empty state ────────────────────────────────────────────────── */}
+          {/* Empty state */}
           {!loading && logs.length === 0 && recentWorkouts.length === 0 && (
             <View style={styles.emptyState}>
               <Text style={{ fontSize: 56 }}>💪</Text>
@@ -876,7 +957,6 @@ const styles = StyleSheet.create({
   },
   bigStatContent: { flexDirection: "row", alignItems: "center" },
   bigStatLeft: { flex: 1, alignItems: "center", gap: 4 },
-  // ── NEW: make streak side feel tappable ────────────────────────────────────
   streakTapArea: {
     borderRadius: 16,
     padding: 8,
@@ -1301,4 +1381,33 @@ const recoStyles = StyleSheet.create({
     borderRadius: 12,
   },
   metaPillText: { fontSize: 11, fontWeight: "500" },
+});
+
+// ── No Recommendation Styles (FR8) ────────────────────────────────────────────
+const noRecoStyles = StyleSheet.create({
+  card: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  icon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  title: { fontSize: 15, fontWeight: "700", marginBottom: 4 },
+  sub: { fontSize: 13, lineHeight: 18 },
 });
