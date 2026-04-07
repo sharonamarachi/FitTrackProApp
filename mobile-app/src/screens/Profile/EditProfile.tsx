@@ -36,6 +36,7 @@ export default function EditProfile({ navigation }: any) {
     gender: "",
   });
   const [weightInput, setWeightInput] = useState("");
+  const [originalWeight, setOriginalWeight] = useState<string>("");
   const [birthday, setBirthday] = useState<Date | null>(null);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<
@@ -66,7 +67,9 @@ export default function EditProfile({ navigation }: any) {
           bio: data.bio || "",
           gender: data.gender || "",
         });
-        setWeightInput(data.weight?.toString() || "");
+        const w = data.weight?.toString() || "";
+        setWeightInput(w);
+        setOriginalWeight(w);
         setBirthday(data.date_of_birth ? new Date(data.date_of_birth) : null);
       }
     } catch {
@@ -171,13 +174,17 @@ export default function EditProfile({ navigation }: any) {
         } else throw profileError;
       }
 
-      if (newWeight && !isNaN(newWeight)) {
+      // only insert a body measurement if the weight actually changed
+      const weightChanged = weightInput.trim() !== originalWeight.trim();
+      if (weightChanged && newWeight && !isNaN(newWeight)) {
         await supabase.from("body_measurements").insert({
           user_id: userId,
           weight_kg: newWeight,
           recorded_at: new Date().toISOString(),
         });
+        setOriginalWeight(weightInput);
       }
+
       Alert.alert("Saved", "Profile updated successfully");
       navigation.goBack();
     } catch {
@@ -195,17 +202,10 @@ export default function EditProfile({ navigation }: any) {
     }
   };
 
-  // ── Icon box background: higher opacity in dark mode so it's visible ──────
   const iconBoxBg = isDark ? colors.primary + "50" : colors.primary + "20";
 
-  // ── Runtime theme styles ──────────────────────────────────────────────────
   const d = {
-    screen: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-
-    // ── Avatar card ────────────────────────────────────────────────────────
+    screen: { flex: 1, backgroundColor: colors.background },
     avatarCard: {
       backgroundColor: colors.card,
       borderRadius: 20,
@@ -238,8 +238,6 @@ export default function EditProfile({ navigation }: any) {
       borderWidth: 2.5,
       borderColor: colors.card,
     },
-
-    // ── Section label ──────────────────────────────────────────────────────
     sectionLabel: {
       fontSize: 13,
       fontWeight: "600" as const,
@@ -249,8 +247,6 @@ export default function EditProfile({ navigation }: any) {
       marginBottom: 8,
       marginTop: 22,
     },
-
-    // ── Field card ─────────────────────────────────────────────────────────
     card: {
       backgroundColor: colors.card,
       borderRadius: 20,
@@ -258,8 +254,6 @@ export default function EditProfile({ navigation }: any) {
       borderColor: colors.border,
       overflow: "hidden" as const,
     },
-
-    // ── Row with bottom divider ────────────────────────────────────────────
     row: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
@@ -269,7 +263,6 @@ export default function EditProfile({ navigation }: any) {
       borderBottomWidth: 0.5,
       borderBottomColor: colors.divider,
     },
-    // ── Last row in a card — no divider ────────────────────────────────────
     rowLast: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
@@ -277,8 +270,6 @@ export default function EditProfile({ navigation }: any) {
       paddingHorizontal: 16,
       paddingVertical: 15,
     },
-
-    // ── Icon box: readable in both light and dark ──────────────────────────
     iconBox: {
       width: 38,
       height: 38,
@@ -288,8 +279,6 @@ export default function EditProfile({ navigation }: any) {
       justifyContent: "center" as const,
       flexShrink: 0,
     },
-
-    // ── Text styles ────────────────────────────────────────────────────────
     fl: { fontSize: 12, color: colors.textSecondary, marginBottom: 4 },
     fv: { fontSize: 17, fontWeight: "500" as const, color: colors.text },
     ph: {
@@ -312,8 +301,6 @@ export default function EditProfile({ navigation }: any) {
       fontStyle: "italic" as const,
       marginTop: 5,
     },
-
-    // ── Update badge (weight row) ──────────────────────────────────────────
     updateBadge: {
       backgroundColor: isDark ? colors.success + "40" : colors.success + "18",
       borderWidth: 0.5,
@@ -322,8 +309,6 @@ export default function EditProfile({ navigation }: any) {
       paddingHorizontal: 10,
       paddingVertical: 6,
     },
-
-    // ── Bottom save button ─────────────────────────────────────────────────
     saveBottom: {
       backgroundColor: colors.primary,
       borderRadius: 16,
@@ -331,8 +316,6 @@ export default function EditProfile({ navigation }: any) {
       alignItems: "center" as const,
       marginTop: 10,
     },
-
-    // ── Gender modal ───────────────────────────────────────────────────────
     modalBg: {
       flex: 1,
       backgroundColor: "rgba(0,0,0,0.45)",
@@ -369,13 +352,16 @@ export default function EditProfile({ navigation }: any) {
     optionText: { fontSize: 17, color: colors.text },
   };
 
+  // show "Update" badge only when weight has actually changed from original
+  const weightActuallyChanged =
+    weightInput.trim() !== originalWeight.trim() && weightInput.trim() !== "";
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <View style={d.screen}>
-        {/* ── Header ───────────────────────────────────────────────────── */}
         <Header
           title="Edit Profile"
           subtitle="Update your personal details"
@@ -390,7 +376,7 @@ export default function EditProfile({ navigation }: any) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Avatar card ────────────────────────────────────────────── */}
+          {/* Avatar card */}
           <View style={d.avatarCard}>
             <View style={{ position: "relative" }}>
               <View style={d.avatarRing}>
@@ -415,12 +401,9 @@ export default function EditProfile({ navigation }: any) {
             </Text>
           </View>
 
-          {/* ════════════════════════════════════════════════════════════════
-              IDENTITY — Username + Bio
-          ════════════════════════════════════════════════════════════════ */}
+          {/* Identity */}
           <Text style={d.sectionLabel}>Identity</Text>
           <View style={d.card}>
-            {/* Username */}
             <View style={d.row}>
               <View style={d.iconBox}>
                 <Ionicons
@@ -451,7 +434,6 @@ export default function EditProfile({ navigation }: any) {
               </View>
             </View>
 
-            {/* Bio */}
             <View style={d.rowLast}>
               <View style={d.iconBox}>
                 <Ionicons
@@ -490,12 +472,9 @@ export default function EditProfile({ navigation }: any) {
             </View>
           </View>
 
-          {/* ════════════════════════════════════════════════════════════════
-              PERSONAL — Date of birth (own row) + Gender (own row)
-          ════════════════════════════════════════════════════════════════ */}
+          {/* Personal */}
           <Text style={d.sectionLabel}>Personal</Text>
           <View style={d.card}>
-            {/* Date of birth */}
             <View style={d.row}>
               <View style={d.iconBox}>
                 <Ionicons
@@ -504,7 +483,7 @@ export default function EditProfile({ navigation }: any) {
                   color={colors.primary}
                 />
               </View>
-              <View style={{ flex: 1}}>
+              <View style={{ flex: 1 }}>
                 <Text style={d.fl}>Date of birth</Text>
                 <TouchableOpacity
                   onPress={() => setShowDatePicker((v) => !v)}
@@ -530,7 +509,7 @@ export default function EditProfile({ navigation }: any) {
                     display={Platform.OS === "ios" ? "spinner" : "default"}
                     maximumDate={new Date()}
                     onChange={handleDateChange}
-                    themeVariant={isDark ? "dark" : "light"} // ← add this
+                    themeVariant={isDark ? "dark" : "light"}
                     style={{ marginTop: 8 }}
                   />
                 )}
@@ -547,7 +526,6 @@ export default function EditProfile({ navigation }: any) {
               </TouchableOpacity>
             </View>
 
-            {/* Gender */}
             <View style={d.rowLast}>
               <View style={d.iconBox}>
                 <Ionicons
@@ -580,9 +558,7 @@ export default function EditProfile({ navigation }: any) {
             </View>
           </View>
 
-          {/* ════════════════════════════════════════════════════════════════
-              BODY METRICS — Weight
-          ════════════════════════════════════════════════════════════════ */}
+          {/* Body metrics */}
           <Text style={d.sectionLabel}>Body metrics</Text>
           <View style={d.card}>
             <View style={d.rowLast}>
@@ -607,11 +583,13 @@ export default function EditProfile({ navigation }: any) {
                   <Text style={d.errorText}>{errors.weight}</Text>
                 ) : (
                   <Text style={d.weightHint}>
-                    Each save records a new entry in your weight chart.
+                    {weightActuallyChanged
+                      ? "A new entry will be added to your weight chart."
+                      : "Change the value to log a new weight entry."}
                   </Text>
                 )}
               </View>
-              {weightInput ? (
+              {weightActuallyChanged ? (
                 <View style={d.updateBadge}>
                   <Text
                     style={{
@@ -627,7 +605,7 @@ export default function EditProfile({ navigation }: any) {
             </View>
           </View>
 
-          {/* ── Save button ───────────────────────────────────────────────── */}
+          {/* Save button */}
           <TouchableOpacity
             style={d.saveBottom}
             onPress={handleSave}
@@ -640,7 +618,7 @@ export default function EditProfile({ navigation }: any) {
           </TouchableOpacity>
         </ScrollView>
 
-        {/* ── Gender bottom sheet ───────────────────────────────────────── */}
+        {/* Gender modal */}
         <Modal visible={showGenderModal} transparent animationType="slide">
           <TouchableWithoutFeedback onPress={() => setShowGenderModal(false)}>
             <View style={d.modalBg}>
@@ -692,12 +670,8 @@ export default function EditProfile({ navigation }: any) {
   );
 }
 
-// ── Static styles (no runtime color values) ───────────────────────────────────
 const styles = StyleSheet.create({
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 50,
-  },
+  scrollContent: { padding: 16, paddingBottom: 50 },
   saveBtnText: {
     fontSize: 17,
     fontWeight: "700",
