@@ -24,6 +24,7 @@ import {
   buildTimerPhases,
   loadNotificationPrefs,
 } from "../../services/NotificationService";
+import { usePreferences } from "../../context/UserPreferencesContext";
 
 const { width } = Dimensions.get("window");
 
@@ -52,6 +53,7 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
     coachVoiceEnabled: prefCoach,
     coachVoiceGender: prefGender,
   } = useUserPreferences();
+  const { prefs } = usePreferences();
 
   const [isCountingDown, setIsCountingDown] = useState(true);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
@@ -103,25 +105,19 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
       const phases = buildTimerPhases(exercises);
       scheduleTimerNotifications(phases);
     }
-    // Cancel on unmount or if countdown restarts
     return () => {
       cancelTimerNotifications();
     };
   }, [isCountingDown]);
 
   // ── Pause / resume background notifications ────────────────────────────────
-  // When the user pauses mid-workout the pre-scheduled notifications would fire
-  // at the wrong times, so cancel them and re-schedule when they resume.
   const prevPausedRef = useRef(false);
   useEffect(() => {
     if (isCountingDown || isCompleted) return;
 
     if (isPaused && !prevPausedRef.current) {
-      // Just paused — cancel background notifications
       cancelTimerNotifications();
     } else if (!isPaused && prevPausedRef.current) {
-      // Just resumed — re-schedule from current position
-      // Build remaining phases from current state
       const remainingPhases = buildRemainingPhases(
         exercises,
         currentExerciseIndex,
@@ -237,7 +233,7 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
     return `${m}m ${s}s`;
   };
 
-  // ── Save workout log + send completion notification ─────────────────────────
+  // ── Save workout log ────────────────────────────────────────────────────────
   const saveWorkoutLog = async () => {
     if (!workoutId) {
       navigation.goBack();
@@ -275,7 +271,7 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
         await supabase.from("exercise_logs").insert(exerciseLogs);
       }
 
-      // ── Check weekly goal ─────────────────────────────────────────────────
+      // ── FIX: Check weekly goal using numeric weeklyWorkoutGoal from prefs ──
       try {
         const now = new Date();
         const dayOfWeek = now.getDay();
@@ -292,19 +288,20 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
 
         const weekCount = weekLogs?.length ?? 0;
         const notifPrefs = await loadNotificationPrefs();
-        // Ensure we are comparing numbers: weekCount (number) vs notifPrefs.weeklyGoal (number)
+
+        // FIX: use prefs.weeklyWorkoutGoal (number) for comparison
+        // and notifPrefs.weeklyGoalNotify (boolean) for the toggle
+        const numericGoal = prefs.weeklyWorkoutGoal;
         if (
-          typeof notifPrefs.weeklyGoal === "number" &&
-          weekCount >= notifPrefs.weeklyGoal &&
-          notifPrefs.weeklyGoal > 0
+          notifPrefs.weeklyGoalNotify &&
+          typeof numericGoal === "number" &&
+          numericGoal > 0 &&
+          weekCount >= numericGoal
         ) {
-          const { notifyWeeklyGoalReached } =
-            await import("../../services/NotificationService");
-          await notifyWeeklyGoalReached(notifPrefs.weeklyGoal);
+          await notifyWeeklyGoalReached(numericGoal);
         }
       } catch {}
 
-      // ── Workout complete notification ─────────────────────────────────────
       await notifyWorkoutComplete(
         workoutName,
         elapsedRef.current,
@@ -678,7 +675,7 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
   );
 }
 
-// ─── Helper: build phases from current position in the workout ────────────────
+// ─── Helper ───────────────────────────────────────────────────────────────────
 
 function buildRemainingPhases(
   exercises: Exercise[],
@@ -687,22 +684,16 @@ function buildRemainingPhases(
   timeLeft: number,
 ): import("../../services/NotificationService").TimerPhase[] {
   const phases: import("../../services/NotificationService").TimerPhase[] = [];
-
-  // Current phase remainder
   phases.push({
     label: isResting ? "Rest" : `${exercises[currentIndex].name} — Work`,
     durationSeconds: timeLeft,
   });
-
-  // If currently in work phase, still have a rest to come for this exercise
   if (!isResting && exercises[currentIndex].restTime > 0) {
     phases.push({
       label: "Rest",
       durationSeconds: exercises[currentIndex].restTime,
     });
   }
-
-  // Remaining exercises
   for (let i = currentIndex + 1; i < exercises.length; i++) {
     phases.push({
       label: `${exercises[i].name} — Work`,
@@ -712,13 +703,17 @@ function buildRemainingPhases(
       phases.push({ label: "Rest", durationSeconds: exercises[i].restTime });
     }
   }
-
   return phases;
+}
+
+async function notifyWeeklyGoalReached(goal: number): Promise<void> {
+  const { notifyWeeklyGoalReached: notify } =
+    await import("../../services/NotificationService");
+  await notify(goal);
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a0a0a", paddingBottom: 80 },
-
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -742,7 +737,6 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.5)",
     marginTop: 2,
   },
-
   audioSettingsCard: {
     backgroundColor: "#161616",
     marginHorizontal: 16,
@@ -785,7 +779,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   genderBtnTextActive: { color: "#fff" },
-
   progressStrip: {
     flexDirection: "row",
     paddingHorizontal: 20,
@@ -794,7 +787,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   progressSegment: { flex: 1, height: 3, borderRadius: 2 },
-
   phasePillRow: { alignItems: "center", marginBottom: 4 },
   phasePill: {
     flexDirection: "row",
@@ -815,7 +807,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   pausedText: { color: "#fbbf24", fontSize: 11, fontWeight: "700" },
-
   timerSection: { flex: 1, alignItems: "center", justifyContent: "center" },
   circularContainer: { alignItems: "center", justifyContent: "center" },
   circularContent: {
@@ -844,7 +835,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   restBadgeText: { color: "#f97316", fontSize: 12, fontWeight: "600" },
-
   infoSection: {
     flexDirection: "row",
     paddingHorizontal: 16,
@@ -870,7 +860,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     textAlign: "center",
   },
-
   controls: {
     flexDirection: "row",
     alignItems: "center",
@@ -895,7 +884,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   pauseButtonActive: { backgroundColor: "#f97316" },
-
   completedContainer: {
     flex: 1,
     alignItems: "center",
