@@ -37,7 +37,7 @@ export type QuickStartStackParamList = {
   YouTubeImport: undefined;
   TranscriptImport: undefined;
   TimerScreen: { work: number; rest: number; rounds: number; exercises: number };
-  CreateWorkoutTemplate: undefined;
+  CreateWorkoutTemplate: { importedData?: any; importSource?: string } | undefined;
   VideoImport: undefined;
 };
 
@@ -45,7 +45,7 @@ export type WorkoutsStackParamList = {
   WorkoutLibrary: undefined;
   WorkoutDetails: { workoutId: string };
   EditWorkout: { workoutId?: string };
-  CreateWorkoutTemplate: undefined;
+  CreateWorkoutTemplate: { importedData?: any; importSource?: string } | undefined;
   IntervalTimerPlayback: {
     exercises: Array<{
       name: string;
@@ -53,25 +53,14 @@ export type WorkoutsStackParamList = {
       restTime: number;
     }>;
     workoutName: string;
-    workoutId?: string;
+    workoutId?: string; 
   };
 };
 
+export type LoginScreenProps    = NativeStackScreenProps<RootStackParamList, 'Login'>;
+export type SignUpScreenProps   = NativeStackScreenProps<RootStackParamList, 'SignUp'>;
+export type HomeScreenProps     = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
-
-export type LoginScreenProps = NativeStackScreenProps<RootStackParamList, 'Login'>;
-export type SignUpScreenProps = NativeStackScreenProps<RootStackParamList, 'SignUp'>;
-export type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
-
-export type QuickStartScreenProps = NativeStackScreenProps<
-  QuickStartStackParamList,
-  'QuickStart'
->;
-export type QuickTimerScreenProps = NativeStackScreenProps<
-  QuickStartStackParamList,
-  'QuickTimer'
->;
-export type TimerScreenProps = NativeStackScreenProps<
-  QuickStartStackParamList,
-  'TimerScreen'
->;
+export type QuickStartScreenProps = NativeStackScreenProps<QuickStartStackParamList, 'QuickStart'>;
+export type QuickTimerScreenProps = NativeStackScreenProps<QuickStartStackParamList, 'QuickTimer'>;
+export type TimerScreenProps      = NativeStackScreenProps<QuickStartStackParamList, 'TimerScreen'>;

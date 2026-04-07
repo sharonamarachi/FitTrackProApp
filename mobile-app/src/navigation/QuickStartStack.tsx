@@ -1,8 +1,6 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-
 import { QuickStartStackParamList } from "./types";
-
 import QuickStart from "../screens/QuickStart/QuickStart";
 import QuickTimer from "../screens/QuickStart/QuickTimer";
 import YouTubeImport from "../screens/QuickStart/YouTubeImport";

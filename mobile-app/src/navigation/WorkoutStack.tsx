@@ -1,26 +1,13 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { WorkoutsStackParamList } from "./types";
 import WorkoutLibrary from "../screens/Workout/WorkoutLibrary";
 import WorkoutDetails from "../screens/Workout/WorkoutDetails";
 import EditWorkout from "../screens/Workout/EditWorkout";
 import CreateWorkoutTemplate from "../screens/Workout/CreateWorkoutTemplate";
 import IntervalTimerPlayback from "../screens/Workout/IntervalTimerPlayback";
 
-export type WorkoutsStackParamList = {
-  WorkoutLibrary: undefined;
-  WorkoutDetails: { workoutId: string };
-  EditWorkout: { workoutId?: string };
-  CreateWorkoutTemplate: undefined;
-  IntervalTimerPlayback: {
-    exercises: Array<{
-      name: string;
-      duration: number;
-      restTime: number;
-    }>;
-    workoutName: string;
-    workoutId?: string;
-  };
-};
+export type { WorkoutsStackParamList };
 
 const Stack = createNativeStackNavigator<WorkoutsStackParamList>();
 
@@ -55,13 +42,3 @@ export default function WorkoutStack() {
     </Stack.Navigator>
   );
 }
-
-// Also update navigation/types.ts — the duplicate WorkoutsStackParamList
-// there needs the same workoutId fix:
-//
-// WorkoutsStackParamList in types.ts:
-//   IntervalTimerPlayback: {
-//     exercises: Array<{ name: string; duration: number; restTime: number }>;
-//     workoutName: string;
-//     workoutId?: string;  ← add this
-//   };
