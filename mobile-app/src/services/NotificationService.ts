@@ -12,7 +12,6 @@ const KEYS = {
   PREFS:          'notif_prefs_v1',
 };
 
-
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -29,7 +28,7 @@ export interface NotificationPrefs {
   workoutComplete:   boolean;
   streakReminder:    boolean;
   streakRiskAlert:   boolean;
-  weeklyGoal:        boolean;
+  weeklyGoalNotify:  boolean;  
   overloadNudge:     boolean;
   reminderHour:      number;
   reminderMinute:    number;
@@ -40,7 +39,7 @@ export const DEFAULT_PREFS: NotificationPrefs = {
   workoutComplete:   true,
   streakReminder:    true,
   streakRiskAlert:   true,
-  weeklyGoal:        true,
+  weeklyGoalNotify:  true,  
   overloadNudge:     false,
   reminderHour:      18,
   reminderMinute:    0,
@@ -82,7 +81,14 @@ export async function getPermissionStatus(): Promise<'granted' | 'denied' | 'und
 export async function loadNotificationPrefs(): Promise<NotificationPrefs> {
   try {
     const stored = await AsyncStorage.getItem(KEYS.PREFS);
-    if (stored) return { ...DEFAULT_PREFS, ...JSON.parse(stored) };
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if ('weeklyGoal' in parsed && !('weeklyGoalNotify' in parsed)) {
+        parsed.weeklyGoalNotify = parsed.weeklyGoal;
+        delete parsed.weeklyGoal;
+      }
+      return { ...DEFAULT_PREFS, ...parsed };
+    }
   } catch {}
   return { ...DEFAULT_PREFS };
 }
@@ -291,7 +297,7 @@ export async function cancelStreakRiskAlert(): Promise<void> {
 
 export async function notifyWeeklyGoalReached(goal: number): Promise<void> {
   const prefs = await loadNotificationPrefs();
-  if (!prefs.weeklyGoal) return;
+  if (!prefs.weeklyGoalNotify) return;
 
   await sendImmediateNotification(
     '🎯 Weekly Goal Reached!',
