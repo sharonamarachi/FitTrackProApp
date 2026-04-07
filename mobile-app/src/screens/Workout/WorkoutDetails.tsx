@@ -16,7 +16,7 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { WorkoutsStackParamList } from "../../navigation/WorkoutStack";
 import {
   fetchWorkoutById,
-  deleteWorkout,
+  softDeleteWorkout, 
   updateWorkout,
 } from "../../services/WorkoutService";
 import { Exercise } from "../../domain/workout";
@@ -106,8 +106,6 @@ export default function WorkoutDetails({ route, navigation }: Props) {
   const [workoutTitle, setWorkoutTitle] = useState("");
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [completions, setCompletions] = useState<ExerciseCompletion>({});
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [tempTitle, setTempTitle] = useState("");
   const [workoutType, setWorkoutType] = useState<"strength" | "cardio">(
     "strength",
   );
@@ -122,6 +120,8 @@ export default function WorkoutDetails({ route, navigation }: Props) {
   const [finishModalVisible, setFinishModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const [workoutData, setWorkoutData] = useState<any>(null);
 
   const { theme, colors } = useTheme();
   const isDark = theme === "dark";
@@ -150,7 +150,6 @@ export default function WorkoutDetails({ route, navigation }: Props) {
     return unsubscribe;
   }, [navigation]);
 
-  // ── Timer: pauses automatically when finish modal is open ─────────────────
   useEffect(() => {
     if (sessionStarted && !finishModalVisible) {
       timerRef.current = setInterval(() => {
@@ -170,6 +169,7 @@ export default function WorkoutDetails({ route, navigation }: Props) {
     if (data) {
       setWorkoutTitle(data.title);
       setExercises(data.exercises);
+      setWorkoutData(data);
       setWorkoutType(
         data.category === "cardio" ||
           data.exercises.some((e: Exercise) => e.duration)
@@ -198,18 +198,15 @@ export default function WorkoutDetails({ route, navigation }: Props) {
     setCompletions((prev) => ({ ...prev, [exerciseId]: !prev[exerciseId] }));
   };
 
-  // Opens modal — timer auto-pauses via useEffect dependency
   const handleFinishWorkout = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setFinishModalVisible(true);
   };
 
-  // Resumes timer when user keeps going
   const handleKeepGoing = () => {
     setFinishModalVisible(false);
   };
 
-  // Resets entire session without saving
   const handleResetSession = () => {
     Alert.alert(
       "Reset Session",
@@ -308,16 +305,34 @@ export default function WorkoutDetails({ route, navigation }: Props) {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     Alert.alert(
       "Delete Workout",
-      "Are you sure you want to delete this workout?",
+      "This workout will be moved to Recently Deleted and can be recovered within 30 days.",
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
-            const { error } = await deleteWorkout(workoutId);
+            if (!workoutData) {
+              Alert.alert("Error", "Could not load workout data for deletion.");
+              return;
+            }
+            const {
+              data: { user },
+            } = await supabase.auth.getUser();
+            if (!user) {
+              Alert.alert("Error", "You must be logged in.");
+              return;
+            }
+            const { error } = await softDeleteWorkout(
+              user.id,
+              workoutId,
+              workoutData,
+            );
             if (error) {
-              Alert.alert("Error", "Failed to delete workout");
+              Alert.alert(
+                "Error",
+                "Failed to delete workout: " + error.message,
+              );
             } else {
               navigation.goBack();
             }
@@ -330,16 +345,6 @@ export default function WorkoutDetails({ route, navigation }: Props) {
   const handleEdit = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     navigation.navigate("EditWorkout", { workoutId });
-  };
-
-  const handleSaveTitle = async () => {
-    if (tempTitle.trim()) {
-      const { error } = await updateWorkout(workoutId, { title: tempTitle });
-      if (!error) {
-        setWorkoutTitle(tempTitle);
-        setIsEditingTitle(false);
-      }
-    }
   };
 
   if (loading) {
@@ -375,7 +380,7 @@ export default function WorkoutDetails({ route, navigation }: Props) {
         backgroundColor={colors.background}
       />
 
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      {/* Header */}
       <View
         style={[
           styles.header,
@@ -411,7 +416,6 @@ export default function WorkoutDetails({ route, navigation }: Props) {
         </View>
 
         <View style={styles.headerRight}>
-          {/* Live timer — compact, header only */}
           {sessionStarted && (
             <View
               style={[styles.liveTimer, { backgroundColor: "#10b981" + "22" }]}
@@ -450,7 +454,7 @@ export default function WorkoutDetails({ route, navigation }: Props) {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ── Info Card ─────────────────────────────────────────────────────── */}
+        {/* Info Card */}
         <Animated.View
           style={[
             styles.infoCard,
@@ -575,7 +579,7 @@ export default function WorkoutDetails({ route, navigation }: Props) {
           </View>
         </Animated.View>
 
-        {/* ── Exercises ─────────────────────────────────────────────────────── */}
+        {/* Exercises */}
         <View style={styles.exercisesSection}>
           <View style={styles.sectionHeader}>
             <View>
@@ -825,13 +829,11 @@ export default function WorkoutDetails({ route, navigation }: Props) {
           </View>
         </View>
 
-        {/* ── Action Buttons ────────────────────────────────────────────────── */}
+        {/* Action Buttons */}
         {exercises.length > 0 && (
           <View style={styles.actionButtons}>
-            {/* ── CARDIO buttons (redesigned) ─────────────────────────────── */}
             {workoutType === "cardio" && (
               <View style={styles.cardioButtonGroup}>
-                {/* Start Timer */}
                 <TouchableOpacity
                   style={[
                     styles.cardioBtn,
@@ -847,6 +849,7 @@ export default function WorkoutDetails({ route, navigation }: Props) {
                         restTime: ex.restTime || 0,
                       })),
                       workoutName: workoutTitle,
+                      workoutId,
                     });
                   }}
                   activeOpacity={0.85}
@@ -881,7 +884,6 @@ export default function WorkoutDetails({ route, navigation }: Props) {
                   />
                 </TouchableOpacity>
 
-                {/* Finish Workout (only shown once session active or exercises marked) */}
                 {(sessionStarted || completedCount > 0) && (
                   <TouchableOpacity
                     style={[styles.cardioBtn, styles.cardioBtnSuccess]}
@@ -922,7 +924,6 @@ export default function WorkoutDetails({ route, navigation }: Props) {
               </View>
             )}
 
-            {/* ── STRENGTH buttons ────────────────────────────────────────── */}
             {workoutType === "strength" && (
               <>
                 {!sessionStarted && completedCount === 0 && (
@@ -1007,7 +1008,7 @@ export default function WorkoutDetails({ route, navigation }: Props) {
         )}
       </ScrollView>
 
-      {/* ── Finish Workout Modal ─────────────────────────────────────────────── */}
+      {/* Finish Modal */}
       <Modal
         visible={finishModalVisible}
         transparent
@@ -1016,7 +1017,6 @@ export default function WorkoutDetails({ route, navigation }: Props) {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
-            {/* Header */}
             <View style={styles.modalHeader}>
               <Text style={{ fontSize: 40 }}>🎉</Text>
               <View style={{ flex: 1 }}>
@@ -1032,7 +1032,6 @@ export default function WorkoutDetails({ route, navigation }: Props) {
                   Timer is paused
                 </Text>
               </View>
-              {/* Paused indicator */}
               <View
                 style={[styles.pausedPill, { backgroundColor: colors.surface }]}
               >
@@ -1052,7 +1051,6 @@ export default function WorkoutDetails({ route, navigation }: Props) {
               </View>
             </View>
 
-            {/* Stats */}
             <View
               style={[styles.modalStats, { backgroundColor: colors.surface }]}
             >
@@ -1098,10 +1096,7 @@ export default function WorkoutDetails({ route, navigation }: Props) {
               />
               <View style={styles.modalStat}>
                 <Text
-                  style={[
-                    styles.modalStatValue,
-                    { color: workoutType === "cardio" ? "#4876ec" : "#428df7" },
-                  ]}
+                  style={[styles.modalStatValue, { color: workoutTypeColor }]}
                 >
                   {Math.round(completionPercentage)}%
                 </Text>
@@ -1123,7 +1118,6 @@ export default function WorkoutDetails({ route, navigation }: Props) {
               toward your streak.
             </Text>
 
-            {/* Save & Finish */}
             <TouchableOpacity
               style={[styles.modalSaveBtn, { backgroundColor: "#10B981" }]}
               onPress={saveWorkoutLog}
@@ -1136,7 +1130,6 @@ export default function WorkoutDetails({ route, navigation }: Props) {
               </Text>
             </TouchableOpacity>
 
-            {/* Keep Going */}
             <TouchableOpacity
               style={[
                 styles.modalSecondaryBtn,
@@ -1159,12 +1152,10 @@ export default function WorkoutDetails({ route, navigation }: Props) {
               </Text>
             </TouchableOpacity>
 
-            {/* Divider */}
             <View
               style={[styles.modalDivider, { backgroundColor: colors.border }]}
             />
 
-            {/* Destructive row: Reset + Don't Save */}
             <View style={styles.modalDestructiveRow}>
               <TouchableOpacity
                 style={[
@@ -1228,8 +1219,6 @@ export default function WorkoutDetails({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-
-  // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -1266,8 +1255,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
-  // Content
   content: { paddingHorizontal: 20, paddingBottom: 120 },
   infoCard: {
     borderRadius: 28,
@@ -1289,43 +1276,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  editTitleWrapper: { flex: 1 },
-  titleInput: {
-    fontSize: 26,
-    fontWeight: "800",
-    paddingVertical: 10,
-    borderBottomWidth: 3,
-  },
-  titleEditButtons: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 18,
-    justifyContent: "flex-end",
-  },
-  saveTitleButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cancelTitleButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  titleTouchable: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingRight: 4,
-  },
   workoutTitle: { fontSize: 26, fontWeight: "800", flex: 1, lineHeight: 34 },
-
-  // Progress
   progressSection: { alignItems: "center", gap: 28 },
   circularProgressCenter: {
     position: "absolute",
@@ -1369,8 +1320,6 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 22, fontWeight: "800" },
   statLabel: { fontSize: 12, fontWeight: "600" },
   statDivider: { width: 1.5, height: 40 },
-
-  // Exercises
   exercisesSection: { marginBottom: 28 },
   sectionHeader: {
     flexDirection: "row",
@@ -1449,11 +1398,7 @@ const styles = StyleSheet.create({
   },
   durationText: { fontSize: 14, fontWeight: "800" },
   exerciseRight: { padding: 4 },
-
-  // Action buttons
   actionButtons: { gap: 12 },
-
-  // ── Cardio buttons (clean, professional) ─────────────────────────────────
   cardioButtonGroup: { gap: 10 },
   cardioBtn: {
     flexDirection: "row",
@@ -1483,8 +1428,6 @@ const styles = StyleSheet.create({
   cardioBtnText: { flex: 1 },
   cardioBtnTitle: { fontSize: 16, fontWeight: "700", marginBottom: 2 },
   cardioBtnSub: { fontSize: 13, fontWeight: "400" },
-
-  // Strength buttons (unchanged)
   startButton: {
     borderRadius: 22,
     padding: 22,
@@ -1522,8 +1465,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
-
-  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.55)",
@@ -1536,7 +1477,6 @@ const styles = StyleSheet.create({
     paddingBottom: 44,
     gap: 14,
   },
-
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -1554,7 +1494,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   pausedPillText: { fontSize: 12, fontWeight: "600" },
-
   modalStats: {
     flexDirection: "row",
     borderRadius: 20,
@@ -1566,9 +1505,7 @@ const styles = StyleSheet.create({
   modalStatValue: { fontSize: 26, fontWeight: "900" },
   modalStatLabel: { fontSize: 13, fontWeight: "600" },
   modalStatDivider: { width: 1, height: 40 },
-
   modalDescription: { fontSize: 14, lineHeight: 20, textAlign: "center" },
-
   modalSaveBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1578,7 +1515,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   modalSaveBtnText: { color: "#fff", fontSize: 18, fontWeight: "800" },
-
   modalSecondaryBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1589,9 +1525,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   modalSecondaryBtnText: { fontSize: 15, fontWeight: "700" },
-
   modalDivider: { height: 1, marginVertical: 4 },
-
   modalDestructiveRow: { flexDirection: "row", gap: 10 },
   modalDestructiveBtn: {
     flex: 1,
