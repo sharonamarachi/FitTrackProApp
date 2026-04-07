@@ -11,6 +11,7 @@ import {
   TouchableWithoutFeedback,
   StyleSheet,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
@@ -38,6 +39,7 @@ export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const { theme, colors } = useTheme();
   const isDark = theme === "dark";
+  const insets = useSafeAreaInsets();
 
   const [userName, setUserName] = useState<string>("");
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
@@ -177,9 +179,63 @@ export default function HomeScreen() {
           longestStreak={longestStreak}
         />
 
+        <Animated.View
+          style={[
+            styles.headerSection,
+            {
+              backgroundColor: colors.background, // Make it opaque so it covers things behind
+              paddingTop: Math.max(insets.top, 20) + 16,
+              opacity: headerAnim,
+              transform: [
+                {
+                  translateY: headerAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [20, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <View style={styles.greetingRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.greetingEmoji]}>{emoji}</Text>
+              <Text style={[styles.greetingText, { color: colors.text }]}>
+                {greeting}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setCalendarVisible(true)}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              >
+                <Text
+                  style={[
+                    styles.greetingSubtext,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {currentStreak > 0
+                    ? `${currentStreak}-day streak 🔥  Tap to view activity`
+                    : "Ready to crush today's workout?"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.profileBtn,
+                { backgroundColor: isDark ? colors.surface : colors.card, marginTop: -10 },
+              ]}
+              onPress={() => navigation.navigate("Profile")}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="person" size={22} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[styles.scroll, { paddingBottom: Math.max(insets.bottom, 20) + 100 }]}
           keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl
@@ -189,59 +245,6 @@ export default function HomeScreen() {
             />
           }
         >
-          {/* Greeting header */}
-          <Animated.View
-            style={[
-              styles.headerSection,
-              {
-                opacity: headerAnim,
-                transform: [
-                  {
-                    translateY: headerAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [20, 0],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <View style={styles.greetingRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.greetingEmoji]}>{emoji}</Text>
-                <Text style={[styles.greetingText, { color: colors.text }]}>
-                  {greeting}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setCalendarVisible(true)}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                >
-                  <Text
-                    style={[
-                      styles.greetingSubtext,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {currentStreak > 0
-                      ? `${currentStreak}-day streak 🔥  Tap to view activity`
-                      : "Ready to crush today's workout?"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity
-                style={[
-                  styles.profileBtn,
-                  { backgroundColor: isDark ? colors.surface : colors.card },
-                ]}
-                onPress={() => navigation.navigate("Profile")}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="person" size={22} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-
           {/* Smart Recommendation OR fallback */}
           <Animated.View
             style={{

@@ -203,7 +203,7 @@ export default function Progress() {
           await scheduleStreakRiskAlert(streak);
         }
 
-        if (!goalNotifiedRef.current && notifPrefs.weeklyGoal) {
+        if (!goalNotifiedRef.current && notifPrefs.weeklyGoalNotify) {
           const now = new Date();
           const dow = now.getDay();
           const diffToMon = dow === 0 ? -6 : 1 - dow;

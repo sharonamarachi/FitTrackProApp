@@ -5,9 +5,10 @@ export const styles = StyleSheet.create({
   scroll: { paddingBottom: 32 },
 
   headerSection: {
-    paddingTop: 68,
+
     paddingHorizontal: 20,
     paddingBottom: 8,
+    backgroundColor: "transparent",
   },
   greetingRow: {
     flexDirection: "row",
