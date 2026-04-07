@@ -25,6 +25,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 import { supabase } from "../../api/supabaseClient";
+import { formatDurationDigital } from "../../utils/time";
 
 type ExerciseCompletion = {
   [exerciseId: string]: boolean;
@@ -294,12 +295,7 @@ export default function WorkoutDetails({ route, navigation }: Props) {
     return `${m}m ${s}s`;
   };
 
-  const formatDuration = (seconds?: number): string => {
-    if (!seconds) return "";
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
+
 
   const handleDelete = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -780,7 +776,7 @@ export default function WorkoutDetails({ route, navigation }: Props) {
                                 { color: workoutTypeColor },
                               ]}
                             >
-                              {formatDuration(exercise.duration)}
+                              {formatDurationDigital(exercise.duration)}
                             </Text>
                           </View>
                           {exercise.restTime && exercise.restTime > 0 && (

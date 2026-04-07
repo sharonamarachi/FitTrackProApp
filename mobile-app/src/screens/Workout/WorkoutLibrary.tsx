@@ -26,6 +26,7 @@ import { Workout } from "../../domain/workout";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../api/supabaseClient";
 import { useTheme } from "../../context/ThemeContext";
+import { formatDurationMinsSecs } from "../../utils/time";
 
 type Props = NativeStackScreenProps<WorkoutsStackParamList, "WorkoutLibrary">;
 
@@ -94,15 +95,6 @@ function tagColor(tag: string): string {
   return tagColorMap[tag];
 }
 
-function formatDuration(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  if (m === 0) return `${s}s`;
-  if (s === 0) return `${m}m`;
-  return `${m}m ${s}s`;
-}
-
-// ── NEW: derive which exercises matched the query (for the match badge) ────────
 function matchingExercises(w: Workout, query: string): string[] {
   if (!query.trim()) return [];
   const q = query.trim().toLowerCase();
@@ -895,7 +887,7 @@ function WorkoutCard({
                   style={[styles.previewExMeta, { color: colors.textTertiary }]}
                 >
                   {ex.duration
-                    ? formatDuration(ex.duration)
+                    ? formatDurationMinsSecs(ex.duration)
                     : ex.sets && ex.reps
                       ? `${ex.sets}×${ex.reps}`
                       : ""}
