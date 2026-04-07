@@ -13,7 +13,7 @@ const Stack = createNativeStackNavigator<SettingsStackParamList>();
 
 export default function SettingsStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator id="SettingsStack">
       <Stack.Screen
         name="Settings"
         component={Settings}

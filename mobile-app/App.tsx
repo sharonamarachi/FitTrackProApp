@@ -15,6 +15,7 @@ import SettingsStack from "./src/navigation/SettingsStack";
 import RecentlyDeleted from "./src/screens/Profile/RecentlyDeleted";
 import { ThemeProvider } from "./src/context/ThemeContext";
 import { PreferencesProvider } from "./src/context/UserPreferencesContext";
+import { supabase } from "./src/api/supabaseClient";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -29,10 +30,16 @@ export default function App() {
 
   const checkSession = async () => {
     try {
-      const token = await AsyncStorage.getItem("userToken");
-      setInitialRoute(token ? "Home" : "Login");
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (session && !error) {
+        setInitialRoute("Home");
+      } else {
+        await AsyncStorage.removeItem("userToken");
+        setInitialRoute("Login");
+      }
     } catch (error) {
       console.error("Error checking session:", error);
+      await AsyncStorage.removeItem("userToken");
       setInitialRoute("Login");
     } finally {
       setIsLoading(false);
@@ -53,6 +60,7 @@ export default function App() {
       <PreferencesProvider>
         <NavigationContainer>
           <Stack.Navigator
+            id="RootStack"
             initialRouteName={initialRoute}
             screenOptions={{
               headerShown: false,
@@ -70,24 +78,17 @@ export default function App() {
             <Stack.Screen
               name="SettingsStack"
               component={SettingsStack}
-              options={{
-                presentation: "modal",
-                animation: "slide_from_bottom",
-              }}
+              options={{ presentation: "modal", animation: "slide_from_bottom" }}
             />
             <Stack.Screen
               name="EditProfile"
               component={EditProfile}
-              options={{
-                animation: "slide_from_right",
-              }}
+              options={{ animation: "slide_from_right" }}
             />
             <Stack.Screen
               name="RecentlyDeleted"
               component={RecentlyDeleted}
-              options={{
-                animation: "slide_from_right",
-              }}
+              options={{ animation: "slide_from_right" }}
             />
           </Stack.Navigator>
         </NavigationContainer>

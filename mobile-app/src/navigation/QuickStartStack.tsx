@@ -16,6 +16,7 @@ const Stack = createNativeStackNavigator<QuickStartStackParamList>();
 export default function QuickStartStack() {
   return (
     <Stack.Navigator
+      id="QuickStartStack"
       screenOptions={{
         headerShown: false,
       }}

@@ -26,7 +26,7 @@ const Stack = createNativeStackNavigator<WorkoutsStackParamList>();
 
 export default function WorkoutStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator id="WorkoutStack">
       <Stack.Screen
         name="WorkoutLibrary"
         component={WorkoutLibrary}

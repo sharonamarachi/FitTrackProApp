@@ -40,6 +40,7 @@ export default function TabNavigator() {
 
   return (
     <Tab.Navigator
+      id="MainTabs"
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: true,
@@ -68,7 +69,7 @@ export default function TabNavigator() {
           ),
         }}
         listeners={({ navigation }) => ({
-          tabPress: (e) => {
+          tabPress: (e: any) => {
             e.preventDefault();
             navigation.reset({
               index: 0,
@@ -93,7 +94,7 @@ export default function TabNavigator() {
           ),
         }}
         listeners={({ navigation }) => ({
-          tabPress: (e) =>
+          tabPress: (e: any) =>
             resetOnPress(e, navigation, "WorkoutStack", "WorkoutLibrary"),
         })}
       />
@@ -120,7 +121,7 @@ export default function TabNavigator() {
           ),
         }}
         listeners={({ navigation }) => ({
-          tabPress: (e) =>
+          tabPress: (e: any) =>
             resetOnPress(e, navigation, "QuickStartStack", "QuickStart"),
         })}
       />
@@ -140,7 +141,7 @@ export default function TabNavigator() {
           ),
         }}
         listeners={({ navigation }) => ({
-          tabPress: (e) => {
+          tabPress: (e: any) => {
             e.preventDefault();
             navigation.reset({
               index: 0,
@@ -165,7 +166,7 @@ export default function TabNavigator() {
           ),
         }}
         listeners={({ navigation }) => ({
-          tabPress: (e) => {
+          tabPress: (e: any) => {
             e.preventDefault();
             navigation.reset({
               index: 0,
