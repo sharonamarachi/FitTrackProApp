@@ -42,7 +42,7 @@ export default function Profile({ navigation }: any) {
 
     // Real workout count
     const { count } = await supabase
-      .from("workout_logs")
+      .from("workouts")
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id);
     setWorkoutCount(count ?? 0);
