@@ -452,18 +452,6 @@ export default function HomeScreen() {
                 style={[styles.miniStatCard, { backgroundColor: colors.card }]}
               >
                 <MiniRing
-                  value={logs.length}
-                  max={Math.max(logs.length, 10)}
-                  color="#4876EC"
-                  label={`${logs.length}`}
-                  sublabel="Total Workouts"
-                  colors={colors}
-                />
-              </View>
-              <View
-                style={[styles.miniStatCard, { backgroundColor: colors.card }]}
-              >
-                <MiniRing
                   value={totalMinutes}
                   max={Math.max(totalMinutes, 60)}
                   color="#10B981"

@@ -1,6 +1,7 @@
 .
 ├── README.md
 ├── backend
+│   ├── Aptfile
 │   ├── dist
 │   │   └── server.js
 │   ├── package-lock.json
@@ -55,7 +56,15 @@
     │   │   │   ├── Onboarding.tsx
     │   │   │   └── SignUp.tsx
     │   │   ├── Home
-    │   │   │   └── Home.tsx
+    │   │   │   ├── Home.tsx
+    │   │   │   ├── components
+    │   │   │   │   ├── HomeWorkoutCard.tsx
+    │   │   │   │   ├── MiniRing.tsx
+    │   │   │   │   ├── RecentActivityCard.tsx
+    │   │   │   │   └── RecommendationCard.tsx
+    │   │   │   ├── styles.ts
+    │   │   │   ├── types.ts
+    │   │   │   └── utils.ts
     │   │   ├── Profile
     │   │   │   ├── AppearanceAndPreferencesScreen.tsx
     │   │   │   ├── EditProfile.tsx
@@ -82,7 +91,6 @@
     │   │   │   ├── TimerScreen.tsx
     │   │   │   ├── TranscriptImport.tsx
     │   │   │   ├── VideoImport.tsx
-    │   │   │   ├── WorkoutEditor.tsx
     │   │   │   └── YouTubeImport.tsx
     │   │   ├── Settings
     │   │   │   ├── ContactUs.tsx
@@ -97,14 +105,22 @@
     │   │       ├── IntervalTimerPlayback.tsx
     │   │       ├── WorkoutDetails.tsx
     │   │       ├── WorkoutLibrary.tsx
-    │   │       └── components
-    │   │           ├── ExerciseRow.tsx
-    │   │           └── WorkoutCard.tsx
-    │   └── services
-    │       ├── NotificationService.ts
-    │       ├── TranscriptNLPService.ts
-    │       ├── WorkoutRecommendations.ts
-    │       └── WorkoutService.ts
+    │   │       ├── components
+    │   │       │   ├── AddExerciseForm.tsx
+    │   │       │   ├── ExerciseRow.tsx
+    │   │       │   ├── ExerciseSearchSuggestions.tsx
+    │   │       │   └── WorkoutCard.tsx
+    │   │       ├── constants.ts
+    │   │       └── utils
+    │   │           ├── inputUtils.ts
+    │   │           └── searchUtils.ts
+    │   ├── services
+    │   │   ├── NotificationService.ts
+    │   │   ├── TranscriptNLPService.ts
+    │   │   ├── WorkoutRecommendations.ts
+    │   │   └── WorkoutService.ts
+    │   └── utils
+    │       └── time.ts
     └── tsconfig.json
 
-28 directories, 80 files
+31 directories, 93 files
