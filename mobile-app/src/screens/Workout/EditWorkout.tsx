@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   PanResponder,
   Animated,
+  Keyboard,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { WorkoutsStackParamList } from "../../navigation/WorkoutStack";
@@ -47,7 +48,6 @@ export default function EditWorkout({ route, navigation }: Props) {
   );
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const { theme, colors } = useTheme();
-
   const [currentExercise, setCurrentExercise] = useState({
     name: "",
     sets: "",
@@ -57,6 +57,44 @@ export default function EditWorkout({ route, navigation }: Props) {
     durationSec: "",
     restTime: "",
   });
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  const startEdit = (exercise: Exercise) => {
+    setEditingId(exercise.id);
+    setCurrentExercise({
+      name: exercise.name,
+      sets: exercise.sets ? exercise.sets.toString() : "",
+      reps: exercise.reps ? exercise.reps.toString() : "",
+      weight: exercise.weight ? exercise.weight.toString() : "",
+      durationMin: exercise.duration
+        ? Math.floor(exercise.duration / 60).toString()
+        : "",
+      durationSec: exercise.duration
+        ? (exercise.duration % 60).toString()
+        : "",
+      restTime: exercise.restTime ? exercise.restTime.toString() : "",
+    });
+    // Scroll to the "Add/Edit" section
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setCurrentExercise({
+      name: "",
+      sets: "",
+      reps: "",
+      weight: "",
+      durationMin: "",
+      durationSec: "",
+      restTime: "",
+    });
+    Keyboard.dismiss();
+  };
 
   useEffect(() => {
     async function init() {
@@ -94,28 +132,36 @@ export default function EditWorkout({ route, navigation }: Props) {
       return;
     }
 
-    const newExercise: Exercise = {
-      id: Date.now().toString(),
+    const updatedExercise: Exercise = {
+      id: editingId || Date.now().toString(),
       name: currentExercise.name.trim(),
     };
 
     if (workoutType === "strength") {
       if (currentExercise.sets)
-        newExercise.sets = parseInt(currentExercise.sets);
+        updatedExercise.sets = parseInt(currentExercise.sets);
       if (currentExercise.reps)
-        newExercise.reps = parseInt(currentExercise.reps);
+        updatedExercise.reps = parseInt(currentExercise.reps);
       if (currentExercise.weight)
-        newExercise.weight = parseInt(currentExercise.weight);
+        updatedExercise.weight = parseInt(currentExercise.weight);
     } else {
       const mins = parseInt(currentExercise.durationMin) || 0;
       const secs = parseInt(currentExercise.durationSec) || 0;
       const totalSeconds = mins * 60 + secs;
-      if (totalSeconds > 0) newExercise.duration = totalSeconds;
+      if (totalSeconds > 0) updatedExercise.duration = totalSeconds;
       if (currentExercise.restTime)
-        newExercise.restTime = parseInt(currentExercise.restTime);
+        updatedExercise.restTime = parseInt(currentExercise.restTime);
     }
 
-    setExercises([...exercises, newExercise]);
+    if (editingId) {
+      setExercises(
+        exercises.map((ex) => (ex.id === editingId ? updatedExercise : ex)),
+      );
+    } else {
+      setExercises([...exercises, updatedExercise]);
+    }
+
+    setEditingId(null);
     setCurrentExercise({
       name: "",
       sets: "",
@@ -125,6 +171,7 @@ export default function EditWorkout({ route, navigation }: Props) {
       durationSec: "",
       restTime: "",
     });
+    Keyboard.dismiss();
   };
 
   const removeExercise = (id: string) => {
@@ -211,7 +258,11 @@ export default function EditWorkout({ route, navigation }: Props) {
         }}
       />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Workout Name */}
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
@@ -345,41 +396,110 @@ export default function EditWorkout({ route, navigation }: Props) {
             </View>
 
             {exercises.map((exercise, index) => (
-              <View
+              <TouchableOpacity
                 key={exercise.id}
+                onPress={() => startEdit(exercise)}
+                activeOpacity={0.7}
                 style={[
                   styles.exerciseItem,
                   {
                     backgroundColor: colors.card,
                     borderColor:
-                      draggingId === exercise.id
+                      editingId === exercise.id
                         ? colors.primary
                         : colors.border,
-                    borderWidth: draggingId === exercise.id ? 2 : 1,
+                    borderWidth: editingId === exercise.id ? 2 : 1,
                   },
                 ]}
               >
-                <TouchableOpacity
-                  onPress={() =>
-                    setDraggingId(
-                      draggingId === exercise.id ? null : exercise.id,
-                    )
-                  }
-                  style={styles.dragHandle}
-                >
-                  <Ionicons
-                    name="reorder-three"
-                    size={24}
-                    color={
-                      draggingId === exercise.id
-                        ? colors.primary
-                        : colors.textSecondary
+                <View style={styles.exerciseItemLeft}>
+                  <View
+                    style={[
+                      styles.exerciseNumber,
+                      { backgroundColor: colors.primary + "20" },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.exerciseNumberText,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      {index + 1}
+                    </Text>
+                  </View>
+                  <View style={styles.exerciseInfo}>
+                    <View style={styles.exerciseNameRow}>
+                      <Text
+                        style={[styles.exerciseName, { color: colors.text }]}
+                      >
+                        {exercise.name}
+                      </Text>
+                      <Ionicons
+                        name="create-outline"
+                        size={14}
+                        color={colors.textTertiary}
+                        style={{ marginLeft: 6, marginBottom: 2 }}
+                      />
+                    </View>
+                    {workoutType === "strength" ? (
+                      <Text
+                        style={[
+                          styles.exerciseMeta,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {exercise.sets} sets × {exercise.reps} reps
+                        {exercise.weight && ` @ ${exercise.weight}kg`}
+                      </Text>
+                    ) : (
+                      <Text
+                        style={[
+                          styles.exerciseMeta,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {exercise.duration}s work · {exercise.restTime}s rest
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                {/* Drag Handle and Controls if dragging is being used */}
+                <View style={styles.itemRightRow}>
+                  <TouchableOpacity
+                    onPress={() =>
+                      setDraggingId(
+                        draggingId === exercise.id ? null : exercise.id,
+                      )
                     }
-                  />
-                </TouchableOpacity>
+                    style={styles.dragHandle}
+                  >
+                    <Ionicons
+                      name="reorder-three"
+                      size={24}
+                      color={
+                        draggingId === exercise.id
+                          ? colors.primary
+                          : colors.textSecondary
+                      }
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => removeExercise(exercise.id)}
+                    style={styles.deleteButton}
+                  >
+                    <Ionicons
+                      name="close-circle"
+                      size={24}
+                      color={colors.error}
+                    />
+                  </TouchableOpacity>
+                </View>
 
                 {draggingId === exercise.id && (
-                  <View style={styles.dragControls}>
+                  <View style={styles.dragControlsOverlay}>
                     <TouchableOpacity
                       onPress={() => {
                         moveExercise(index, index - 1);
@@ -421,60 +541,7 @@ export default function EditWorkout({ route, navigation }: Props) {
                     </TouchableOpacity>
                   </View>
                 )}
-
-                <View style={styles.exerciseItemLeft}>
-                  <View
-                    style={[
-                      styles.exerciseNumber,
-                      { backgroundColor: colors.primary + "20" },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.exerciseNumberText,
-                        { color: colors.primary },
-                      ]}
-                    >
-                      {index + 1}
-                    </Text>
-                  </View>
-                  <View style={styles.exerciseInfo}>
-                    <Text style={[styles.exerciseName, { color: colors.text }]}>
-                      {exercise.name}
-                    </Text>
-                    {workoutType === "strength" ? (
-                      <Text
-                        style={[
-                          styles.exerciseMeta,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {exercise.sets} sets × {exercise.reps} reps
-                        {exercise.weight && ` @ ${exercise.weight}kg`}
-                      </Text>
-                    ) : (
-                      <Text
-                        style={[
-                          styles.exerciseMeta,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {exercise.duration}s work · {exercise.restTime}s rest
-                      </Text>
-                    )}
-                  </View>
-                </View>
-                <TouchableOpacity
-                  onPress={() => removeExercise(exercise.id)}
-                  style={styles.deleteButton}
-                >
-                  <Ionicons
-                    name="close-circle"
-                    size={24}
-                    color={colors.error}
-                  />
-                </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -482,7 +549,7 @@ export default function EditWorkout({ route, navigation }: Props) {
         {/* Add Exercise Form */}
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-            ADD EXERCISE
+            {editingId ? "EDIT EXERCISE" : "ADD EXERCISE"}
           </Text>
 
           <View
@@ -716,14 +783,45 @@ export default function EditWorkout({ route, navigation }: Props) {
               </View>
             )}
 
-            <TouchableOpacity
-              style={[styles.addButton, { backgroundColor: colors.primary }]}
-              onPress={addExercise}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="add" size={20} color="#fff" />
-              <Text style={styles.addButtonText}>Add Exercise</Text>
-            </TouchableOpacity>
+            <View style={styles.addButtonsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.addButton,
+                  { backgroundColor: colors.primary, flex: 2 },
+                ]}
+                onPress={addExercise}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={editingId ? "checkmark" : "add"}
+                  size={20}
+                  color="#fff"
+                />
+                <Text style={styles.addButtonText}>
+                  {editingId ? "Update Exercise" : "Add Exercise"}
+                </Text>
+              </TouchableOpacity>
+
+              {editingId && (
+                <TouchableOpacity
+                  style={[
+                    styles.addButton,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                      borderWidth: 1,
+                      flex: 1,
+                    },
+                  ]}
+                  onPress={cancelEdit}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.addButtonText, { color: colors.text }]}>
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
 
@@ -857,13 +955,34 @@ const styles = StyleSheet.create({
   exerciseInfo: {
     flex: 1,
   },
+  exerciseNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   exerciseName: {
     fontSize: 16,
     fontWeight: "600",
-    marginBottom: 4,
   },
   exerciseMeta: {
     fontSize: 14,
+    marginTop: 2,
+  },
+  itemRightRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  addButtonsRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  dragControlsOverlay: {
+    flexDirection: "row",
+    position: "absolute",
+    right: 70,
+    backgroundColor: "rgba(0,0,0,0.02)",
+    borderRadius: 8,
+    padding: 2,
   },
   deleteButton: {
     padding: 4,
