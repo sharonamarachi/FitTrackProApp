@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -61,6 +61,46 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
     restTime: "",
   });
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  const startEdit = (exercise: Exercise) => {
+    setEditingId(exercise.id);
+    setCurrentExercise({
+      name: exercise.name,
+      sets: exercise.sets ? exercise.sets.toString() : "",
+      reps: exercise.reps ? exercise.reps.toString() : "",
+      weight: exercise.weight ? exercise.weight.toString() : "",
+      duration: exercise.duration ? exercise.duration.toString() : "",
+      durationMin: exercise.duration
+        ? Math.floor(exercise.duration / 60).toString()
+        : "",
+      durationSec: exercise.duration
+        ? (exercise.duration % 60).toString()
+        : "",
+      restTime: exercise.restTime ? exercise.restTime.toString() : "",
+    });
+    // Scroll to the "Add/Edit" section
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setCurrentExercise({
+      name: "",
+      sets: "",
+      reps: "",
+      weight: "",
+      duration: "",
+      durationMin: "",
+      durationSec: "",
+      restTime: "",
+    });
+    Keyboard.dismiss();
+  };
+
   React.useEffect(() => {
     if (route?.params?.importedData) {
       const data = route.params.importedData;
@@ -95,26 +135,35 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
       Alert.alert("Error", "Please enter an exercise name");
       return;
     }
-    const newExercise: Exercise = {
-      id: Date.now().toString(),
+    const updatedExercise: Exercise = {
+      id: editingId || Date.now().toString(),
       name: currentExercise.name.trim(),
     };
     if (selectedTemplate === "reps") {
       if (currentExercise.sets)
-        newExercise.sets = parseInt(currentExercise.sets);
+        updatedExercise.sets = parseInt(currentExercise.sets);
       if (currentExercise.reps)
-        newExercise.reps = parseInt(currentExercise.reps);
+        updatedExercise.reps = parseInt(currentExercise.reps);
       if (currentExercise.weight)
-        newExercise.weight = parseInt(currentExercise.weight);
+        updatedExercise.weight = parseInt(currentExercise.weight);
     } else {
       const mins = parseInt(currentExercise.durationMin) || 0;
       const secs = parseInt(currentExercise.durationSec) || 0;
       const totalSeconds = mins * 60 + secs;
-      if (totalSeconds > 0) newExercise.duration = totalSeconds;
+      if (totalSeconds > 0) updatedExercise.duration = totalSeconds;
       if (currentExercise.restTime)
-        newExercise.restTime = parseInt(currentExercise.restTime);
+        updatedExercise.restTime = parseInt(currentExercise.restTime);
     }
-    setExercises([...exercises, newExercise]);
+
+    if (editingId) {
+      setExercises(
+        exercises.map((ex) => (ex.id === editingId ? updatedExercise : ex)),
+      );
+    } else {
+      setExercises([...exercises, updatedExercise]);
+    }
+
+    setEditingId(null);
     setCurrentExercise({
       name: "",
       sets: "",
@@ -238,7 +287,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
               Time-based workouts with intervals and rest periods
             </Text>
             <View style={styles.templateFeatures}>
-              <FeatureTag icon="play" text="Play Timer" colors={colors} />
               <FeatureTag icon="time" text="Work/Rest" colors={colors} />
               <FeatureTag icon="repeat" text="Auto Loop" colors={colors} />
             </View>
@@ -281,6 +329,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
       />
 
       <ScrollView
+        ref={scrollViewRef}
         style={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -304,7 +353,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
             placeholderTextColor={colors.textTertiary}
             value={workoutName}
             onChangeText={setWorkoutName}
-            returnKeyType="done"
             onSubmitEditing={Keyboard.dismiss}
           />
         </View>
@@ -355,31 +403,23 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
               >
                 EXERCISES ({exercises.length})
               </Text>
-              <TouchableOpacity
-                style={[
-                  styles.playAllButton,
-                  { backgroundColor: colors.primary },
-                ]}
-                onPress={() => {
-                  if (selectedTemplate === "timer" && exercises.length > 0) {
-                    navigation.navigate("IntervalTimerPlayback", {
-                      exercises,
-                      workoutName: workoutName || "Interval Workout",
-                    });
-                  }
-                }}
-              >
-                <Ionicons name="play" size={16} color="#fff" />
-                <Text style={styles.playAllText}>Play All</Text>
-              </TouchableOpacity>
             </View>
 
             {exercises.map((exercise, index) => (
-              <View
+              <TouchableOpacity
                 key={exercise.id}
+                onPress={() => startEdit(exercise)}
+                activeOpacity={0.7}
                 style={[
                   styles.exerciseItem,
-                  { backgroundColor: colors.card, borderColor: colors.border },
+                  {
+                    backgroundColor: colors.card,
+                    borderColor:
+                      editingId === exercise.id
+                        ? colors.primary
+                        : colors.border,
+                    borderWidth: editingId === exercise.id ? 2 : 1,
+                  },
                 ]}
               >
                 <View style={styles.exerciseItemLeft}>
@@ -399,9 +439,19 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                     </Text>
                   </View>
                   <View style={styles.exerciseInfo}>
-                    <Text style={[styles.exerciseName, { color: colors.text }]}>
-                      {exercise.name}
-                    </Text>
+                    <View style={styles.exerciseNameRow}>
+                      <Text
+                        style={[styles.exerciseName, { color: colors.text }]}
+                      >
+                        {exercise.name}
+                      </Text>
+                      <Ionicons
+                        name="create-outline"
+                        size={14}
+                        color={colors.textTertiary}
+                        style={{ marginLeft: 6, marginBottom: 2 }}
+                      />
+                    </View>
                     {selectedTemplate === "reps" ? (
                       <Text
                         style={[
@@ -433,7 +483,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                     color={colors.error}
                   />
                 </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -441,7 +491,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
         {/* Add Exercise Form */}
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-            ADD EXERCISE
+            {editingId ? "EDIT EXERCISE" : "ADD EXERCISE"}
           </Text>
 
           <View
@@ -465,7 +515,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
               onChangeText={(text) =>
                 setCurrentExercise({ ...currentExercise, name: text })
               }
-              returnKeyType="next"
             />
 
             {selectedTemplate === "reps" ? (
@@ -497,7 +546,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                       onChangeText={(text) =>
                         setCurrentExercise({ ...currentExercise, sets: text })
                       }
-                      returnKeyType="next"
                     />
                   </View>
                   <Text
@@ -531,7 +579,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                       onChangeText={(text) =>
                         setCurrentExercise({ ...currentExercise, reps: text })
                       }
-                      returnKeyType="next"
                     />
                   </View>
                 </View>
@@ -562,7 +609,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                       onChangeText={(text) =>
                         setCurrentExercise({ ...currentExercise, weight: text })
                       }
-                      returnKeyType="done"
                       onSubmitEditing={Keyboard.dismiss}
                     />
                   </View>
@@ -596,7 +642,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                         durationMin: text,
                       })
                     }
-                    returnKeyType="next"
                   />
                 </View>
                 <Text
@@ -633,7 +678,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                         durationSec: text,
                       })
                     }
-                    returnKeyType="next"
                   />
                 </View>
                 <Text
@@ -667,21 +711,51 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                     onChangeText={(text) =>
                       setCurrentExercise({ ...currentExercise, restTime: text })
                     }
-                    returnKeyType="done"
                     onSubmitEditing={Keyboard.dismiss}
                   />
                 </View>
               </View>
             )}
 
-            <TouchableOpacity
-              style={[styles.addButton, { backgroundColor: colors.primary }]}
-              onPress={addExercise}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="add" size={20} color="#fff" />
-              <Text style={styles.addButtonText}>Add Exercise</Text>
-            </TouchableOpacity>
+            <View style={styles.addButtonsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.addButton,
+                  { backgroundColor: colors.primary, flex: 2 },
+                ]}
+                onPress={addExercise}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={editingId ? "checkmark" : "add"}
+                  size={20}
+                  color="#fff"
+                />
+                <Text style={styles.addButtonText}>
+                  {editingId ? "Update Exercise" : "Add Exercise"}
+                </Text>
+              </TouchableOpacity>
+
+              {editingId && (
+                <TouchableOpacity
+                  style={[
+                    styles.addButton,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                      borderWidth: 1,
+                      flex: 1,
+                    },
+                  ]}
+                  onPress={cancelEdit}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.addButtonText, { color: colors.text }]}>
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
 
@@ -795,15 +869,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     borderWidth: 2,
   },
-  playAllButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6,
-  },
-  playAllText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  exerciseMeta: { fontSize: 14, marginTop: 2 },
+  addButtonsRow: { flexDirection: "row", gap: 12 },
   exerciseItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -824,8 +891,8 @@ const styles = StyleSheet.create({
   },
   exerciseNumberText: { fontSize: 16, fontWeight: "700" },
   exerciseInfo: { flex: 1 },
-  exerciseName: { fontSize: 16, fontWeight: "600", marginBottom: 4 },
-  exerciseMeta: { fontSize: 14 },
+  exerciseNameRow: { flexDirection: "row", alignItems: "center" },
+  exerciseName: { fontSize: 16, fontWeight: "600" },
   deleteButton: { padding: 4 },
   addExerciseCard: {
     borderRadius: 20,
