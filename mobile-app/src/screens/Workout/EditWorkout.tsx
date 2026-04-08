@@ -9,8 +9,6 @@ import {
   ScrollView,
   StatusBar,
   TouchableOpacity,
-  PanResponder,
-  Animated,
   Keyboard,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -20,20 +18,10 @@ import { Exercise } from "../../domain/workout";
 import { useTheme } from "../../context/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import Header from "../../components/Header";
+import { POPULAR_TAGS } from "./constants";
+import AddExerciseForm from "./components/AddExerciseForm";
 
 type Props = NativeStackScreenProps<WorkoutsStackParamList, "EditWorkout">;
-
-const POPULAR_TAGS = [
-  "upper-body",
-  "lower-body",
-  "core",
-  "cardio",
-  "strength",
-  "hiit",
-  "beginner",
-  "intermediate",
-  "advanced",
-];
 
 export default function EditWorkout({ route, navigation }: Props) {
   const workoutId = route.params?.workoutId;
@@ -125,6 +113,26 @@ export default function EditWorkout({ route, navigation }: Props) {
       setWorkoutType(hasTimedExercises ? "cardio" : "strength");
     }
   }
+
+  const handleSelectSuggestion = (originalName: string) => {
+    if (workoutType === "strength") {
+      setCurrentExercise({
+        ...currentExercise,
+        name: originalName,
+        sets: "3",
+        reps: "10",
+        weight: "0",
+      });
+    } else {
+      setCurrentExercise({
+        ...currentExercise,
+        name: originalName,
+        durationMin: "0",
+        durationSec: "40",
+        restTime: "20",
+      });
+    }
+  };
 
   const addExercise = () => {
     if (!currentExercise.name.trim()) {
@@ -465,7 +473,7 @@ export default function EditWorkout({ route, navigation }: Props) {
                   </View>
                 </View>
 
-                {/* Drag Handle and Controls if dragging is being used */}
+                {/* Drag Handle and Controls */}
                 <View style={styles.itemRightRow}>
                   <TouchableOpacity
                     onPress={() =>
@@ -546,292 +554,24 @@ export default function EditWorkout({ route, navigation }: Props) {
           </View>
         )}
 
-        {/* Add Exercise Form */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-            {editingId ? "EDIT EXERCISE" : "ADD EXERCISE"}
-          </Text>
+        <AddExerciseForm
+          workoutType={workoutType}
+          colors={colors}
+          editingId={editingId}
+          currentExercise={currentExercise}
+          onExerciseChange={(field, value) =>
+            setCurrentExercise({ ...currentExercise, [field]: value })
+          }
+          onAddExercise={addExercise}
+          onCancelEdit={cancelEdit}
+          onSelectSuggestion={handleSelectSuggestion}
+        />
 
-          <View
-            style={[
-              styles.addExerciseCard,
-              {
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.surface,
-                  color: colors.text,
-                  borderColor: colors.border,
-                },
-              ]}
-              placeholder="Exercise name"
-              placeholderTextColor={colors.textTertiary}
-              value={currentExercise.name}
-              onChangeText={(text) =>
-                setCurrentExercise({ ...currentExercise, name: text })
-              }
-            />
-
-            {workoutType === "strength" ? (
-              <>
-                <View style={styles.inputRow}>
-                  <View style={styles.inputGroup}>
-                    <Text
-                      style={[
-                        styles.inputLabel,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Sets
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        styles.smallInput,
-                        {
-                          backgroundColor: colors.surface,
-                          color: colors.text,
-                          borderColor: colors.border,
-                        },
-                      ]}
-                      placeholder="0"
-                      placeholderTextColor={colors.textTertiary}
-                      keyboardType="numeric"
-                      value={currentExercise.sets}
-                      onChangeText={(text) =>
-                        setCurrentExercise({ ...currentExercise, sets: text })
-                      }
-                    />
-                  </View>
-
-                  <Text
-                    style={[styles.separator, { color: colors.textTertiary }]}
-                  >
-                    ×
-                  </Text>
-
-                  <View style={styles.inputGroup}>
-                    <Text
-                      style={[
-                        styles.inputLabel,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Reps
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        styles.smallInput,
-                        {
-                          backgroundColor: colors.surface,
-                          color: colors.text,
-                          borderColor: colors.border,
-                        },
-                      ]}
-                      placeholder="0"
-                      placeholderTextColor={colors.textTertiary}
-                      keyboardType="numeric"
-                      value={currentExercise.reps}
-                      onChangeText={(text) =>
-                        setCurrentExercise({ ...currentExercise, reps: text })
-                      }
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.inputRow}>
-                  <View style={styles.inputGroup}>
-                    <Text
-                      style={[
-                        styles.inputLabel,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Weight (kg)
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        styles.smallInput,
-                        {
-                          backgroundColor: colors.surface,
-                          color: colors.text,
-                          borderColor: colors.border,
-                        },
-                      ]}
-                      placeholder="0"
-                      placeholderTextColor={colors.textTertiary}
-                      keyboardType="decimal-pad"
-                      value={currentExercise.weight}
-                      onChangeText={(text) =>
-                        setCurrentExercise({ ...currentExercise, weight: text })
-                      }
-                    />
-                  </View>
-                </View>
-              </>
-            ) : (
-              <View style={styles.durationRow}>
-                <View style={styles.inputGroup}>
-                  <Text
-                    style={[styles.inputLabel, { color: colors.textSecondary }]}
-                  >
-                    Minutes
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      styles.smallInput,
-                      {
-                        backgroundColor: colors.surface,
-                        color: colors.text,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    placeholder="1"
-                    placeholderTextColor={colors.textTertiary}
-                    keyboardType="numeric"
-                    value={currentExercise.durationMin}
-                    onChangeText={(text) =>
-                      setCurrentExercise({
-                        ...currentExercise,
-                        durationMin: text,
-                      })
-                    }
-                  />
-                </View>
-
-                <Text
-                  style={[
-                    styles.durationLabel,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  min
-                </Text>
-
-                <View style={styles.inputGroup}>
-                  <Text
-                    style={[styles.inputLabel, { color: colors.textSecondary }]}
-                  >
-                    Seconds
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      styles.smallInput,
-                      {
-                        backgroundColor: colors.surface,
-                        color: colors.text,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    placeholder="30"
-                    placeholderTextColor={colors.textTertiary}
-                    keyboardType="numeric"
-                    value={currentExercise.durationSec}
-                    onChangeText={(text) =>
-                      setCurrentExercise({
-                        ...currentExercise,
-                        durationSec: text,
-                      })
-                    }
-                  />
-                </View>
-
-                <Text
-                  style={[
-                    styles.durationLabel,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  s
-                </Text>
-
-                <View style={styles.inputGroup}>
-                  <Text
-                    style={[styles.inputLabel, { color: colors.textSecondary }]}
-                  >
-                    Rest (sec)
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      styles.smallInput,
-                      {
-                        backgroundColor: colors.surface,
-                        color: colors.text,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    placeholder="0"
-                    placeholderTextColor={colors.textTertiary}
-                    keyboardType="numeric"
-                    value={currentExercise.restTime}
-                    onChangeText={(text) =>
-                      setCurrentExercise({ ...currentExercise, restTime: text })
-                    }
-                  />
-                </View>
-              </View>
-            )}
-
-            <View style={styles.addButtonsRow}>
-              <TouchableOpacity
-                style={[
-                  styles.addButton,
-                  { backgroundColor: colors.primary, flex: 2 },
-                ]}
-                onPress={addExercise}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name={editingId ? "checkmark" : "add"}
-                  size={20}
-                  color="#fff"
-                />
-                <Text style={styles.addButtonText}>
-                  {editingId ? "Update Exercise" : "Add Exercise"}
-                </Text>
-              </TouchableOpacity>
-
-              {editingId && (
-                <TouchableOpacity
-                  style={[
-                    styles.addButton,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                      borderWidth: 1,
-                      flex: 1,
-                    },
-                  ]}
-                  onPress={cancelEdit}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.addButtonText, { color: colors.text }]}>
-                    Cancel
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </View>
-
-        {/* Bottom Spacing */}
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Save Button */}
       {loading && (
-        <View style={[styles.footer, { backgroundColor: colors.background }]}>
+        <View style={styles.overlay}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       )}
@@ -840,21 +580,14 @@ export default function EditWorkout({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  section: {
-    marginBottom: 24,
-  },
+  content: { flex: 1, padding: 20 },
+  section: { marginBottom: 24 },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -883,30 +616,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    padding: 16,
+    paddingVertical: 12,
     borderRadius: 12,
-    gap: 8,
     borderWidth: 1,
+    gap: 8,
   },
   typeButtonText: {
     fontSize: 14,
     fontWeight: "600",
   },
-  tagsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
+  tagsContainer: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   tagChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     marginBottom: 4,
   },
-  tagText: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
+  tagText: { fontSize: 14, fontWeight: "500" },
   exerciseItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -915,31 +641,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 12,
     borderWidth: 1,
+    position: "relative",
   },
-  dragHandle: {
-    padding: 8,
-    marginRight: 8,
-  },
-  dragControls: {
-    flexDirection: "column",
-    gap: 8,
-    marginRight: 8,
-  },
-  dragButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  dragButtonDisabled: {
-    opacity: 0.5,
-  },
-  exerciseItemLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
+  exerciseItemLeft: { flexDirection: "row", alignItems: "center", flex: 1 },
   exerciseNumber: {
     width: 40,
     height: 40,
@@ -948,109 +652,60 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 12,
   },
-  exerciseNumberText: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
+  exerciseNumberText: { fontSize: 16, fontWeight: "700" },
   exerciseInfo: {
     flex: 1,
+    minWidth: 0,
   },
   exerciseNameRow: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
   },
   exerciseName: {
     fontSize: 16,
     fontWeight: "600",
+    flexShrink: 1,
   },
-  exerciseMeta: {
-    fontSize: 14,
-    marginTop: 2,
-  },
+  exerciseMeta: { fontSize: 14, marginTop: 2 },
   itemRightRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 8,
   },
-  addButtonsRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  dragControlsOverlay: {
-    flexDirection: "row",
-    position: "absolute",
-    right: 70,
-    backgroundColor: "rgba(0,0,0,0.02)",
-    borderRadius: 8,
-    padding: 2,
-  },
-  deleteButton: {
+  dragHandle: {
     padding: 4,
   },
-  addExerciseCard: {
+  deleteButton: { padding: 4 },
+  dragControlsOverlay: {
+    position: "absolute",
+    right: 80,
+    flexDirection: "row",
+    backgroundColor: "rgba(255,255,255,0.9)",
     borderRadius: 20,
-    padding: 20,
-    borderWidth: 2,
-    borderStyle: "dashed",
+    padding: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 3,
+    gap: 4,
+    zIndex: 10,
   },
-  input: {
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-  },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 12,
-    marginBottom: 12,
-  },
-  inputGroup: {
-    flex: 1,
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    marginBottom: 6,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  smallInput: {
-    textAlign: "center",
-    marginBottom: 0,
-  },
-  separator: {
-    fontSize: 24,
-    fontWeight: "700",
-    marginBottom: 14,
-  },
-  durationRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 8,
-    marginBottom: 12,
-  },
-  durationLabel: {
-    fontSize: 14,
-    fontWeight: "500",
-    marginBottom: 14,
-  },
-  addButton: {
-    flexDirection: "row",
+  dragButton: {
+    width: 32,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
   },
-  addButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+  dragButtonDisabled: {
+    opacity: 0.3,
   },
-  footer: {
-    padding: 20,
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
     alignItems: "center",
+    zIndex: 1000,
   },
 });

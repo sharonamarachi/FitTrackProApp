@@ -11,49 +11,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
-  TouchableWithoutFeedback,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
 import Header from "../../components/Header";
 import { supabase } from "../../api/supabaseClient";
 import { createWorkout } from "../../services/WorkoutService";
-import { exercisesData } from "../../data/exercises";
+import { POPULAR_TAGS } from "./constants";
+import AddExerciseForm from "./components/AddExerciseForm";
 
-type WorkoutTemplate = "reps" | "timer";
-
-const POPULAR_STRENGTH_EXERCISES = [
-  "Bench Press",
-  "Squat",
-  "Deadlift",
-  "Overhead Press",
-  "Bicep Curl",
-  "Pull-up",
-  "Lunge",
-  "Plank",
-];
-const POPULAR_TIMER_EXERCISES = [
-  "Jumping Jacks",
-  "Mountain Climber",
-  "Burpee",
-  "High Knees",
-  "Push-up",
-  "Plank",
-  "Shadow Boxing",
-  "Butt Kick",
-];
-
-const POPULAR_TAGS = [
-  "upper-body",
-  "lower-body",
-  "core",
-  "cardio",
-  "strength",
-  "hiit",
-  "beginner",
-  "intermediate",
-  "advanced",
-];
+type WorkoutType = "strength" | "cardio";
 
 interface Exercise {
   id: string;
@@ -65,56 +32,9 @@ interface Exercise {
   restTime?: number;
 }
 
-const getShortName = (name: string): string => {
-  let short = name.trim();
-  short = short.replace(
-    /^(FYR\d?\s|KV\s|30\s|MetaBurn\s|Holman\s|Dumbbell Fix\s|FYR\s|HM\s|FYR2\s)/gi,
-    "",
-  );
-  short = short.replace(/\s-\s.*$/gi, "");
-  short = short.replace(/\s\(.*\)/gi, "");
-  short = short.replace(/high-cable/gi, "Cable");
-  short = short.replace(/low-cable/gi, "Cable");
-  short = short.replace(/outward-facing/gi, "");
-  short = short.replace(/inward-facing/gi, "");
-  short = short.replace(/single-arm/gi, "Single-arm");
-  short = short.replace(/one-arm/gi, "Single-arm");
-  short = short.replace(/biceps/gi, "Bicep");
-  short = short.replace(/\s+/g, " ").trim();
-  return short
-    .split(" ")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(" ");
-};
-
-const weightedSearch = (query: string, data: any[]) => {
-  const q = query.toLowerCase().trim();
-  if (!q) return [];
-  const words = q.split(/\s+/);
-
-  return data
-    .map((item) => {
-      const name = item["Exercise Name"].toLowerCase();
-      let score = 0;
-      if (name === q) score += 100;
-      if (name.startsWith(q)) score += 50;
-      const nameWords = name.split(/\s+/);
-      words.forEach((word) => {
-        if (nameWords.some((nw) => nw.startsWith(word))) score += 20;
-        if (name.includes(word)) score += 5;
-      });
-      return { item, score };
-    })
-    .filter((res) => res.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 10)
-    .map((res) => res.item);
-};
-
 export default function CreateWorkoutTemplate({ navigation, route }: any) {
   const { theme, colors } = useTheme();
-  const [selectedTemplate, setSelectedTemplate] =
-    useState<WorkoutTemplate | null>(null);
+  const [selectedType, setSelectedType] = useState<WorkoutType | null>(null);
   const [workoutName, setWorkoutName] = useState("");
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -123,7 +43,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
     sets: "",
     reps: "",
     weight: "",
-    duration: "",
     durationMin: "",
     durationSec: "",
     restTime: "",
@@ -139,14 +58,12 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
       sets: exercise.sets ? exercise.sets.toString() : "",
       reps: exercise.reps ? exercise.reps.toString() : "",
       weight: exercise.weight ? exercise.weight.toString() : "",
-      duration: exercise.duration ? exercise.duration.toString() : "",
       durationMin: exercise.duration
         ? Math.floor(exercise.duration / 60).toString()
         : "",
       durationSec: exercise.duration ? (exercise.duration % 60).toString() : "",
       restTime: exercise.restTime ? exercise.restTime.toString() : "",
     });
-    // Scroll to the "Add/Edit" section
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, 100);
@@ -159,7 +76,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
       sets: "",
       reps: "",
       weight: "",
-      duration: "",
       durationMin: "",
       durationSec: "",
       restTime: "",
@@ -187,7 +103,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
         const hasTimedExercises = formattedExercises.some(
           (ex: Exercise) => ex.duration,
         );
-        setSelectedTemplate(hasTimedExercises ? "timer" : "reps");
+        setSelectedType(hasTimedExercises ? "cardio" : "strength");
       }
       if (data.tags && Array.isArray(data.tags)) setSelectedTags(data.tags);
       if (data.category && !data.tags?.includes(data.category)) {
@@ -196,28 +112,8 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
     }
   }, [route?.params?.importedData]);
 
-  const suggestions = React.useMemo(() => {
-    const query = currentExercise.name.trim();
-    if (!query) {
-      const list =
-        selectedTemplate === "reps"
-          ? POPULAR_STRENGTH_EXERCISES
-          : POPULAR_TIMER_EXERCISES;
-      return list.map((name) => ({ original: name, display: name }));
-    }
-
-    const matches = weightedSearch(query, exercisesData);
-    return matches.map((item) => {
-      const fullName = item["Exercise Name"];
-      return {
-        original: fullName,
-        display: getShortName(fullName),
-      };
-    });
-  }, [currentExercise.name, selectedTemplate]);
-
   const handleSelectSuggestion = (originalName: string) => {
-    if (selectedTemplate === "reps") {
+    if (selectedType === "strength") {
       setCurrentExercise({
         ...currentExercise,
         name: originalName,
@@ -245,7 +141,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
       id: editingId || Date.now().toString(),
       name: currentExercise.name.trim(),
     };
-    if (selectedTemplate === "reps") {
+    if (selectedType === "strength") {
       if (currentExercise.sets)
         updatedExercise.sets = parseInt(currentExercise.sets);
       if (currentExercise.reps)
@@ -275,7 +171,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
       sets: "",
       reps: "",
       weight: "",
-      duration: "",
       durationMin: "",
       durationSec: "",
       restTime: "",
@@ -312,7 +207,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
       const newWorkout = {
         title: workoutName,
         exercises,
-        category: selectedTemplate === "reps" ? "strength" : "cardio",
+        category: selectedType === "strength" ? "strength" : "cardio",
         tags: selectedTags,
       };
       const { error } = await createWorkout(user.id, newWorkout);
@@ -325,8 +220,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
     }
   };
 
-  // ── Template selection (scrollable so user can scroll to bottom) ──────────
-  if (!selectedTemplate) {
+  if (!selectedType) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <StatusBar
@@ -341,7 +235,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
         >
           <TouchableOpacity
             style={[styles.templateCard, { backgroundColor: colors.card }]}
-            onPress={() => setSelectedTemplate("reps")}
+            onPress={() => setSelectedType("strength")}
             activeOpacity={0.7}
           >
             <View
@@ -373,7 +267,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
 
           <TouchableOpacity
             style={[styles.templateCard, { backgroundColor: colors.card }]}
-            onPress={() => setSelectedTemplate("timer")}
+            onPress={() => setSelectedType("cardio")}
             activeOpacity={0.7}
           >
             <View
@@ -398,7 +292,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
             </View>
           </TouchableOpacity>
 
-          {/* Bottom padding so user can clearly see this is the last card */}
           <View style={styles.templateBottomPadding}>
             <Text
               style={[
@@ -406,7 +299,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                 { color: colors.textTertiary },
               ]}
             >
-              Choose a template above to get started
+              Choose a type above to get started
             </Text>
           </View>
         </ScrollView>
@@ -414,7 +307,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
     );
   }
 
-  // ── Workout form ──────────────────────────────────────────────────────────
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -426,9 +318,9 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
       />
       <Header
         title={
-          selectedTemplate === "reps"
-            ? "Sets & Reps Workout"
-            : "Interval Timer Workout"
+          selectedType === "strength"
+            ? "Strength Workout"
+            : "Cardio Workout"
         }
         subtitle="Build your workout"
         rightAction={{ icon: "checkmark", onPress: saveWorkout }}
@@ -441,7 +333,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
       >
-        {/* Workout Name */}
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
             WORKOUT NAME
@@ -463,7 +354,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
           />
         </View>
 
-        {/* Tags */}
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
             TAGS (OPTIONAL)
@@ -500,7 +390,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
           </View>
         </View>
 
-        {/* Exercise List */}
         {exercises.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -558,7 +447,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                         style={{ marginLeft: 6, marginBottom: 2 }}
                       />
                     </View>
-                    {selectedTemplate === "reps" ? (
+                    {selectedType === "strength" ? (
                       <Text
                         style={[
                           styles.exerciseMeta,
@@ -594,355 +483,22 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
           </View>
         )}
 
-        {/* Add Exercise Form */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-            {editingId ? "EDIT EXERCISE" : "ADD EXERCISE"}
-          </Text>
+        <AddExerciseForm
+          workoutType={selectedType}
+          colors={colors}
+          editingId={editingId}
+          currentExercise={currentExercise}
+          onExerciseChange={(field, value) =>
+            setCurrentExercise({ ...currentExercise, [field]: value })
+          }
+          onAddExercise={addExercise}
+          onCancelEdit={cancelEdit}
+          onSelectSuggestion={handleSelectSuggestion}
+        />
 
-          <View
-            style={[
-              styles.addExerciseCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.surface,
-                  color: colors.text,
-                  borderColor: colors.border,
-                },
-              ]}
-              placeholder="Exercise name"
-              placeholderTextColor={colors.textTertiary}
-              value={currentExercise.name}
-              onChangeText={(text) =>
-                setCurrentExercise({ ...currentExercise, name: text })
-              }
-            />
-
-            {selectedTemplate === "reps" ? (
-              <>
-                <View style={styles.inputRow}>
-                  <View style={styles.inputGroup}>
-                    <Text
-                      style={[
-                        styles.inputLabel,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Sets
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        styles.smallInput,
-                        {
-                          backgroundColor: colors.surface,
-                          color: colors.text,
-                          borderColor: colors.border,
-                        },
-                      ]}
-                      placeholder="0"
-                      placeholderTextColor={colors.textTertiary}
-                      keyboardType="numeric"
-                      value={currentExercise.sets}
-                      onChangeText={(text) =>
-                        setCurrentExercise({ ...currentExercise, sets: text })
-                      }
-                    />
-                  </View>
-                  <Text
-                    style={[styles.separator, { color: colors.textTertiary }]}
-                  >
-                    ×
-                  </Text>
-                  <View style={styles.inputGroup}>
-                    <Text
-                      style={[
-                        styles.inputLabel,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Reps
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        styles.smallInput,
-                        {
-                          backgroundColor: colors.surface,
-                          color: colors.text,
-                          borderColor: colors.border,
-                        },
-                      ]}
-                      placeholder="0"
-                      placeholderTextColor={colors.textTertiary}
-                      keyboardType="numeric"
-                      value={currentExercise.reps}
-                      onChangeText={(text) =>
-                        setCurrentExercise({ ...currentExercise, reps: text })
-                      }
-                    />
-                  </View>
-                </View>
-                <View style={styles.inputRow}>
-                  <View style={styles.inputGroup}>
-                    <Text
-                      style={[
-                        styles.inputLabel,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Weight (kg)
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        styles.smallInput,
-                        {
-                          backgroundColor: colors.surface,
-                          color: colors.text,
-                          borderColor: colors.border,
-                        },
-                      ]}
-                      placeholder="0"
-                      placeholderTextColor={colors.textTertiary}
-                      keyboardType="decimal-pad"
-                      value={currentExercise.weight}
-                      onChangeText={(text) =>
-                        setCurrentExercise({ ...currentExercise, weight: text })
-                      }
-                      onSubmitEditing={Keyboard.dismiss}
-                    />
-                  </View>
-                </View>
-              </>
-            ) : (
-              <View style={styles.durationRow}>
-                <View style={styles.inputGroup}>
-                  <Text
-                    style={[styles.inputLabel, { color: colors.textSecondary }]}
-                  >
-                    Minutes
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      styles.smallInput,
-                      {
-                        backgroundColor: colors.surface,
-                        color: colors.text,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    placeholder="1"
-                    placeholderTextColor={colors.textTertiary}
-                    keyboardType="numeric"
-                    value={currentExercise.durationMin}
-                    onChangeText={(text) =>
-                      setCurrentExercise({
-                        ...currentExercise,
-                        durationMin: text,
-                      })
-                    }
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.durationLabel,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  min
-                </Text>
-                <View style={styles.inputGroup}>
-                  <Text
-                    style={[styles.inputLabel, { color: colors.textSecondary }]}
-                  >
-                    Seconds
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      styles.smallInput,
-                      {
-                        backgroundColor: colors.surface,
-                        color: colors.text,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    placeholder="30"
-                    placeholderTextColor={colors.textTertiary}
-                    keyboardType="numeric"
-                    value={currentExercise.durationSec}
-                    onChangeText={(text) =>
-                      setCurrentExercise({
-                        ...currentExercise,
-                        durationSec: text,
-                      })
-                    }
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.durationLabel,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  s
-                </Text>
-                <View style={styles.inputGroup}>
-                  <Text
-                    style={[styles.inputLabel, { color: colors.textSecondary }]}
-                  >
-                    Rest (sec)
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      styles.smallInput,
-                      {
-                        backgroundColor: colors.surface,
-                        color: colors.text,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    placeholder="0"
-                    placeholderTextColor={colors.textTertiary}
-                    keyboardType="numeric"
-                    value={currentExercise.restTime}
-                    onChangeText={(text) =>
-                      setCurrentExercise({ ...currentExercise, restTime: text })
-                    }
-                    onSubmitEditing={Keyboard.dismiss}
-                  />
-                </View>
-              </View>
-            )}
-
-            <View style={styles.addButtonsRow}>
-              <TouchableOpacity
-                style={[
-                  styles.addButton,
-                  { backgroundColor: colors.primary, flex: 2 },
-                ]}
-                onPress={addExercise}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name={editingId ? "checkmark" : "add"}
-                  size={20}
-                  color="#fff"
-                />
-                <Text style={styles.addButtonText}>
-                  {editingId ? "Update Exercise" : "Add Exercise"}
-                </Text>
-              </TouchableOpacity>
-
-              {editingId && (
-                <TouchableOpacity
-                  style={[
-                    styles.addButton,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                      borderWidth: 1,
-                      flex: 1,
-                    },
-                  ]}
-                  onPress={cancelEdit}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.addButtonText, { color: colors.text }]}>
-                    Cancel
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Suggestions Section */}
-            <View style={styles.suggestionsContainer}>
-              <View style={styles.suggestionsHeader}>
-                <Text
-                  style={[
-                    styles.suggestionsLabel,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  {currentExercise.name.trim() === ""
-                    ? "POPULAR"
-                    : "SUGGESTIONS"}
-                </Text>
-                {currentExercise.name.trim() !== "" && (
-                  <Text
-                    style={[
-                      styles.suggestionsSublabel,
-                      { color: colors.textTertiary },
-                    ]}
-                  >
-                    matching "{currentExercise.name}"
-                  </Text>
-                )}
-              </View>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.suggestionsScroll}
-                keyboardShouldPersistTaps="handled"
-              >
-                {suggestions.map((suggestion: any, index: number) => (
-                  <TouchableOpacity
-                    key={`${suggestion.original}-${index}`}
-                    style={[
-                      styles.suggestionChip,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    onPress={() => handleSelectSuggestion(suggestion.original)}
-                    activeOpacity={0.7}
-                  >
-                    <View
-                      style={[
-                        styles.suggestionDot,
-                        { backgroundColor: colors.primary },
-                      ]}
-                    />
-                    <Text
-                      style={[styles.suggestionText, { color: colors.text }]}
-                    >
-                      {suggestion.display}
-                    </Text>
-                    <View
-                      style={[
-                        styles.suggestionDivider,
-                        { backgroundColor: colors.border },
-                      ]}
-                    />
-                    <Text
-                      style={[
-                        styles.suggestionAddText,
-                        { color: colors.primary },
-                      ]}
-                    >
-                      + Add
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </View>
-        </View>
-
-        {/* Bottom spacing so save button doesn't cover content */}
         <View style={{ height: exercises.length > 0 ? 100 : 40 }} />
       </ScrollView>
 
-      {/* Save Button */}
       {exercises.length > 0 && (
         <View
           style={[
@@ -1025,7 +581,6 @@ const styles = StyleSheet.create({
   },
   featureTagText: { fontSize: 12, fontWeight: "500" },
 
-  // Form
   content: { flex: 1, padding: 20 },
   section: { marginBottom: 24 },
   sectionHeader: {
@@ -1048,7 +603,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   exerciseMeta: { fontSize: 14, marginTop: 2 },
-  addButtonsRow: { flexDirection: "row", gap: 12 },
   exerciseItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -1084,35 +638,6 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   deleteButton: { padding: 4 },
-  addExerciseCard: {
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 2,
-    borderStyle: "dashed",
-  },
-  input: {
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-  },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 12,
-    marginBottom: 12,
-  },
-  inputGroup: { flex: 1 },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    marginBottom: 6,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  smallInput: { textAlign: "center", marginBottom: 0 },
-  separator: { fontSize: 24, fontWeight: "700", marginBottom: 14 },
   tagsContainer: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   tagChip: {
     paddingHorizontal: 14,
@@ -1121,22 +646,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   tagText: { fontSize: 14, fontWeight: "500" },
-  durationRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 8,
-    marginBottom: 12,
-  },
-  durationLabel: { fontSize: 14, fontWeight: "500", marginBottom: 14 },
-  addButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
-  },
-  addButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   footer: { padding: 20, borderTopWidth: 1 },
   saveButton: {
     flexDirection: "row",
@@ -1152,35 +661,4 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   saveButtonText: { color: "#fff", fontSize: 18, fontWeight: "700" },
-  suggestionsContainer: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.05)",
-  },
-  suggestionsHeader: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 6,
-    marginBottom: 12,
-  },
-  suggestionsLabel: { fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },
-  suggestionsSublabel: { fontSize: 10, fontWeight: "500" },
-  suggestionsScroll: { gap: 8, paddingBottom: 4 },
-  suggestionChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  suggestionDot: { width: 6, height: 6, borderRadius: 3, marginRight: 8 },
-  suggestionText: {
-    fontSize: 13,
-    fontWeight: "500",
-    maxWidth: 140,
-  },
-  suggestionDivider: { width: 1, height: 14, marginHorizontal: 10 },
-  suggestionAddText: { fontSize: 12, fontWeight: "700" },
 });
