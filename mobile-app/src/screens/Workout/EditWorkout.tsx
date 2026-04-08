@@ -59,9 +59,7 @@ export default function EditWorkout({ route, navigation }: Props) {
       durationMin: exercise.duration
         ? Math.floor(exercise.duration / 60).toString()
         : "",
-      durationSec: exercise.duration
-        ? (exercise.duration % 60).toString()
-        : "",
+      durationSec: exercise.duration ? (exercise.duration % 60).toString() : "",
       restTime: exercise.restTime ? exercise.restTime.toString() : "",
     });
     // Scroll to the "Add/Edit" section
@@ -458,7 +456,10 @@ export default function EditWorkout({ route, navigation }: Props) {
                         ]}
                       >
                         {exercise.sets} sets × {exercise.reps} reps
-                        {exercise.weight && ` @ ${exercise.weight}kg`}
+                        {typeof exercise.weight === "number" &&
+                        exercise.weight > 0
+                          ? ` @ ${exercise.weight}kg`
+                          : ""}
                       </Text>
                     ) : (
                       <Text

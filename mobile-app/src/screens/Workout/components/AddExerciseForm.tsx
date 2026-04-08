@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import ExerciseSearchSuggestions from "./ExerciseSearchSuggestions";
+import { onlyNumbers } from "../utils/inputUtils";
 
 interface AddExerciseFormProps {
   workoutType: "strength" | "cardio";
@@ -89,7 +90,7 @@ const AddExerciseForm: React.FC<AddExerciseFormProps> = ({
                   placeholderTextColor={colors.textTertiary}
                   keyboardType="numeric"
                   value={currentExercise.sets}
-                  onChangeText={(text) => onExerciseChange("sets", text)}
+                  onChangeText={(text) => onExerciseChange("sets", onlyNumbers(text))}
                 />
               </View>
               <Text style={[styles.separator, { color: colors.textTertiary }]}>
@@ -115,7 +116,7 @@ const AddExerciseForm: React.FC<AddExerciseFormProps> = ({
                   placeholderTextColor={colors.textTertiary}
                   keyboardType="numeric"
                   value={currentExercise.reps}
-                  onChangeText={(text) => onExerciseChange("reps", text)}
+                  onChangeText={(text) => onExerciseChange("reps", onlyNumbers(text))}
                 />
               </View>
             </View>
@@ -140,7 +141,7 @@ const AddExerciseForm: React.FC<AddExerciseFormProps> = ({
                   placeholderTextColor={colors.textTertiary}
                   keyboardType="decimal-pad"
                   value={currentExercise.weight}
-                  onChangeText={(text) => onExerciseChange("weight", text)}
+                  onChangeText={(text) => onExerciseChange("weight", onlyNumbers(text, 4))}
                   onSubmitEditing={Keyboard.dismiss}
                 />
               </View>
@@ -168,7 +169,7 @@ const AddExerciseForm: React.FC<AddExerciseFormProps> = ({
                 placeholderTextColor={colors.textTertiary}
                 keyboardType="numeric"
                 value={currentExercise.durationMin}
-                onChangeText={(text) => onExerciseChange("durationMin", text)}
+                onChangeText={(text) => onExerciseChange("durationMin", onlyNumbers(text))}
               />
             </View>
             <Text style={[styles.durationLabel, { color: colors.textSecondary }]}>
@@ -194,7 +195,7 @@ const AddExerciseForm: React.FC<AddExerciseFormProps> = ({
                 placeholderTextColor={colors.textTertiary}
                 keyboardType="numeric"
                 value={currentExercise.durationSec}
-                onChangeText={(text) => onExerciseChange("durationSec", text)}
+                onChangeText={(text) => onExerciseChange("durationSec", onlyNumbers(text))}
               />
             </View>
             <Text style={[styles.durationLabel, { color: colors.textSecondary }]}>
@@ -220,7 +221,7 @@ const AddExerciseForm: React.FC<AddExerciseFormProps> = ({
                 placeholderTextColor={colors.textTertiary}
                 keyboardType="numeric"
                 value={currentExercise.restTime}
-                onChangeText={(text) => onExerciseChange("restTime", text)}
+                onChangeText={(text) => onExerciseChange("restTime", onlyNumbers(text))}
                 onSubmitEditing={Keyboard.dismiss}
               />
             </View>
