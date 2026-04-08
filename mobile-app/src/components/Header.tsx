@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 interface HeaderProps {
   title: string;
   subtitle?: string;
@@ -24,6 +26,7 @@ export default function Header({
 }: HeaderProps) {
   const navigation = useNavigation();
   const { theme, colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const handleBackPress = () => {
     if (onBackPress) {
@@ -34,7 +37,13 @@ export default function Header({
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.card }]}>
+    <View style={[
+      styles.container, 
+      { 
+        backgroundColor: colors.card,
+        paddingTop: Math.max(insets.top, 15),
+      }
+    ]}>
       <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} />
       <View style={styles.content}>
         {showBack && (
@@ -68,7 +77,6 @@ export default function Header({
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: Platform.OS === 'ios' ? 60 : StatusBar.currentHeight ? StatusBar.currentHeight + 10 : 40,
     paddingBottom: 15,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,

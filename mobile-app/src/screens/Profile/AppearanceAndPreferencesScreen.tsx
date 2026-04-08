@@ -26,6 +26,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme, THEME_META, type ThemeId, type ThemeMode } from "../../context/ThemeContext";
 import { usePreferences} from "../../context/UserPreferencesContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const WEEKLY_GOAL_OPTIONS = [3, 4, 5, 6, 7];
 
@@ -149,6 +150,7 @@ export default function AppearanceAndPreferencesScreen() {
   const { themeId, mode, colors, setThemeId, setMode } = useTheme();
   const { prefs, setPref } = usePreferences();
   const isDark = mode === "dark";
+  const insets = useSafeAreaInsets();
 
 
   // Animate theme card press
@@ -174,7 +176,7 @@ export default function AppearanceAndPreferencesScreen() {
       />
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <View style={[styles.header, { borderBottomColor: colors.divider }]}>
+      <View style={[styles.header, { borderBottomColor: colors.divider, paddingTop: Math.max(insets.top, 20) }]}>
         <TouchableOpacity
           style={[styles.backBtn, { backgroundColor: isDark ? colors.surface : colors.card }]}
           onPress={() => navigation.goBack()}
@@ -400,7 +402,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingTop: 60,
     paddingBottom: 16,
     borderBottomWidth: 1,
   },

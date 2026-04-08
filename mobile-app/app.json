@@ -14,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.FitTrackPro"
+      "bundleIdentifier": "com.anonymous.FitTrackPro",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +26,11 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.FitTrackPro"
+      "package": "com.anonymous.FitTrackPro",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -32,11 +39,21 @@
       "@react-native-community/datetimepicker",
       "expo-font",
       "expo-audio",
-      ["expo-notifications", {
-        "icon": "./assets/notification-icon.png",
-        "color": "#4876EC",
-        "sounds": ["./assets/beep.mp3"]
-      }]
-    ]
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#4876EC",
+          "sounds": [
+            "./assets/beep.mp3"
+          ]
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "4a8426be-d4d5-4452-8492-4d2a0741f2ce"
+      }
+    }
   }
 }

@@ -19,6 +19,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../context/ThemeContext";
 import { usePreferences } from "../../context/UserPreferencesContext";
 import { supabase } from "../../api/supabaseClient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   notifyWeeklyGoalReached,
@@ -98,6 +99,7 @@ async function checkBadgeUnlocks(
 export default function Progress() {
   const { theme, colors } = useTheme();
   const isDark = theme === "dark";
+  const insets = useSafeAreaInsets();
 
   const { prefs, setPref } = usePreferences();
   const weeklyGoal = prefs.weeklyWorkoutGoal;
@@ -421,7 +423,7 @@ export default function Progress() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
       >
-        <View style={[styles.header, { backgroundColor: colors.card }]}>
+        <View style={[styles.header, { backgroundColor: colors.card, paddingTop: insets.top + 20 }]}>
           <View>
             <Text
               style={[styles.headerEyebrow, { color: colors.textSecondary }]}
@@ -1324,7 +1326,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingTop: 64,
     paddingBottom: 24,
     paddingHorizontal: 24,
     borderBottomLeftRadius: 24,

@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { WorkoutsStackParamList } from "../../navigation/WorkoutStack";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   fetchWorkouts,
   softDeleteWorkout,
@@ -116,6 +117,7 @@ export default function WorkoutLibrary({ navigation }: Props) {
   const fabScale = useRef(new Animated.Value(1)).current;
   const { theme, colors } = useTheme();
   const isDark = theme === "dark";
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     loadWorkouts();
@@ -328,7 +330,7 @@ export default function WorkoutLibrary({ navigation }: Props) {
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <View style={[styles.header, { backgroundColor: colors.card }]}>
+      <View style={[styles.header, { backgroundColor: colors.card, paddingTop: insets.top + 16 }]}>
         <View style={styles.headerTop}>
           <View>
             <Text style={[styles.title, { color: colors.text }]}>
@@ -1030,7 +1032,6 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   loadingText: { fontSize: 16 },
   header: {
-    paddingTop: 60,
     paddingBottom: 14,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,

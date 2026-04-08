@@ -17,6 +17,8 @@ import { ThemeProvider } from "./src/context/ThemeContext";
 import { PreferencesProvider } from "./src/context/UserPreferencesContext";
 import { supabase } from "./src/api/supabaseClient";
 
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
@@ -56,44 +58,46 @@ export default function App() {
   }
 
   return (
-    <ThemeProvider>
-      <PreferencesProvider>
-        <NavigationContainer>
-          <Stack.Navigator
-            id="RootStack"
-            initialRouteName={initialRoute}
-            screenOptions={{
-              headerShown: false,
-              animation: "slide_from_right",
-            }}
-          >
-            <Stack.Screen name="Login" component={Login} />
-            <Stack.Screen name="SignUp" component={SignUp} />
-            <Stack.Screen
-              name="Onboarding"
-              component={Onboarding}
-              options={{ animation: "fade", gestureEnabled: false }}
-            />
-            <Stack.Screen name="Home" component={TabNavigator} />
-            <Stack.Screen
-              name="SettingsStack"
-              component={SettingsStack}
-              options={{ presentation: "modal", animation: "slide_from_bottom" }}
-            />
-            <Stack.Screen
-              name="EditProfile"
-              component={EditProfile}
-              options={{ animation: "slide_from_right" }}
-            />
-            <Stack.Screen
-              name="RecentlyDeleted"
-              component={RecentlyDeleted}
-              options={{ animation: "slide_from_right" }}
-            />
-          </Stack.Navigator>
-        </NavigationContainer>
-      </PreferencesProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <PreferencesProvider>
+          <NavigationContainer>
+            <Stack.Navigator
+              id="RootStack"
+              initialRouteName={initialRoute}
+              screenOptions={{
+                headerShown: false,
+                animation: "slide_from_right",
+              }}
+            >
+              <Stack.Screen name="Login" component={Login} />
+              <Stack.Screen name="SignUp" component={SignUp} />
+              <Stack.Screen
+                name="Onboarding"
+                component={Onboarding}
+                options={{ animation: "fade", gestureEnabled: false }}
+              />
+              <Stack.Screen name="Home" component={TabNavigator} />
+              <Stack.Screen
+                name="SettingsStack"
+                component={SettingsStack}
+                options={{ presentation: "modal", animation: "slide_from_bottom" }}
+              />
+              <Stack.Screen
+                name="EditProfile"
+                component={EditProfile}
+                options={{ animation: "slide_from_right" }}
+              />
+              <Stack.Screen
+                name="RecentlyDeleted"
+                component={RecentlyDeleted}
+                options={{ animation: "slide_from_right" }}
+              />
+            </Stack.Navigator>
+          </NavigationContainer>
+        </PreferencesProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 

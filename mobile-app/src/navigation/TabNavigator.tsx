@@ -5,6 +5,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { TabParamList } from "./types";
 import { useTheme } from "../context/ThemeContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Home from "../screens/Home/Home";
 import Progress from "../screens/Progress/Progress";
@@ -37,6 +38,7 @@ function resetOnPress(
 
 export default function TabNavigator() {
   const { theme, colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tab.Navigator
@@ -48,6 +50,8 @@ export default function TabNavigator() {
           ...styles.tabBar,
           backgroundColor: colors.card,
           borderTopColor: colors.divider,
+          paddingBottom: Math.max(insets.bottom, 10),
+          height: 70 + Math.max(insets.bottom, 10),
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textTertiary,
@@ -185,9 +189,7 @@ const styles = StyleSheet.create({
     left: 20,
     right: 20,
     borderRadius: 25,
-    height: 90,
     paddingTop: 10,
-    paddingBottom: 10,
     flexDirection: "row",
     justifyContent: "space-around",
     shadowOpacity: 0.1,

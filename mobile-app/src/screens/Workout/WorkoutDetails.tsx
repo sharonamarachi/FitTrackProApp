@@ -26,6 +26,7 @@ import * as Haptics from "expo-haptics";
 import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 import { supabase } from "../../api/supabaseClient";
 import { formatDurationDigital } from "../../utils/time";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type ExerciseCompletion = {
   [exerciseId: string]: boolean;
@@ -126,6 +127,7 @@ export default function WorkoutDetails({ route, navigation }: Props) {
 
   const { theme, colors } = useTheme();
   const isDark = theme === "dark";
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     loadWorkout();
@@ -378,7 +380,7 @@ export default function WorkoutDetails({ route, navigation }: Props) {
       <View
         style={[
           styles.header,
-          { borderBottomColor: isDark ? colors.border : "transparent" },
+          { borderBottomColor: isDark ? colors.border : "transparent", paddingTop: Math.max(insets.top, 20) },
         ]}
       >
         <View style={styles.headerLeft}>
@@ -1222,7 +1224,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 60,
     paddingBottom: 16,
     borderBottomWidth: 1,
   },

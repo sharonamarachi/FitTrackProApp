@@ -21,6 +21,7 @@ import {
   requestNotificationPermission,
   getPermissionStatus,
 } from "../../services/NotificationService";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ONBOARDING_KEY = "onboardingComplete";
 const TOTAL_STEPS = 5;
@@ -76,6 +77,7 @@ export default function Onboarding({ navigation }: any) {
   const { colors, theme } = useTheme();
   const { setPref } = usePreferences();
   const isDark = theme === "dark";
+  const insets = useSafeAreaInsets();
 
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -586,7 +588,7 @@ export default function Onboarding({ navigation }: any) {
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
       {/* Header row */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
         {step > 0 ? (
           <TouchableOpacity
             style={[styles.navBtn, { backgroundColor: colors.surface }]}
@@ -736,10 +738,8 @@ const styles = StyleSheet.create({
 
   header: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === "ios" ? 60 : 40,
     paddingBottom: 16,
   },
   navBtn: {

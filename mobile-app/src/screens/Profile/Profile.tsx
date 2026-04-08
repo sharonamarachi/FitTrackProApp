@@ -12,6 +12,7 @@ import { supabase } from "../../api/supabaseClient";
 import { User } from "@supabase/supabase-js";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function Profile({ navigation }: any) {
   const [user, setUser] = useState<User | null>(null);
@@ -19,6 +20,7 @@ export default function Profile({ navigation }: any) {
   const [workoutCount, setWorkoutCount] = useState(0);
   const [streak, setStreak] = useState(0);
   const { theme, colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   useFocusEffect(
     useCallback(() => {
@@ -87,7 +89,7 @@ export default function Profile({ navigation }: any) {
 
       <ScrollView contentContainerStyle={{ paddingBottom: 50 }}>
         {/* Header */}
-        <View style={[styles.header, { backgroundColor: colors.primary }]}>
+        <View style={[styles.header, { backgroundColor: colors.primary, paddingTop: insets.top + 20 }]}>
           <View style={[styles.avatar, { backgroundColor: theme === "dark" ? colors.primaryLight : "#6c63ff" }]}>
             <Ionicons name="person" size={50} color="white" />
           </View>
@@ -177,7 +179,6 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "center",
     paddingBottom: 40,
-    paddingTop: 80,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
   },

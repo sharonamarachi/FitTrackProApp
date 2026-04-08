@@ -109,7 +109,13 @@ export async function sendImmediateNotification(
   const granted = await requestNotificationPermission();
   if (!granted) return;
   await Notifications.scheduleNotificationAsync({
-    content: { title, body, data: data ?? {}, sound: true },
+    content: { 
+      title, 
+      body, 
+      data: data ?? {}, 
+      sound: true,
+      ...(Platform.OS === 'android' ? { channelId: 'fittrack' } : {}),
+    },
     trigger: null,
   });
 }
