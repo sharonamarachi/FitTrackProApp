@@ -18,8 +18,30 @@ import { useTheme } from "../../context/ThemeContext";
 import Header from "../../components/Header";
 import { supabase } from "../../api/supabaseClient";
 import { createWorkout } from "../../services/WorkoutService";
+import { exercisesData } from "../../data/exercises";
 
 type WorkoutTemplate = "reps" | "timer";
+
+const POPULAR_STRENGTH_EXERCISES = [
+  "Bench Press",
+  "Squat",
+  "Deadlift",
+  "Overhead Press",
+  "Bicep Curl",
+  "Pull-up",
+  "Lunge",
+  "Plank",
+];
+const POPULAR_TIMER_EXERCISES = [
+  "Jumping Jacks",
+  "Mountain Climber",
+  "Burpee",
+  "High Knees",
+  "Push-up",
+  "Plank",
+  "Shadow Boxing",
+  "Butt Kick",
+];
 
 const POPULAR_TAGS = [
   "upper-body",
@@ -42,6 +64,52 @@ interface Exercise {
   duration?: number;
   restTime?: number;
 }
+
+const getShortName = (name: string): string => {
+  let short = name.trim();
+  short = short.replace(
+    /^(FYR\d?\s|KV\s|30\s|MetaBurn\s|Holman\s|Dumbbell Fix\s|FYR\s|HM\s|FYR2\s)/gi,
+    "",
+  );
+  short = short.replace(/\s-\s.*$/gi, "");
+  short = short.replace(/\s\(.*\)/gi, "");
+  short = short.replace(/high-cable/gi, "Cable");
+  short = short.replace(/low-cable/gi, "Cable");
+  short = short.replace(/outward-facing/gi, "");
+  short = short.replace(/inward-facing/gi, "");
+  short = short.replace(/single-arm/gi, "Single-arm");
+  short = short.replace(/one-arm/gi, "Single-arm");
+  short = short.replace(/biceps/gi, "Bicep");
+  short = short.replace(/\s+/g, " ").trim();
+  return short
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+};
+
+const weightedSearch = (query: string, data: any[]) => {
+  const q = query.toLowerCase().trim();
+  if (!q) return [];
+  const words = q.split(/\s+/);
+
+  return data
+    .map((item) => {
+      const name = item["Exercise Name"].toLowerCase();
+      let score = 0;
+      if (name === q) score += 100;
+      if (name.startsWith(q)) score += 50;
+      const nameWords = name.split(/\s+/);
+      words.forEach((word) => {
+        if (nameWords.some((nw) => nw.startsWith(word))) score += 20;
+        if (name.includes(word)) score += 5;
+      });
+      return { item, score };
+    })
+    .filter((res) => res.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10)
+    .map((res) => res.item);
+};
 
 export default function CreateWorkoutTemplate({ navigation, route }: any) {
   const { theme, colors } = useTheme();
@@ -75,9 +143,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
       durationMin: exercise.duration
         ? Math.floor(exercise.duration / 60).toString()
         : "",
-      durationSec: exercise.duration
-        ? (exercise.duration % 60).toString()
-        : "",
+      durationSec: exercise.duration ? (exercise.duration % 60).toString() : "",
       restTime: exercise.restTime ? exercise.restTime.toString() : "",
     });
     // Scroll to the "Add/Edit" section
@@ -129,6 +195,46 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
       }
     }
   }, [route?.params?.importedData]);
+
+  const suggestions = React.useMemo(() => {
+    const query = currentExercise.name.trim();
+    if (!query) {
+      const list =
+        selectedTemplate === "reps"
+          ? POPULAR_STRENGTH_EXERCISES
+          : POPULAR_TIMER_EXERCISES;
+      return list.map((name) => ({ original: name, display: name }));
+    }
+
+    const matches = weightedSearch(query, exercisesData);
+    return matches.map((item) => {
+      const fullName = item["Exercise Name"];
+      return {
+        original: fullName,
+        display: getShortName(fullName),
+      };
+    });
+  }, [currentExercise.name, selectedTemplate]);
+
+  const handleSelectSuggestion = (originalName: string) => {
+    if (selectedTemplate === "reps") {
+      setCurrentExercise({
+        ...currentExercise,
+        name: originalName,
+        sets: "3",
+        reps: "10",
+        weight: "0",
+      });
+    } else {
+      setCurrentExercise({
+        ...currentExercise,
+        name: originalName,
+        durationMin: "0",
+        durationSec: "40",
+        restTime: "20",
+      });
+    }
+  };
 
   const addExercise = () => {
     if (!currentExercise.name.trim()) {
@@ -756,6 +862,79 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                 </TouchableOpacity>
               )}
             </View>
+
+            {/* Suggestions Section */}
+            <View style={styles.suggestionsContainer}>
+              <View style={styles.suggestionsHeader}>
+                <Text
+                  style={[
+                    styles.suggestionsLabel,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {currentExercise.name.trim() === ""
+                    ? "POPULAR"
+                    : "SUGGESTIONS"}
+                </Text>
+                {currentExercise.name.trim() !== "" && (
+                  <Text
+                    style={[
+                      styles.suggestionsSublabel,
+                      { color: colors.textTertiary },
+                    ]}
+                  >
+                    matching "{currentExercise.name}"
+                  </Text>
+                )}
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.suggestionsScroll}
+                keyboardShouldPersistTaps="handled"
+              >
+                {suggestions.map((suggestion: any, index: number) => (
+                  <TouchableOpacity
+                    key={`${suggestion.original}-${index}`}
+                    style={[
+                      styles.suggestionChip,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => handleSelectSuggestion(suggestion.original)}
+                    activeOpacity={0.7}
+                  >
+                    <View
+                      style={[
+                        styles.suggestionDot,
+                        { backgroundColor: colors.primary },
+                      ]}
+                    />
+                    <Text
+                      style={[styles.suggestionText, { color: colors.text }]}
+                    >
+                      {suggestion.display}
+                    </Text>
+                    <View
+                      style={[
+                        styles.suggestionDivider,
+                        { backgroundColor: colors.border },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.suggestionAddText,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      + Add
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
           </View>
         </View>
 
@@ -800,7 +979,6 @@ const FeatureTag = ({ icon, text, colors }: any) => (
 const styles = StyleSheet.create({
   container: { flex: 1 },
 
-  // Template selection - now in a ScrollView
   templateScrollContent: {
     padding: 20,
     gap: 20,
@@ -890,9 +1068,21 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   exerciseNumberText: { fontSize: 16, fontWeight: "700" },
-  exerciseInfo: { flex: 1 },
-  exerciseNameRow: { flexDirection: "row", alignItems: "center" },
-  exerciseName: { fontSize: 16, fontWeight: "600" },
+  exerciseInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  exerciseNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+
+  exerciseName: {
+    fontSize: 16,
+    fontWeight: "600",
+    flexShrink: 1,
+  },
   deleteButton: { padding: 4 },
   addExerciseCard: {
     borderRadius: 20,
@@ -962,4 +1152,35 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   saveButtonText: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  suggestionsContainer: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.05)",
+  },
+  suggestionsHeader: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 6,
+    marginBottom: 12,
+  },
+  suggestionsLabel: { fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },
+  suggestionsSublabel: { fontSize: 10, fontWeight: "500" },
+  suggestionsScroll: { gap: 8, paddingBottom: 4 },
+  suggestionChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  suggestionDot: { width: 6, height: 6, borderRadius: 3, marginRight: 8 },
+  suggestionText: {
+    fontSize: 13,
+    fontWeight: "500",
+    maxWidth: 140,
+  },
+  suggestionDivider: { width: 1, height: 14, marginHorizontal: 10 },
+  suggestionAddText: { fontSize: 12, fontWeight: "700" },
 });
