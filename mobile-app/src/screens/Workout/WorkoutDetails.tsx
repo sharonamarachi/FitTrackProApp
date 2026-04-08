@@ -16,7 +16,7 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { WorkoutsStackParamList } from "../../navigation/WorkoutStack";
 import {
   fetchWorkoutById,
-  softDeleteWorkout, 
+  softDeleteWorkout,
   updateWorkout,
 } from "../../services/WorkoutService";
 import { Exercise } from "../../domain/workout";
@@ -294,8 +294,6 @@ export default function WorkoutDetails({ route, navigation }: Props) {
     if (m === 0) return `${s}s`;
     return `${m}m ${s}s`;
   };
-
-
 
   const handleDelete = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -728,31 +726,33 @@ export default function WorkoutDetails({ route, navigation }: Props) {
                               {exercise.sets} × {exercise.reps}
                             </Text>
                           </View>
-                          {exercise.weight && (
-                            <View
-                              style={[
-                                styles.detailChip,
-                                {
-                                  backgroundColor:
-                                    workoutTypeColor + (isDark ? "20" : "15"),
-                                },
-                              ]}
-                            >
-                              <Ionicons
-                                name="fitness"
-                                size={14}
-                                color={workoutTypeColor}
-                              />
-                              <Text
+
+                          {typeof exercise.weight === "number" &&
+                            exercise.weight > 0 && (
+                              <View
                                 style={[
-                                  styles.detailText,
-                                  { color: workoutTypeColor },
+                                  styles.detailChip,
+                                  {
+                                    backgroundColor:
+                                      workoutTypeColor + (isDark ? "20" : "15"),
+                                  },
                                 ]}
                               >
-                                {exercise.weight}kg
-                              </Text>
-                            </View>
-                          )}
+                                <Ionicons
+                                  name="fitness"
+                                  size={14}
+                                  color={workoutTypeColor}
+                                />
+                                <Text
+                                  style={[
+                                    styles.detailText,
+                                    { color: workoutTypeColor },
+                                  ]}
+                                >
+                                  {exercise.weight}kg
+                                </Text>
+                              </View>
+                            )}
                         </View>
                       ) : (
                         <View style={styles.cardioDetails}>
@@ -779,32 +779,34 @@ export default function WorkoutDetails({ route, navigation }: Props) {
                               {formatDurationDigital(exercise.duration)}
                             </Text>
                           </View>
-                          {exercise.restTime && exercise.restTime > 0 && (
-                            <View
-                              style={[
-                                styles.durationChip,
-                                {
-                                  backgroundColor: isDark
-                                    ? "#F9731620"
-                                    : "#FED7AA",
-                                },
-                              ]}
-                            >
-                              <Ionicons
-                                name="pause"
-                                size={14}
-                                color="#F97316"
-                              />
-                              <Text
+
+                          {typeof exercise.restTime === "number" &&
+                            exercise.restTime > 0 && (
+                              <View
                                 style={[
-                                  styles.durationText,
-                                  { color: "#F97316" },
+                                  styles.durationChip,
+                                  {
+                                    backgroundColor: isDark
+                                      ? "#F9731620"
+                                      : "#FED7AA",
+                                  },
                                 ]}
                               >
-                                {exercise.restTime}s rest
-                              </Text>
-                            </View>
-                          )}
+                                <Ionicons
+                                  name="pause"
+                                  size={14}
+                                  color="#F97316"
+                                />
+                                <Text
+                                  style={[
+                                    styles.durationText,
+                                    { color: "#F97316" },
+                                  ]}
+                                >
+                                  {exercise.restTime}s rest
+                                </Text>
+                              </View>
+                            )}
                         </View>
                       )}
                     </View>
