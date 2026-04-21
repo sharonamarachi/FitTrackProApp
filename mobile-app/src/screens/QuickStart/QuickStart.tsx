@@ -49,12 +49,12 @@ export default function QuickStart({ navigation }: QuickStartScreenProps) {
       color: "#FF9500",
     },
     {
-      key: "video",
-      icon: "videocam-outline",
-      title: "Video Import",
-      description: "Import workouts from video sources",
+      key: "voice",
+      icon: "mic-outline",
+      title: "Voice Import",
+      description: "Speak your workout to build a plan",
       color: "#AF52DE",
-      onPress: () => navigation.navigate("VideoImport"),
+      onPress: () => navigation.navigate("VoiceImport"),
     }
   ];
 
@@ -84,8 +84,8 @@ export default function QuickStart({ navigation }: QuickStartScreenProps) {
                 navigation.navigate("TranscriptImport");
               } else if (action.key === "quickLog") {
                 navigation.navigate("CreateWorkoutTemplate");
-              } else if (action.key === "video") {
-                navigation.navigate("VideoImport");
+              } else if (action.key === "voice") {
+                navigation.navigate("VoiceImport");
               }
             }}
           >

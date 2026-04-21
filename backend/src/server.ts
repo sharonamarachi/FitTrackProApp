@@ -15,10 +15,6 @@ import {
   YoutubeTranscriptInvalidVideoIdError,
 } from "youtube-transcript-plus";
 import { ProxyAgent, setGlobalDispatcher } from "undici";
-import {
-  extractAudioToWav,
-  checkFfmpegAvailable,
-} from "./services/ffmpegService";
 import { transcribeAudioWithGroq } from "./services/groqTranscriptionService";
 import transcriptRoutes from "./routes/transcriptRoutes";
 
@@ -118,9 +114,6 @@ async function fetchTranscriptWithProxyRetry(url: string, maxRetries = 5) {
 }
 
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
-app.get("/check-ffmpeg", async (_req, res) =>
-  res.json({ available: await checkFfmpegAvailable() }),
-);
 
 app.post("/transcript", async (req, res) => {
   const { url } = req.body;
@@ -171,18 +164,17 @@ app.post("/transcript", async (req, res) => {
   }
 });
 
-app.post("/transcribe-video", upload.single("video"), async (req, res) => {
+// ── Audio transcription (direct voice recording, no ffmpeg needed) ────────────
+app.post("/transcribe-audio", upload.single("audio"), async (req, res) => {
   if (!req.file)
-    return res.status(400).json({ error: "No video file uploaded." });
+    return res.status(400).json({ error: "No audio file uploaded." });
   if (!getEnv("GROQ_API_KEY"))
     return res.status(503).json({ error: "GROQ_API_KEY not configured." });
-  const inputPath = req.file.path,
-    audioPath = `${inputPath}.wav`;
+  const audioPath = req.file.path;
   try {
-    await extractAudioToWav(inputPath, audioPath);
     const result = await transcribeAudioWithGroq(audioPath);
     if (!result.transcript || result.transcript.length < 5)
-      return res.status(422).json({ error: "No speech detected." });
+      return res.status(422).json({ error: "No speech detected. Try speaking more clearly." });
     return res.json({
       transcript: result.transcript,
       segments: result.segments,
@@ -192,13 +184,11 @@ app.post("/transcribe-video", upload.single("video"), async (req, res) => {
   } catch (err: any) {
     return res
       .status(500)
-      .json({ error: err?.message || "Failed to transcribe video." });
+      .json({ error: err?.message || "Failed to transcribe audio." });
   } finally {
-    for (const f of [inputPath, audioPath]) {
-      try {
-        if (fs.existsSync(f)) fs.unlinkSync(f);
-      } catch {}
-    }
+    try {
+      if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath);
+    } catch {}
   }
 });
 
