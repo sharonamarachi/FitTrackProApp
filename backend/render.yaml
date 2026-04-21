@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: fittrack-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_WHISPER_MODEL
+        value: whisper-large-v3-turbo
+      - key: WEBSHARE_USER
+        sync: false
+      - key: WEBSHARE_PASS
+        sync: false
+      - key: WEBSHARE_HOST
+        sync: false
+      - key: WEBSHARE_PORT
+        sync: false
+      - key: WEBSHARE_PROXY_COUNT
+        sync: false
