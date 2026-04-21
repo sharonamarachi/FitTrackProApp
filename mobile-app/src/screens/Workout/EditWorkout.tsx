@@ -568,7 +568,7 @@ export default function EditWorkout({ route, navigation }: Props) {
           onSelectSuggestion={handleSelectSuggestion}
         />
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 120 }} />
       </ScrollView>
 
       {loading && (

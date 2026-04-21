@@ -496,7 +496,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
           onSelectSuggestion={handleSelectSuggestion}
         />
 
-        <View style={{ height: exercises.length > 0 ? 100 : 40 }} />
+        <View style={{ height: exercises.length > 0 ? 140 : 120 }} />
       </ScrollView>
 
       {exercises.length > 0 && (

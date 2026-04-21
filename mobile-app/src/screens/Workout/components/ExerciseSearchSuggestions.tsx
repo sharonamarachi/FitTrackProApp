@@ -60,7 +60,7 @@ const ExerciseSearchSuggestions: React.FC<ExerciseSearchSuggestionsProps> = ({
             { color: colors.textSecondary },
           ]}
         >
-          {query.trim() === "" ? "POPULAR" : "SUGGESTIONS"}
+          {query.trim() === "" ? "POPULAR (scroll →)" : "SUGGESTIONS"}
         </Text>
         {query.trim() !== "" && (
           <Text
