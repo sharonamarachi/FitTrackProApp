@@ -20,9 +20,11 @@ import {
   TextInput,
   StatusBar,
   Animated,
+  Modal,
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as Speech from "expo-speech";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme, THEME_META, type ThemeId, type ThemeMode } from "../../context/ThemeContext";
 import { usePreferences} from "../../context/UserPreferencesContext";
@@ -151,6 +153,17 @@ export default function AppearanceAndPreferencesScreen() {
   const { prefs, setPref } = usePreferences();
   const isDark = mode === "dark";
   const insets = useSafeAreaInsets();
+
+  const [voices, setVoices] = useState<Speech.Voice[]>([]);
+  const [voiceModalVisible, setVoiceModalVisible] = useState(false);
+
+  React.useEffect(() => {
+    Speech.getAvailableVoicesAsync().then((v) => {
+      // Keep only English to keep list readable
+      const en = v.filter(voice => voice.language.startsWith("en"));
+      setVoices(en.length > 0 ? en : v);
+    });
+  }, []);
 
 
   // Animate theme card press
@@ -331,7 +344,28 @@ export default function AppearanceAndPreferencesScreen() {
             onToggle={(v) => setPref("coachVoiceEnabled", v)}
             colors={colors}
             isDark={isDark}
+            isLast={!prefs.coachVoiceEnabled || voices.length === 0}
           />
+
+          {prefs.coachVoiceEnabled && voices.length > 0 && (
+            <TouchableOpacity
+              style={[rowStyles.row, { borderBottomWidth: 1, borderBottomColor: colors.divider }]}
+              onPress={() => setVoiceModalVisible(true)}
+            >
+              <View style={[rowStyles.iconWrap, { backgroundColor: "#7C3AED20" }]}>
+                <Ionicons name="person-outline" size={18} color="#7C3AED" />
+              </View>
+              <View style={rowStyles.labelBlock}>
+                <Text style={[rowStyles.label, { color: colors.text }]}>Voice Profile</Text>
+                <Text style={[rowStyles.sublabel, { color: colors.textSecondary }]}>
+                  {prefs.coachVoiceIdentifier 
+                    ? voices.find(v => v.identifier === prefs.coachVoiceIdentifier)?.name 
+                    : "System Default"}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+            </TouchableOpacity>
+          )}
 
           {/* ── Weekly workout goal ───────────────────────────────────── */}
           <View style={[rowStyles.row, { paddingBottom: 18 }]}>
@@ -387,6 +421,55 @@ export default function AppearanceAndPreferencesScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* ── Voice Picker Modal ─────────────────────────────────────── */}
+      <Modal visible={voiceModalVisible} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: "80%" }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <Text style={{ fontSize: 20, fontWeight: "700", color: colors.text }}>Select Coach Voice</Text>
+              <TouchableOpacity onPress={() => setVoiceModalVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close-circle" size={28} color={colors.textTertiary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <TouchableOpacity
+                style={{ paddingVertical: 14, borderBottomWidth: 1, borderColor: colors.border }}
+                onPress={() => {
+                  setPref("coachVoiceIdentifier", null);
+                  setVoiceModalVisible(false);
+                }}
+              >
+                <Text style={{ fontSize: 16, color: colors.text, fontWeight: !prefs.coachVoiceIdentifier ? "700" : "500" }}>
+                  System Default
+                </Text>
+              </TouchableOpacity>
+              {voices.map((v) => (
+                <TouchableOpacity
+                  key={v.identifier}
+                  style={{ paddingVertical: 14, borderBottomWidth: 1, borderColor: colors.border }}
+                  onPress={() => {
+                    setPref("coachVoiceIdentifier", v.identifier);
+                    // Preview the voice
+                    Speech.speak("This is how I will sound during your workout.", { 
+                      voice: v.identifier, 
+                      rate: 0.9, 
+                      pitch: prefs.coachVoiceGender === 'male' ? 0.8 : 1.1 
+                    });
+                    setVoiceModalVisible(false);
+                  }}
+                >
+                  <Text style={{ fontSize: 16, color: colors.text, fontWeight: prefs.coachVoiceIdentifier === v.identifier ? "700" : "500" }}>
+                    {v.name} ({v.language}) {v.quality === "Enhanced" ? "🌟" : ""}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              <View style={{ height: 40 }} />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }

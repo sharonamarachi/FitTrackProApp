@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle } from "react-native-svg";
-import { Audio } from "expo-av";
+import { useAudioPlayer } from "expo-audio";
 import * as Speech from "expo-speech";
 import Slider from "@react-native-community/slider";
 import { supabase } from "../../api/supabaseClient";
@@ -80,24 +80,20 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
 
   const startTimeRef = useRef<Date>(new Date());
   const elapsedRef = useRef<number>(0);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const player = useAudioPlayer(require("../../../assets/beep.mp3"));
 
-  // ── Load beep sound ────────────────────────────────────────────────────────
+  // ── Stop speech on unmount ─────────────────────────────────────────────────
   useEffect(() => {
-    Audio.Sound.createAsync(require("../../../assets/beep.mp3"))
-      .then(({ sound }) => {
-        soundRef.current = sound;
-      })
-      .catch(() => {});
     return () => {
-      soundRef.current?.unloadAsync().catch(() => {});
       Speech.stop();
     };
   }, []);
 
   useEffect(() => {
-    soundRef.current?.setVolumeAsync(volume).catch(() => {});
-  }, [volume]);
+    if (player) {
+      player.volume = volume;
+    }
+  }, [volume, player]);
 
   // ── Schedule background notifications when countdown ends ──────────────────
   useEffect(() => {
@@ -135,11 +131,11 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
     ? ((currentExercise.restTime - timeLeft) / currentExercise.restTime) * 100
     : ((currentExercise.duration - timeLeft) / currentExercise.duration) * 100;
 
-  const playBeep = async () => {
+  const playBeep = () => {
     if (!beepsEnabled) return;
     try {
-      await soundRef.current?.setPositionAsync(0);
-      await soundRef.current?.playAsync();
+      player.seekTo(0);
+      player.play();
     } catch {}
   };
 
@@ -155,12 +151,8 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
     Speech.speak(text, {
       rate: 0.9,
       volume,
-      voice:
-        Platform.OS === "ios"
-          ? isMaleVoice
-            ? "com.apple.ttsbundle.Daniel-compact"
-            : "com.apple.ttsbundle.Samantha-compact"
-          : undefined,
+      pitch: isMaleVoice ? 0.8 : 1.1,
+      ...(prefs.coachVoiceIdentifier ? { voice: prefs.coachVoiceIdentifier } : {}),
     });
   };
 
@@ -213,6 +205,20 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
         }
         const next = prev - 1;
         if (next <= 3 && next > 0) playBeep();
+        
+        // Announce halfway if duration > 30s
+        if (!isResting && currentExercise.duration > 30) {
+          const halfway = Math.floor(currentExercise.duration / 2);
+          if (next === halfway && coachEnabled) {
+            Speech.speak("Halfway there", {
+              rate: 0.9,
+              volume,
+              pitch: isMaleVoice ? 0.8 : 1.1,
+              ...(prefs.coachVoiceIdentifier ? { voice: prefs.coachVoiceIdentifier } : {}),
+            });
+          }
+        }
+        
         return next;
       });
     }, 1000);
@@ -380,6 +386,7 @@ export default function IntervalTimerPlayback({ navigation, route }: Props) {
           beepsEnabled={beepsEnabled}
           coachVoiceEnabled={coachEnabled}
           coachVoiceGender={isMaleVoice ? "male" : "female"}
+          coachVoiceIdentifier={prefs.coachVoiceIdentifier}
         />
       )}
 
@@ -738,14 +745,22 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   audioSettingsCard: {
+    position: "absolute",
+    top: 110,
+    left: 16,
+    right: 16,
+    zIndex: 50,
     backgroundColor: "#161616",
-    marginHorizontal: 16,
     padding: 16,
     borderRadius: 18,
-    marginBottom: 8,
     gap: 12,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 15,
+    elevation: 10,
   },
   settingRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   settingLabel: { flex: 1, color: "#fff", fontSize: 14, fontWeight: "500" },

@@ -8,6 +8,7 @@ interface Props {
   playBeep?: () => void;
   coachVoiceEnabled?: boolean;
   coachVoiceGender?: 'male' | 'female';
+  coachVoiceIdentifier?: string | null;
   beepsEnabled?: boolean;
 }
 
@@ -19,6 +20,7 @@ export default function CountdownOverlay({
   playBeep,
   coachVoiceEnabled = true,
   coachVoiceGender = 'female',
+  coachVoiceIdentifier = null,
   beepsEnabled = true,
 }: Props) {
   const [step, setStep] = useState<number>(3); // 3 → 2 → 1 → 0 (GO!)
@@ -27,14 +29,11 @@ export default function CountdownOverlay({
   const ringAnim = useRef(new Animated.Value(0)).current;
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const voiceConfig = Platform.OS === 'ios'
-    ? {
-        voice: coachVoiceGender === 'male'
-          ? 'com.apple.ttsbundle.Daniel-compact'
-          : 'com.apple.ttsbundle.Samantha-compact',
-        rate: 1.0,
-      }
-    : { rate: 1.0 };
+  const voiceConfig = {
+    rate: 1.0,
+    pitch: coachVoiceGender === 'male' ? 0.8 : 1.1,
+    ...(coachVoiceIdentifier ? { voice: coachVoiceIdentifier } : {}),
+  };
 
   const speakStep = (s: number) => {
     if (!coachVoiceEnabled) return;
@@ -92,9 +91,9 @@ export default function CountdownOverlay({
     };
   }, [step]);
 
-  // Clean up speech on unmount
+  // Removed Speech.stop() on unmount to prevent cutting off the initial workout announcement
   useEffect(() => {
-    return () => { Speech.stop(); };
+    return () => {};
   }, []);
 
   const ringScale = ringAnim.interpolate({

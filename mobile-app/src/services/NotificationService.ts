@@ -162,6 +162,7 @@ export async function scheduleTimerNotifications(
   const ids: string[] = [];
   let cumulativeSeconds = 0;
 
+  /*
   for (let i = 0; i < phases.length; i++) {
     cumulativeSeconds += phases[i].durationSeconds;
     if (i === 0) continue;
@@ -188,6 +189,7 @@ export async function scheduleTimerNotifications(
     });
     ids.push(id);
   }
+  */
 
   const totalSeconds = phases.reduce((s, p) => s + p.durationSeconds, 0);
   const completeId   = await Notifications.scheduleNotificationAsync({

@@ -8,6 +8,7 @@ export interface UserPreferences {
   countdownBeepEnabled: boolean;
   coachVoiceEnabled: boolean;
   coachVoiceGender: 'male' | 'female';
+  coachVoiceIdentifier?: string | null;
 }
 
 // ── Context shape ──────────────────────────────────────────────────────────────
@@ -29,6 +30,7 @@ const defaults: UserPreferences = {
   countdownBeepEnabled: true,
   coachVoiceEnabled: true,
   coachVoiceGender: 'female',
+  coachVoiceIdentifier: null,
 };
 
 // ── Context ────────────────────────────────────────────────────────────────────
@@ -61,6 +63,7 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
             countdownBeepEnabled: old.countdownBeepEnabled ?? old.beepsEnabled ?? defaults.countdownBeepEnabled,
             coachVoiceEnabled:    old.coachVoiceEnabled ?? defaults.coachVoiceEnabled,
             coachVoiceGender:     old.coachVoiceGender ?? defaults.coachVoiceGender,
+            coachVoiceIdentifier: old.coachVoiceIdentifier ?? defaults.coachVoiceIdentifier,
           };
           setPrefs(migrated);
           await AsyncStorage.setItem(PREFS_KEY, JSON.stringify(migrated));
@@ -125,6 +128,7 @@ export const useUserPreferences = () => {
     beepsEnabled:      prefs.countdownBeepEnabled,
     coachVoiceEnabled: prefs.coachVoiceEnabled,
     coachVoiceGender:  prefs.coachVoiceGender,
+    coachVoiceIdentifier: prefs.coachVoiceIdentifier,
     weeklyGoal:        prefs.weeklyWorkoutGoal,
     updatePreferences,
   };

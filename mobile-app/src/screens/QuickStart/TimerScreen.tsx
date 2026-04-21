@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
-import { Audio } from "expo-av";
+import { useAudioPlayer } from "expo-audio";
+import * as Speech from "expo-speech";
 import { TimerScreenProps } from "../../navigation/types";
 import { useUserPreferences } from "../../context/UserPreferencesContext";
 import CountdownOverlay from "../../components/CountdownOverlay";
@@ -14,7 +15,7 @@ import {
 
 export default function TimerScreen({ navigation, route }: TimerScreenProps) {
   const { work, rest, rounds, exercises } = route.params;
-  const { beepsEnabled, coachVoiceEnabled, coachVoiceGender } =
+  const { beepsEnabled, coachVoiceEnabled, coachVoiceGender, coachVoiceIdentifier } =
     useUserPreferences();
 
   const [isCountingDown, setIsCountingDown] = useState(true);
@@ -24,25 +25,14 @@ export default function TimerScreen({ navigation, route }: TimerScreenProps) {
   const [currentExercise, setCurrentExercise] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
 
-  const soundRef = React.useRef<Audio.Sound | null>(null);
-
   // ── Beep sound ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    Audio.Sound.createAsync(require("../../../assets/beep.mp3"))
-      .then(({ sound }) => {
-        soundRef.current = sound;
-      })
-      .catch(() => {});
-    return () => {
-      soundRef.current?.unloadAsync().catch(() => {});
-    };
-  }, []);
+  const player = useAudioPlayer(require("../../../assets/beep.mp3"));
 
-  const playBeep = async () => {
+  const playBeep = () => {
     if (!beepsEnabled) return;
     try {
-      await soundRef.current?.setPositionAsync(0);
-      await soundRef.current?.playAsync();
+      player.seekTo(0);
+      player.play();
     } catch {}
   };
 
@@ -125,6 +115,19 @@ export default function TimerScreen({ navigation, route }: TimerScreenProps) {
       setTimeLeft((prev) => {
         const next = prev - 1;
         if (next <= 3 && next > 0) playBeep();
+        
+        // Announce halfway if duration > 30s
+        if (isWorkPhase && work > 30) {
+          const halfway = Math.floor(work / 2);
+          if (next === halfway && coachVoiceEnabled) {
+            Speech.speak("Halfway there", {
+              rate: 0.9,
+              pitch: coachVoiceGender === "male" ? 0.8 : 1.1,
+              ...(coachVoiceIdentifier ? { voice: coachVoiceIdentifier } : {}),
+            });
+          }
+        }
+        
         return next;
       });
     }, 1000);
@@ -269,6 +272,7 @@ export default function TimerScreen({ navigation, route }: TimerScreenProps) {
           beepsEnabled={beepsEnabled}
           coachVoiceEnabled={coachVoiceEnabled}
           coachVoiceGender={coachVoiceGender}
+          coachVoiceIdentifier={coachVoiceIdentifier}
         />
       )}
 

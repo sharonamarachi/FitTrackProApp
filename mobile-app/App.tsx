@@ -17,6 +17,8 @@ import { ThemeProvider } from "./src/context/ThemeContext";
 import { PreferencesProvider } from "./src/context/UserPreferencesContext";
 import { supabase } from "./src/api/supabaseClient";
 
+import { setAudioModeAsync } from "expo-audio";
+
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -27,6 +29,10 @@ export default function App() {
     useState<keyof RootStackParamList>("Login");
 
   useEffect(() => {
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+    }).catch((err) => console.log("AudioMode Error:", err));
     checkSession();
   }, []);
 
