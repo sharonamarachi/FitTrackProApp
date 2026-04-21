@@ -170,7 +170,12 @@ app.post("/transcribe-audio", upload.single("audio"), async (req, res) => {
     return res.status(400).json({ error: "No audio file uploaded." });
   if (!getEnv("GROQ_API_KEY"))
     return res.status(503).json({ error: "GROQ_API_KEY not configured." });
-  const audioPath = req.file.path;
+
+  // Multer strips extensions from temp files — Groq needs the extension to detect format
+  const ext = path.extname(req.file.originalname) || ".m4a";
+  const audioPath = `${req.file.path}${ext}`;
+  fs.renameSync(req.file.path, audioPath);
+
   try {
     const result = await transcribeAudioWithGroq(audioPath);
     if (!result.transcript || result.transcript.length < 5)
