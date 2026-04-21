@@ -13,7 +13,9 @@ import {
   Platform,
   StatusBar,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../../context/ThemeContext";
 import Header from "../../components/Header";
 import {
@@ -41,8 +43,9 @@ interface TranscriptResult {
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
-export default function YouTubeImport({ navigation }: any) {
+   export default function YouTubeImport({ navigation }: any) {
   const { colors, theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const isDark = theme === "dark";
 
   const [url, setUrl] = useState("");
@@ -159,8 +162,11 @@ export default function YouTubeImport({ navigation }: any) {
         showBack
       />
 
-      <ScrollView
-        contentContainerStyle={styles.scroll}
+       <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: Math.max(insets.bottom, 20) + 140 },
+        ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -322,11 +328,13 @@ export default function YouTubeImport({ navigation }: any) {
             </View>
 
             {/* Transcript content */}
-            <View
+            <ScrollView
               style={[
                 styles.transcriptCard,
                 { backgroundColor: colors.card, borderColor: colors.border },
               ]}
+              nestedScrollEnabled={true}
+              showsVerticalScrollIndicator={true}
             >
               {viewMode === "full" ? (
                 <Text style={[styles.fullText, { color: colors.text }]}>
@@ -355,48 +363,54 @@ export default function YouTubeImport({ navigation }: any) {
                   </View>
                 ))
               )}
-            </View>
-
-            {/* Extract workout CTA */}
-            <TouchableOpacity
-              style={[
-                styles.extractBtn,
-                { backgroundColor: colors.success },
-                isLoading && { opacity: 0.6 },
-              ]}
-              onPress={handleExtract}
-              disabled={isLoading}
-              activeOpacity={0.8}
-            >
-              {isLoading ? (
-                <View style={styles.row}>
-                  <ActivityIndicator color="#fff" size="small" />
-                  <Text style={styles.extractBtnTitle}>{status}</Text>
-                </View>
-              ) : (
-                <>
-                  <Ionicons name="flash" size={22} color="#fff" />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.extractBtnTitle}>
-                      Extract Workout with AI
-                    </Text>
-                    <Text style={styles.extractBtnSub}>
-                      Powered by Groq · Llama 3
-                    </Text>
-                  </View>
-                  <Ionicons
-                    name="arrow-forward"
-                    size={20}
-                    color="rgba(255,255,255,0.8)"
-                  />
-                </>
-              )}
-            </TouchableOpacity>
+            </ScrollView>
           </>
         )}
-
-        <View style={{ height: 40 }} />
       </ScrollView>
+      
+      {/* ── Sticky Footer ────────────────────────────────────────────────── */}
+      {result && (
+        <LinearGradient
+          colors={["transparent", colors.background]}
+          style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 10) + 90 }]}
+          pointerEvents="box-none"
+        >
+          <TouchableOpacity
+            style={[
+              styles.extractBtn,
+              { backgroundColor: colors.success },
+              isLoading && { opacity: 0.6 },
+            ]}
+            onPress={handleExtract}
+            disabled={isLoading}
+            activeOpacity={0.8}
+          >
+            {isLoading ? (
+              <View style={styles.row}>
+                <ActivityIndicator color="#fff" size="small" />
+                <Text style={styles.extractBtnTitle}>{status}</Text>
+              </View>
+            ) : (
+              <>
+                <Ionicons name="flash" size={22} color="#fff" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.extractBtnTitle}>
+                    Extract Workout with AI
+                  </Text>
+                  <Text style={styles.extractBtnSub}>
+                    Powered by Groq · Llama 3
+                  </Text>
+                </View>
+                <Ionicons
+                  name="arrow-forward"
+                  size={20}
+                  color="rgba(255,255,255,0.8)"
+                />
+              </>
+            )}
+          </TouchableOpacity>
+        </LinearGradient>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -404,7 +418,15 @@ export default function YouTubeImport({ navigation }: any) {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  scroll: { padding: 20, paddingBottom: 40 },
+  scroll: { padding: 20 },
+  footer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
+    paddingTop: 40,
+  },
 
   inputCard: {
     borderRadius: 16,
