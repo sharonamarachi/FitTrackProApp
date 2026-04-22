@@ -18,7 +18,7 @@ import {
 
 interface ExerciseSearchSuggestionsProps {
   query: string;
-  workoutType: "strength" | "cardio";
+  workoutType: "strength" | "cardio" | "mixed";
   colors: any;
   onSelect: (originalName: string) => void;
 }
@@ -32,10 +32,15 @@ const ExerciseSearchSuggestions: React.FC<ExerciseSearchSuggestionsProps> = ({
   const suggestions = useMemo(() => {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) {
-      const list =
-        workoutType === "strength"
-          ? POPULAR_STRENGTH_EXERCISES
-          : POPULAR_CARDIO_EXERCISES;
+      let list: string[] = [];
+      if (workoutType === "mixed") {
+        list = [...POPULAR_STRENGTH_EXERCISES, ...POPULAR_CARDIO_EXERCISES];
+      } else {
+        list =
+          workoutType === "strength"
+            ? POPULAR_STRENGTH_EXERCISES
+            : POPULAR_CARDIO_EXERCISES;
+      }
       return list.map((name) => ({ original: name, display: name }));
     }
 

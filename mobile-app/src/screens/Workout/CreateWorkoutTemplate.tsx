@@ -20,7 +20,7 @@ import { createWorkout } from "../../services/WorkoutService";
 import { POPULAR_TAGS } from "./constants";
 import AddExerciseForm from "./components/AddExerciseForm";
 
-type WorkoutType = "strength" | "cardio";
+type WorkoutType = "strength" | "cardio" | "mixed";
 
 interface Exercise {
   id: string;
@@ -100,10 +100,31 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
           }),
         );
         setExercises(formattedExercises);
-        const hasTimedExercises = formattedExercises.some(
-          (ex: Exercise) => ex.duration,
-        );
-        setSelectedType(hasTimedExercises ? "cardio" : "strength");
+ 
+        // Use AI recommended template if available
+        if (data.recommendedTemplate) {
+          setSelectedType(
+            data.recommendedTemplate === "mixed"
+              ? "mixed"
+              : data.recommendedTemplate === "interval"
+                ? "cardio"
+                : "strength",
+          );
+        } else {
+          // Fallback logic
+          const hasTimedExercises = formattedExercises.some(
+            (ex: Exercise) => ex.duration,
+          );
+          const hasRepsExercises = formattedExercises.some(
+            (ex: Exercise) => ex.sets || ex.reps,
+          );
+
+          if (hasTimedExercises && hasRepsExercises) {
+            setSelectedType("mixed");
+          } else {
+            setSelectedType(hasTimedExercises ? "cardio" : "strength");
+          }
+        }
       }
       if (data.tags && Array.isArray(data.tags)) setSelectedTags(data.tags);
       if (data.category && !data.tags?.includes(data.category)) {
@@ -113,7 +134,12 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
   }, [route?.params?.importedData]);
 
   const handleSelectSuggestion = (originalName: string) => {
-    if (selectedType === "strength") {
+    if (selectedType === "mixed") {
+      setCurrentExercise({
+        ...currentExercise,
+        name: originalName,
+      });
+    } else if (selectedType === "strength") {
       setCurrentExercise({
         ...currentExercise,
         name: originalName,
@@ -141,14 +167,16 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
       id: editingId || Date.now().toString(),
       name: currentExercise.name.trim(),
     };
-    if (selectedType === "strength") {
+    if (selectedType === "strength" || selectedType === "mixed") {
       if (currentExercise.sets)
         updatedExercise.sets = parseInt(currentExercise.sets);
       if (currentExercise.reps)
         updatedExercise.reps = parseInt(currentExercise.reps);
       if (currentExercise.weight)
-        updatedExercise.weight = parseInt(currentExercise.weight);
-    } else {
+        updatedExercise.weight = parseFloat(currentExercise.weight);
+    }
+
+    if (selectedType === "cardio" || selectedType === "mixed") {
       const mins = parseInt(currentExercise.durationMin) || 0;
       const secs = parseInt(currentExercise.durationSec) || 0;
       const totalSeconds = mins * 60 + secs;
@@ -292,6 +320,34 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
             </View>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={[styles.templateCard, { backgroundColor: colors.card }]}
+            onPress={() => setSelectedType("mixed")}
+            activeOpacity={0.7}
+          >
+            <View
+              style={[styles.templateIcon, { backgroundColor: "#8b5cf620" }]}
+            >
+              <Ionicons name="layers" size={40} color="#8b5cf6" />
+            </View>
+            <Text style={[styles.templateTitle, { color: colors.text }]}>
+              Mixed Mode
+            </Text>
+            <Text
+              style={[
+                styles.templateDescription,
+                { color: colors.textSecondary },
+              ]}
+            >
+              Hybrid workouts combining strength and cardio exercises
+            </Text>
+            <View style={styles.templateFeatures}>
+              <FeatureTag icon="flash" text="Hybrid" colors={colors} />
+              <FeatureTag icon="barbell" text="Weights" colors={colors} />
+              <FeatureTag icon="time" text="Timed" colors={colors} />
+            </View>
+          </TouchableOpacity>
+
           <View style={styles.templateBottomPadding}>
             <Text
               style={[
@@ -318,9 +374,11 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
       />
       <Header
         title={
-          selectedType === "strength"
-            ? "Strength Workout"
-            : "Cardio Workout"
+          selectedType === "mixed"
+            ? "Mixed Workout"
+            : selectedType === "strength"
+              ? "Strength Workout"
+              : "Cardio Workout"
         }
         subtitle="Build your workout"
         rightAction={{ icon: "checkmark", onPress: saveWorkout }}
@@ -441,7 +499,23 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                         {exercise.name}
                       </Text>
                     </View>
-                    {selectedType === "strength" ? (
+                    {selectedType === "mixed" ? (
+                      <Text
+                        style={[
+                          styles.exerciseMeta,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {[
+                          exercise.sets && exercise.reps ? `${exercise.sets}×${exercise.reps}` : null,
+                          exercise.weight && parseFloat(exercise.weight.toString()) > 0 ? `${exercise.weight}kg` : null,
+                          exercise.duration ? `${exercise.duration}s` : null,
+                          exercise.restTime ? `${exercise.restTime}s rest` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </Text>
+                    ) : selectedType === "strength" ? (
                       <Text
                         style={[
                           styles.exerciseMeta,

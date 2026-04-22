@@ -16,6 +16,7 @@ export interface ParseResult {
   category: string;
   exercises: ExtractedExercise[];
   tags: string[];
+  recommendedTemplate?: "strength" | "interval" | "mixed";
   confidence: number;
   rawExerciseCount: number;
 }
@@ -103,18 +104,19 @@ export async function parseTranscript(rawText: string): Promise<ParseResult> {
     const globalDuration: number | undefined = data.globalDuration ?? undefined;
     const globalRest: number | undefined = data.globalRest ?? undefined;
     const isCircuit: boolean = data.isCircuit ?? false;
+    const recommendedTemplate: "strength" | "interval" | "mixed" | undefined =
+      data.recommendedTemplate;
 
     let exercises: ExtractedExercise[] = (data.exercises ?? []).map(
       (e: any, i: number) => ({
         id: `ex_${Date.now()}_${i}`,
         name: titleCase(e.name),
-        sets: e.sets ?? 3,
-        reps: e.type === "reps" ? (e.reps ?? 15) : undefined,
+        sets: e.sets ?? (recommendedTemplate === "strength" ? 3 : 1),
+        reps: e.reps ?? (e.type === "reps" ? 12 : undefined),
         weight: e.weight ?? undefined,
-        duration:
-          e.type === "timed" ? (e.duration ?? globalDuration ?? 30) : undefined,
-        restTime: e.restTime ?? globalRest ?? 10,
-        confidence: 0.92,
+        duration: e.duration ?? (e.type === "timed" || recommendedTemplate === "mixed" ? globalDuration : undefined),
+        restTime: e.restTime ?? globalRest ?? 15,
+        confidence: 0.95,
       }),
     );
 
@@ -132,7 +134,7 @@ export async function parseTranscript(rawText: string): Promise<ParseResult> {
     const tags = [
       category,
       "transcript-import",
-      exercises.some((ex) => ex.duration) ? "timed" : "reps-based",
+      recommendedTemplate === "interval" ? "high-intensity" : "weights",
     ];
 
     return {
@@ -140,7 +142,8 @@ export async function parseTranscript(rawText: string): Promise<ParseResult> {
       category,
       exercises,
       tags: [...new Set(tags)],
-      confidence: 0.92,
+      recommendedTemplate,
+      confidence: 0.95,
       rawExerciseCount: exercises.length,
     };
   } catch (err: any) {

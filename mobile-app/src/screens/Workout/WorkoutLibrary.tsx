@@ -250,6 +250,12 @@ export default function WorkoutLibrary({ navigation }: Props) {
 
     if (activeFilter === "__fav__") {
       list = list.filter((w) => w.is_favorited);
+    } else if (activeFilter === "mixed") {
+      list = list.filter((w) => {
+        const hasTimer = w.exercises?.some((e) => e.duration);
+        const hasReps = w.exercises?.some((e) => e.reps || e.sets);
+        return hasTimer && hasReps;
+      });
     } else if (activeFilter !== "all") {
       list = list.filter((w) => workoutMatchesFilter(w, activeFilter));
     }
@@ -501,6 +507,42 @@ export default function WorkoutLibrary({ navigation }: Props) {
             </Text>
           </TouchableOpacity>
 
+          {workouts.some((w) => {
+            const hasTimer = w.exercises?.some((e) => e.duration);
+            const hasReps = w.exercises?.some((e) => e.reps || e.sets);
+            return hasTimer && hasReps;
+          }) && (
+            <TouchableOpacity
+              style={[
+                styles.filterPill,
+                {
+                  backgroundColor:
+                    activeFilter === "mixed" ? "#8b5cf6" : "transparent",
+                  borderColor:
+                    activeFilter === "mixed" ? "#8b5cf6" : colors.border,
+                },
+              ]}
+              onPress={() => setActiveFilter(activeFilter === "mixed" ? "all" : "mixed")}
+              activeOpacity={0.6}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  {
+                    color: activeFilter === "mixed" ? "#fff" : colors.textSecondary,
+                    fontWeight: activeFilter === "mixed" ? "700" : "500",
+                  },
+                ]}
+              >
+                Mixed ({workouts.filter(w => {
+                  const hasTimer = w.exercises?.some((e) => e.duration);
+                  const hasReps = w.exercises?.some((e) => e.reps || e.sets);
+                  return hasTimer && hasReps;
+                }).length})
+              </Text>
+            </TouchableOpacity>
+          )}
+
           {filterOptions.map((tag) => {
             const isActive = activeFilter === tag;
             const count = workouts.filter((w) =>
@@ -685,6 +727,9 @@ function WorkoutCard({
 
   const exerciseCount = workout.exercises?.length ?? 0;
   const hasTimer = workout.exercises?.some((e) => e.duration);
+  const hasReps = workout.exercises?.some((e) => e.reps || e.sets);
+  const isMixed = hasTimer && hasReps;
+
   const previewExercises = (workout.exercises ?? []).slice(0, 3);
   const remainingCount = Math.max(0, exerciseCount - 3);
 
@@ -722,16 +767,26 @@ function WorkoutCard({
           style={[
             styles.typeIconWrap,
             {
-              backgroundColor: hasTimer
-                ? "#f97316" + "22"
-                : colors.primary + "18",
+              backgroundColor: isMixed
+                ? "#8b5cf6" + "22"
+                : hasTimer
+                  ? "#f97316" + "22"
+                  : colors.primary + "18",
             },
           ]}
         >
           <Ionicons
-            name={hasTimer ? "timer-outline" : "barbell-outline"}
+            name={
+              isMixed
+                ? "layers-outline"
+                : hasTimer
+                  ? "timer-outline"
+                  : "barbell-outline"
+            }
             size={18}
-            color={hasTimer ? "#f97316" : colors.primary}
+            color={
+              isMixed ? "#8b5cf6" : hasTimer ? "#f97316" : colors.primary
+            }
           />
         </View>
 

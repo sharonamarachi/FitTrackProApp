@@ -92,6 +92,7 @@ export default function TranscriptImport({ navigation }: any) {
         category: result.category,
         exercises: result.exercises.map(({ confidence, ...ex }) => ex),
         tags: result.tags,
+        recommendedTemplate: result.recommendedTemplate,
       },
       importSource: "transcript",
     });

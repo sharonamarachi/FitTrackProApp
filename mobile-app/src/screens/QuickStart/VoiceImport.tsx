@@ -176,6 +176,7 @@ export default function VoiceImport({ navigation }: any) {
             category: parsed.category,
             exercises: parsed.exercises.map(({ confidence, ...ex }) => ex),
             tags: parsed.tags,
+            recommendedTemplate: parsed.recommendedTemplate,
           },
           importSource: "voice",
         });

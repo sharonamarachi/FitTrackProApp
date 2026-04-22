@@ -12,7 +12,7 @@ import ExerciseSearchSuggestions from "./ExerciseSearchSuggestions";
 import { onlyNumbers } from "../utils/inputUtils";
 
 interface AddExerciseFormProps {
-  workoutType: "strength" | "cardio";
+  workoutType: "strength" | "cardio" | "mixed";
   colors: any;
   editingId: string | null;
   currentExercise: {
@@ -67,7 +67,7 @@ const AddExerciseForm: React.FC<AddExerciseFormProps> = ({
           onChangeText={(text) => onExerciseChange("name", text)}
         />
 
-        {workoutType === "strength" ? (
+        {(workoutType === "strength" || workoutType === "mixed") && (
           <>
             <View style={styles.inputRow}>
               <View style={styles.inputGroup}>
@@ -147,7 +147,9 @@ const AddExerciseForm: React.FC<AddExerciseFormProps> = ({
               </View>
             </View>
           </>
-        ) : (
+        )}
+
+        {(workoutType === "cardio" || workoutType === "mixed") && (
           <View style={styles.durationRow}>
             <View style={styles.inputGroup}>
               <Text

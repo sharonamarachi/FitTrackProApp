@@ -108,7 +108,7 @@ export default function WorkoutDetails({ route, navigation }: Props) {
   const [workoutTitle, setWorkoutTitle] = useState("");
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [completions, setCompletions] = useState<ExerciseCompletion>({});
-  const [workoutType, setWorkoutType] = useState<"strength" | "cardio">(
+  const [workoutType, setWorkoutType] = useState<"strength" | "cardio" | "mixed">(
     "strength",
   );
   const [loading, setLoading] = useState(true);
@@ -173,11 +173,15 @@ export default function WorkoutDetails({ route, navigation }: Props) {
       setWorkoutTitle(data.title);
       setExercises(data.exercises);
       setWorkoutData(data);
+      const hasTimer = data.exercises.some((e: Exercise) => e.duration);
+      const hasReps = data.exercises.some((e: Exercise) => e.reps || e.sets);
+
       setWorkoutType(
-        data.category === "cardio" ||
-          data.exercises.some((e: Exercise) => e.duration)
-          ? "cardio"
-          : "strength",
+        hasTimer && hasReps
+          ? "mixed"
+          : hasTimer || data.category === "cardio"
+            ? "cardio"
+            : "strength",
       );
       const initialCompletions: ExerciseCompletion = {};
       data.exercises.forEach((ex: Exercise) => {
@@ -365,8 +369,18 @@ export default function WorkoutDetails({ route, navigation }: Props) {
   const completedCount = Object.values(completions).filter(Boolean).length;
   const completionPercentage =
     exercises.length > 0 ? (completedCount / exercises.length) * 100 : 0;
-  const workoutTypeIcon = workoutType === "cardio" ? "flash" : "barbell";
-  const workoutTypeColor = workoutType === "cardio" ? "#4876ec" : "#428df7";
+  const workoutTypeIcon =
+    workoutType === "mixed"
+      ? "layers"
+      : workoutType === "cardio"
+        ? "flash"
+        : "barbell";
+  const workoutTypeColor =
+    workoutType === "mixed"
+      ? "#8b5cf6"
+      : workoutType === "cardio"
+        ? "#4876ec"
+        : "#428df7";
   const isFullyCompleted = completionPercentage === 100;
 
   return (
@@ -533,17 +547,23 @@ export default function WorkoutDetails({ route, navigation }: Props) {
                 <Text style={[styles.statValue, { color: colors.text }]}>
                   {workoutType === "strength"
                     ? exercises.reduce((sum, ex) => sum + (ex.sets || 0), 0)
-                    : Math.floor(
-                        exercises.reduce(
-                          (sum, ex) => sum + (ex.duration || 0),
-                          0,
-                        ) / 60,
-                      )}
+                    : workoutType === "mixed"
+                      ? exercises.length
+                      : Math.floor(
+                          exercises.reduce(
+                            (sum, ex) => sum + (ex.duration || 0),
+                            0,
+                          ) / 60,
+                        )}
                 </Text>
                 <Text
                   style={[styles.statLabel, { color: colors.textSecondary }]}
                 >
-                  {workoutType === "strength" ? "Total Sets" : "Minutes"}
+                  {workoutType === "strength"
+                    ? "Total Sets"
+                    : workoutType === "mixed"
+                      ? "Exercises"
+                      : "Minutes"}
                 </Text>
               </View>
               <View
@@ -703,7 +723,85 @@ export default function WorkoutDetails({ route, navigation }: Props) {
                         {exercise.name}
                       </Text>
 
-                      {workoutType === "strength" ? (
+                      {workoutType === "mixed" ? (
+                        <View style={styles.strengthDetails}>
+                          {exercise.sets && exercise.reps && (
+                            <View
+                              style={[
+                                styles.detailChip,
+                                {
+                                  backgroundColor:
+                                    workoutTypeColor + (isDark ? "20" : "15"),
+                                },
+                              ]}
+                            >
+                              <Ionicons
+                                name="repeat"
+                                size={14}
+                                color={workoutTypeColor}
+                              />
+                              <Text
+                                style={[
+                                  styles.detailText,
+                                  { color: workoutTypeColor },
+                                ]}
+                              >
+                                {exercise.sets}×{exercise.reps}
+                              </Text>
+                            </View>
+                          )}
+                          {exercise.weight && (
+                            <View
+                              style={[
+                                styles.detailChip,
+                                {
+                                  backgroundColor:
+                                    workoutTypeColor + (isDark ? "20" : "15"),
+                                },
+                              ]}
+                            >
+                              <Ionicons
+                                name="fitness"
+                                size={14}
+                                color={workoutTypeColor}
+                              />
+                              <Text
+                                style={[
+                                  styles.detailText,
+                                  { color: workoutTypeColor },
+                                ]}
+                              >
+                                {exercise.weight}kg
+                              </Text>
+                            </View>
+                          )}
+                          {exercise.duration && (
+                            <View
+                              style={[
+                                styles.durationChip,
+                                {
+                                  backgroundColor:
+                                    workoutTypeColor + (isDark ? "20" : "15"),
+                                },
+                              ]}
+                            >
+                              <Ionicons
+                                name="time-outline"
+                                size={16}
+                                color={workoutTypeColor}
+                              />
+                              <Text
+                                style={[
+                                  styles.durationText,
+                                  { color: workoutTypeColor },
+                                ]}
+                              >
+                                {formatDurationDigital(exercise.duration)}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      ) : workoutType === "strength" ? (
                         <View style={styles.strengthDetails}>
                           <View
                             style={[

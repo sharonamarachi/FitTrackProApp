@@ -31,7 +31,7 @@ export default function EditWorkout({ route, navigation }: Props) {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [workoutType, setWorkoutType] = useState<"strength" | "cardio">(
+  const [workoutType, setWorkoutType] = useState<"strength" | "cardio" | "mixed">(
     "strength",
   );
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -108,12 +108,25 @@ export default function EditWorkout({ route, navigation }: Props) {
       const hasTimedExercises = data.exercises?.some(
         (e: Exercise) => e.duration,
       );
-      setWorkoutType(hasTimedExercises ? "cardio" : "strength");
+      const hasRepsExercises = data.exercises?.some(
+        (e: Exercise) => e.sets || e.reps,
+      );
+
+      if (hasTimedExercises && hasRepsExercises) {
+        setWorkoutType("mixed");
+      } else {
+        setWorkoutType(hasTimedExercises ? "cardio" : "strength");
+      }
     }
   }
 
   const handleSelectSuggestion = (originalName: string) => {
-    if (workoutType === "strength") {
+    if (workoutType === "mixed") {
+      setCurrentExercise({
+        ...currentExercise,
+        name: originalName,
+      });
+    } else if (workoutType === "strength") {
       setCurrentExercise({
         ...currentExercise,
         name: originalName,
@@ -143,14 +156,16 @@ export default function EditWorkout({ route, navigation }: Props) {
       name: currentExercise.name.trim(),
     };
 
-    if (workoutType === "strength") {
+    if (workoutType === "strength" || workoutType === "mixed") {
       if (currentExercise.sets)
         updatedExercise.sets = parseInt(currentExercise.sets);
       if (currentExercise.reps)
         updatedExercise.reps = parseInt(currentExercise.reps);
       if (currentExercise.weight)
-        updatedExercise.weight = parseInt(currentExercise.weight);
-    } else {
+        updatedExercise.weight = parseFloat(currentExercise.weight);
+    }
+
+    if (workoutType === "cardio" || workoutType === "mixed") {
       const mins = parseInt(currentExercise.durationMin) || 0;
       const secs = parseInt(currentExercise.durationSec) || 0;
       const totalSeconds = mins * 60 + secs;
@@ -256,7 +271,13 @@ export default function EditWorkout({ route, navigation }: Props) {
         barStyle={theme === "dark" ? "light-content" : "dark-content"}
       />
       <Header
-        title="Edit Workout"
+        title={
+          workoutType === "mixed"
+            ? "Edit Mixed"
+            : workoutType === "strength"
+              ? "Edit Strength"
+              : "Edit Cardio"
+        }
         subtitle="Update your workout details"
         rightAction={{
           icon: "checkmark",
@@ -347,7 +368,33 @@ export default function EditWorkout({ route, navigation }: Props) {
                   { color: workoutType === "cardio" ? "#FFFFFF" : colors.text },
                 ]}
               >
-                Cardio/Timer
+                Cardio
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.typeButton,
+                {
+                  backgroundColor:
+                    workoutType === "mixed" ? "#8b5cf6" : colors.surface,
+                  borderColor: colors.border,
+                },
+              ]}
+              onPress={() => setWorkoutType("mixed")}
+            >
+              <Ionicons
+                name="layers"
+                size={20}
+                color={workoutType === "mixed" ? "#FFFFFF" : colors.text}
+              />
+              <Text
+                style={[
+                  styles.typeButtonText,
+                  { color: workoutType === "mixed" ? "#FFFFFF" : colors.text },
+                ]}
+              >
+                Mixed
               </Text>
             </TouchableOpacity>
           </View>
@@ -442,7 +489,23 @@ export default function EditWorkout({ route, navigation }: Props) {
                         {exercise.name}
                       </Text>
                     </View>
-                    {workoutType === "strength" ? (
+                    {workoutType === "mixed" ? (
+                      <Text
+                        style={[
+                          styles.exerciseMeta,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {[
+                          exercise.sets && exercise.reps ? `${exercise.sets}×${exercise.reps}` : null,
+                          exercise.weight && parseFloat(exercise.weight.toString()) > 0 ? `${exercise.weight}kg` : null,
+                          exercise.duration ? `${exercise.duration}s` : null,
+                          exercise.restTime ? `${exercise.restTime}s rest` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </Text>
+                    ) : workoutType === "strength" ? (
                       <Text
                         style={[
                           styles.exerciseMeta,
