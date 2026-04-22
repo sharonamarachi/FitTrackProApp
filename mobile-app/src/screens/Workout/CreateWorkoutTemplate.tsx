@@ -235,7 +235,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
       const newWorkout = {
         title: workoutName,
         exercises,
-        category: selectedType === "strength" ? "strength" : "cardio",
+        category: selectedType,
         tags: selectedTags,
       };
       const { error } = await createWorkout(user.id, newWorkout);
@@ -412,6 +412,94 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
           />
         </View>
 
+        {/* Workout Type Selector */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+            WORKOUT TYPE
+          </Text>
+          <View style={styles.typeToggle}>
+            <TouchableOpacity
+              style={[
+                styles.typeButton,
+                {
+                  backgroundColor:
+                    selectedType === "strength" ? colors.primary : colors.surface,
+                  borderColor: colors.border,
+                },
+              ]}
+              onPress={() => setSelectedType("strength")}
+            >
+              <Ionicons
+                name="barbell"
+                size={20}
+                color={selectedType === "strength" ? "#FFFFFF" : colors.text}
+              />
+              <Text
+                style={[
+                  styles.typeButtonText,
+                  {
+                    color: selectedType === "strength" ? "#FFFFFF" : colors.text,
+                  },
+                ]}
+              >
+                Strength
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.typeButton,
+                {
+                  backgroundColor:
+                    selectedType === "cardio" ? colors.primary : colors.surface,
+                  borderColor: colors.border,
+                },
+              ]}
+              onPress={() => setSelectedType("cardio")}
+            >
+              <Ionicons
+                name="timer"
+                size={20}
+                color={selectedType === "cardio" ? "#FFFFFF" : colors.text}
+              />
+              <Text
+                style={[
+                  styles.typeButtonText,
+                  { color: selectedType === "cardio" ? "#FFFFFF" : colors.text },
+                ]}
+              >
+                Cardio
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.typeButton,
+                {
+                  backgroundColor:
+                    selectedType === "mixed" ? "#8b5cf6" : colors.surface,
+                  borderColor: colors.border,
+                },
+              ]}
+              onPress={() => setSelectedType("mixed")}
+            >
+              <Ionicons
+                name="layers"
+                size={20}
+                color={selectedType === "mixed" ? "#FFFFFF" : colors.text}
+              />
+              <Text
+                style={[
+                  styles.typeButtonText,
+                  { color: selectedType === "mixed" ? "#FFFFFF" : colors.text },
+                ]}
+              >
+                Mixed
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
             TAGS (OPTIONAL)
@@ -499,41 +587,21 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                         {exercise.name}
                       </Text>
                     </View>
-                    {selectedType === "mixed" ? (
-                      <Text
-                        style={[
-                          styles.exerciseMeta,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {[
-                          exercise.sets && exercise.reps ? `${exercise.sets}×${exercise.reps}` : null,
-                          exercise.weight && parseFloat(exercise.weight.toString()) > 0 ? `${exercise.weight}kg` : null,
-                          exercise.duration ? `${exercise.duration}s` : null,
-                          exercise.restTime ? `${exercise.restTime}s rest` : null,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </Text>
-                    ) : selectedType === "strength" ? (
-                      <Text
-                        style={[
-                          styles.exerciseMeta,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {exercise.sets} sets × {exercise.reps} reps
-                      </Text>
-                    ) : (
-                      <Text
-                        style={[
-                          styles.exerciseMeta,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {exercise.duration}s work · {exercise.restTime}s rest
-                      </Text>
-                    )}
+                    <Text
+                      style={[
+                        styles.exerciseMeta,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {[
+                        exercise.sets && exercise.reps ? `${exercise.sets}×${exercise.reps}` : null,
+                        exercise.weight && parseFloat(exercise.weight.toString()) > 0 ? `${exercise.weight}kg` : null,
+                        exercise.duration ? `${exercise.duration}s` : null,
+                        exercise.restTime ? `${exercise.restTime}s rest` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "No details set"}
+                    </Text>
                   </View>
                 </View>
                 <TouchableOpacity
@@ -666,9 +734,27 @@ const styles = StyleSheet.create({
   workoutNameInput: {
     borderRadius: 16,
     padding: 16,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
-    borderWidth: 2,
+    borderWidth: 1,
+  },
+  typeToggle: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  typeButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 6,
+  },
+  typeButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   exerciseMeta: { fontSize: 14, marginTop: 2 },
   exerciseItem: {

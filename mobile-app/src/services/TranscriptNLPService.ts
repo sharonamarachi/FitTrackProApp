@@ -103,21 +103,31 @@ export async function parseTranscript(rawText: string): Promise<ParseResult> {
     // Backend returns the parsed exercises array directly
     const globalDuration: number | undefined = data.globalDuration ?? undefined;
     const globalRest: number | undefined = data.globalRest ?? undefined;
+    const globalWeight: number | undefined = data.globalWeight ?? undefined;
     const isCircuit: boolean = data.isCircuit ?? false;
     const recommendedTemplate: "strength" | "interval" | "mixed" | undefined =
       data.recommendedTemplate;
 
     let exercises: ExtractedExercise[] = (data.exercises ?? []).map(
-      (e: any, i: number) => ({
-        id: `ex_${Date.now()}_${i}`,
-        name: titleCase(e.name),
-        sets: e.sets ?? (recommendedTemplate === "strength" ? 3 : 1),
-        reps: e.reps ?? (e.type === "reps" ? 12 : undefined),
-        weight: e.weight ?? undefined,
-        duration: e.duration ?? (e.type === "timed" || recommendedTemplate === "mixed" ? globalDuration : undefined),
-        restTime: e.restTime ?? globalRest ?? 15,
-        confidence: 0.95,
-      }),
+      (e: any, i: number) => {
+        const isTimedTemplate =
+          recommendedTemplate === "interval" || e.type === "timed";
+
+        return {
+          id: `ex_${Date.now()}_${i}`,
+          name: titleCase(e.name),
+          sets: e.sets ?? (recommendedTemplate === "strength" ? 3 : 1),
+          // FIX: only set reps if it's actually a reps-based exercise
+          reps: !isTimedTemplate ? (e.reps ?? 12) : undefined,
+          weight: e.weight ?? globalWeight ?? undefined,
+          // FIX: apply globalDuration for timed exercises
+          duration: isTimedTemplate
+            ? (e.duration ?? globalDuration ?? 30)
+            : undefined,
+          restTime: e.restTime ?? globalRest ?? 15,
+          confidence: 0.95,
+        };
+      },
     );
 
     if (isCircuit) {

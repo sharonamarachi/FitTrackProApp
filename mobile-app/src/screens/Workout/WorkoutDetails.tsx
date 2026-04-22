@@ -723,34 +723,34 @@ export default function WorkoutDetails({ route, navigation }: Props) {
                         {exercise.name}
                       </Text>
 
-                      {workoutType === "mixed" ? (
-                        <View style={styles.strengthDetails}>
-                          {exercise.sets && exercise.reps && (
-                            <View
+                      <View style={styles.strengthDetails}>
+                        {!!exercise.sets && !!exercise.reps && (
+                          <View
+                            style={[
+                              styles.detailChip,
+                              {
+                                backgroundColor:
+                                  workoutTypeColor + (isDark ? "20" : "15"),
+                              },
+                            ]}
+                          >
+                            <Ionicons
+                              name="repeat"
+                              size={14}
+                              color={workoutTypeColor}
+                            />
+                            <Text
                               style={[
-                                styles.detailChip,
-                                {
-                                  backgroundColor:
-                                    workoutTypeColor + (isDark ? "20" : "15"),
-                                },
+                                styles.detailText,
+                                { color: workoutTypeColor },
                               ]}
                             >
-                              <Ionicons
-                                name="repeat"
-                                size={14}
-                                color={workoutTypeColor}
-                              />
-                              <Text
-                                style={[
-                                  styles.detailText,
-                                  { color: workoutTypeColor },
-                                ]}
-                              >
-                                {exercise.sets}×{exercise.reps}
-                              </Text>
-                            </View>
-                          )}
-                          {exercise.weight && (
+                              {exercise.sets}×{exercise.reps}
+                            </Text>
+                          </View>
+                        )}
+                        {!!exercise.weight &&
+                          parseFloat(exercise.weight.toString()) > 0 && (
                             <View
                               style={[
                                 styles.detailChip,
@@ -775,87 +775,7 @@ export default function WorkoutDetails({ route, navigation }: Props) {
                               </Text>
                             </View>
                           )}
-                          {exercise.duration && (
-                            <View
-                              style={[
-                                styles.durationChip,
-                                {
-                                  backgroundColor:
-                                    workoutTypeColor + (isDark ? "20" : "15"),
-                                },
-                              ]}
-                            >
-                              <Ionicons
-                                name="time-outline"
-                                size={16}
-                                color={workoutTypeColor}
-                              />
-                              <Text
-                                style={[
-                                  styles.durationText,
-                                  { color: workoutTypeColor },
-                                ]}
-                              >
-                                {formatDurationDigital(exercise.duration)}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                      ) : workoutType === "strength" ? (
-                        <View style={styles.strengthDetails}>
-                          <View
-                            style={[
-                              styles.detailChip,
-                              {
-                                backgroundColor:
-                                  workoutTypeColor + (isDark ? "20" : "15"),
-                              },
-                            ]}
-                          >
-                            <Ionicons
-                              name="repeat"
-                              size={14}
-                              color={workoutTypeColor}
-                            />
-                            <Text
-                              style={[
-                                styles.detailText,
-                                { color: workoutTypeColor },
-                              ]}
-                            >
-                              {exercise.sets} × {exercise.reps}
-                            </Text>
-                          </View>
-
-                          {typeof exercise.weight === "number" &&
-                            exercise.weight > 0 && (
-                              <View
-                                style={[
-                                  styles.detailChip,
-                                  {
-                                    backgroundColor:
-                                      workoutTypeColor + (isDark ? "20" : "15"),
-                                  },
-                                ]}
-                              >
-                                <Ionicons
-                                  name="fitness"
-                                  size={14}
-                                  color={workoutTypeColor}
-                                />
-                                <Text
-                                  style={[
-                                    styles.detailText,
-                                    { color: workoutTypeColor },
-                                  ]}
-                                >
-                                  {exercise.weight}kg
-                                </Text>
-                              </View>
-                            )}
-                        </View>
-                      ) : (
-                        <View style={styles.cardioDetails}>
+                        {!!exercise.duration && (
                           <View
                             style={[
                               styles.durationChip,
@@ -879,36 +799,30 @@ export default function WorkoutDetails({ route, navigation }: Props) {
                               {formatDurationDigital(exercise.duration)}
                             </Text>
                           </View>
-
-                          {typeof exercise.restTime === "number" &&
-                            exercise.restTime > 0 && (
-                              <View
-                                style={[
-                                  styles.durationChip,
-                                  {
-                                    backgroundColor: isDark
-                                      ? "#F9731620"
-                                      : "#FED7AA",
-                                  },
-                                ]}
-                              >
-                                <Ionicons
-                                  name="pause"
-                                  size={14}
-                                  color="#F97316"
-                                />
-                                <Text
-                                  style={[
-                                    styles.durationText,
-                                    { color: "#F97316" },
-                                  ]}
-                                >
-                                  {exercise.restTime}s rest
-                                </Text>
-                              </View>
-                            )}
-                        </View>
-                      )}
+                        )}
+                        {!!exercise.restTime && (
+                          <View
+                            style={[
+                              styles.durationChip,
+                              {
+                                backgroundColor: isDark
+                                  ? "#F9731620"
+                                  : "#FED7AA",
+                              },
+                            ]}
+                          >
+                            <Ionicons name="pause" size={14} color="#F97316" />
+                            <Text
+                              style={[
+                                styles.durationText,
+                                { color: "#F97316" },
+                              ]}
+                            >
+                              {exercise.restTime}s rest
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
 
                     <View style={styles.exerciseRight}>

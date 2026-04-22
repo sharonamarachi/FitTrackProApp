@@ -489,45 +489,21 @@ export default function EditWorkout({ route, navigation }: Props) {
                         {exercise.name}
                       </Text>
                     </View>
-                    {workoutType === "mixed" ? (
-                      <Text
-                        style={[
-                          styles.exerciseMeta,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {[
-                          exercise.sets && exercise.reps ? `${exercise.sets}×${exercise.reps}` : null,
-                          exercise.weight && parseFloat(exercise.weight.toString()) > 0 ? `${exercise.weight}kg` : null,
-                          exercise.duration ? `${exercise.duration}s` : null,
-                          exercise.restTime ? `${exercise.restTime}s rest` : null,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </Text>
-                    ) : workoutType === "strength" ? (
-                      <Text
-                        style={[
-                          styles.exerciseMeta,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {exercise.sets} sets × {exercise.reps} reps
-                        {typeof exercise.weight === "number" &&
-                        exercise.weight > 0
-                          ? ` @ ${exercise.weight}kg`
-                          : ""}
-                      </Text>
-                    ) : (
-                      <Text
-                        style={[
-                          styles.exerciseMeta,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {exercise.duration}s work · {exercise.restTime}s rest
-                      </Text>
-                    )}
+                    <Text
+                      style={[
+                        styles.exerciseMeta,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {[
+                        exercise.sets && exercise.reps ? `${exercise.sets}×${exercise.reps}` : null,
+                        exercise.weight && parseFloat(exercise.weight.toString()) > 0 ? `${exercise.weight}kg` : null,
+                        exercise.duration ? `${exercise.duration}s` : null,
+                        exercise.restTime ? `${exercise.restTime}s rest` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "No details set"}
+                    </Text>
                   </View>
                 </View>
 

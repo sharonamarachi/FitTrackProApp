@@ -33,23 +33,30 @@ Return ONLY valid JSON:
   ],
   "category": "full-body" | "upper-body" | "lower-body" | "core" | "cardio",
   "recommendedTemplate": "strength" | "interval" | "mixed",
-  "globalDuration": 40,
-  "globalRest": 20,
+  "globalDuration": null,
+  "globalRest": 15,
+  "globalWeight": 10.5,
   "isCircuit": false
 }
 
 Rules for Accuracy:
-1. Exact Names: Preserve full exercise names including variations (e.g., "Deadstop Chest Press", "Slow Lower Goblet Squat"). Do NOT simplify.
-2. Weight Detection: Look carefully for weight mentions (e.g., "17.5kg", "9kg each"). 
-   - If a specific weight is mentioned for certain exercises (e.g., "9kg for shoulders"), apply it only to those.
-   - If a default weight for all exercises is mentioned (e.g., "using 17.5kg for reference"), apply it to all exercises unless specified otherwise.
-3. Timing: Extract global work/rest intervals (e.g., "40 seconds work, 20 seconds rest"). Apply these to every exercise unless a specific exception is mentioned.
-4. "type": Use "timed" if the primary measure is seconds/minutes. Use "reps" if the primary measure is a count.
-5. "recommendedTemplate": 
+1. ONLY include exercises the instructor actually demonstrates/performs. Do NOT include exercises only mentioned as alternatives or modifications.
+2. Exact Names: Preserve full exercise names (e.g., "Overhead Tricep Extension", "Narrow Shoulder Press"). Do NOT simplify or duplicate (e.g., "Side Lateral Raise" and "Lateral Raises" are the same — pick one canonical name).
+3. Weight Detection: 
+   - Extract any global weight mentioned for the whole workout (e.g., "10 lbs in each hand", "using 17.5kg") → set as "globalWeight" and apply to ALL exercises.
+   - If a specific weight is mentioned for certain exercises only, apply it just to those.
+   - Weights may be in lbs or kg — preserve the unit by converting everything to kg (1 lb = 0.453592 kg). Round to 1 decimal.
+4. Timing: 
+   - If explicit work intervals are stated (e.g., "40 seconds work"), set globalDuration to that number and type to "timed".
+   - If NO explicit timing is given but exercises are shown for ~30-45s each in a flowing workout, estimate duration as 30 and type as "timed".
+   - If the workout is rep-based with no timing cues, set type to "reps" and estimate reps from context (e.g., if ~12 reps are shown, use 12).
+5. Rest: Extract rest duration from cues like "15 second rest", "10 second break". Default to 15 if not mentioned.
+6. "recommendedTemplate": 
    - "interval": ALL exercises are time-based.
-   - "strength": ALL exercises use sets/reps.
-   - "mixed": A blend of both, or time-based exercises with heavy weight mentions.
-6. "isCircuit": True if exercises are repeated in "rounds" or "sets".
+   - "strength": ALL exercises use sets/reps with heavier weights.
+   - "mixed": blend of both.
+7. "isCircuit": true if exercises are done in rounds.
+8. Deduplicate: If the same movement appears under two names, keep only one.
 
 TRANSCRIPT:
 ${transcript.slice(0, 3500)}`;

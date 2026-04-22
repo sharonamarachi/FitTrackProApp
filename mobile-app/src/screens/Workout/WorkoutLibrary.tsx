@@ -89,6 +89,11 @@ const TAG_PALETTE = [
 const tagColorMap: Record<string, string> = {};
 let colorIndex = 0;
 function tagColor(tag: string): string {
+  const normalized = tag.toLowerCase();
+  if (normalized === "strength") return "#428df7";
+  if (normalized === "cardio") return "#f97316";
+  if (normalized === "mixed") return "#8b5cf6";
+
   if (!tagColorMap[tag]) {
     tagColorMap[tag] = TAG_PALETTE[colorIndex % TAG_PALETTE.length];
     colorIndex++;
@@ -709,8 +714,24 @@ function WorkoutCard({
   const isPinned = workout.is_pinned ?? false;
   const isFav = workout.is_favorited ?? false;
 
+  const exerciseCount = workout.exercises?.length ?? 0;
+  const hasTimer = workout.exercises?.some((e) => !!e.duration);
+  const hasReps = workout.exercises?.some((e) => !!e.reps || !!e.sets);
+  const isMixed = (hasTimer && hasReps) || workout.category === "mixed";
+
+  const detectedType = isMixed ? "mixed" : hasTimer ? "cardio" : "strength";
+  // Prioritize "mixed" detection even if the DB says "cardio"
+  const displayCategory =
+    isMixed && workout.category !== "mixed"
+      ? "mixed"
+      : workout.category === "mixed" ||
+          workout.category === "strength" ||
+          workout.category === "cardio"
+        ? workout.category
+        : detectedType;
+
   const visibleTags = [
-    ...(workout.category ? [workout.category] : []),
+    ...(displayCategory ? [displayCategory] : []),
     ...(workout.tags ?? []).filter(
       (t) =>
         ![
@@ -724,11 +745,6 @@ function WorkoutCard({
         t.toLowerCase() !== (workout.category ?? "").toLowerCase(),
     ),
   ].slice(0, 3);
-
-  const exerciseCount = workout.exercises?.length ?? 0;
-  const hasTimer = workout.exercises?.some((e) => e.duration);
-  const hasReps = workout.exercises?.some((e) => e.reps || e.sets);
-  const isMixed = hasTimer && hasReps;
 
   const previewExercises = (workout.exercises ?? []).slice(0, 3);
   const remainingCount = Math.max(0, exerciseCount - 3);
@@ -920,7 +936,7 @@ function WorkoutCard({
                     {
                       backgroundColor: isMatch
                         ? colors.primary
-                        : hasTimer
+                        : ex.duration
                           ? "#f97316"
                           : colors.primary,
                     },
