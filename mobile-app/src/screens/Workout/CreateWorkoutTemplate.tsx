@@ -396,7 +396,7 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
               <Text
                 style={[styles.sectionLabel, { color: colors.textSecondary }]}
               >
-                EXERCISES ({exercises.length})
+                EXERCISES ({exercises.length}) <Text style={{ fontStyle: 'italic', textTransform: 'none', fontWeight: '400' }}>— Tap to edit</Text>
               </Text>
             </View>
 
@@ -440,12 +440,6 @@ export default function CreateWorkoutTemplate({ navigation, route }: any) {
                       >
                         {exercise.name}
                       </Text>
-                      <Ionicons
-                        name="create-outline"
-                        size={14}
-                        color={colors.textTertiary}
-                        style={{ marginLeft: 6, marginBottom: 2 }}
-                      />
                     </View>
                     {selectedType === "strength" ? (
                       <Text

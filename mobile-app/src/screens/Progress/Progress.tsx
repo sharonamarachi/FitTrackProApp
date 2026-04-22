@@ -125,6 +125,27 @@ export default function Progress() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
+  // Scroll animation
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  const stickyHeaderOpacity = scrollY.interpolate({
+    inputRange: [40, 80],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+
+  const stickyHeaderTranslateY = scrollY.interpolate({
+    inputRange: [0, 80],
+    outputRange: [-insets.top - 60, 0],
+    extrapolate: "clamp",
+  });
+
+  const largeHeaderOpacity = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [1, 0],
+    extrapolate: "clamp",
+  });
+
   useFocusEffect(
     useCallback(() => {
       loadAll();
@@ -419,11 +440,56 @@ export default function Progress() {
         onSave={handleWeightSave}
       />
 
-      <ScrollView
+      <Animated.View
+        style={[
+          {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 10,
+            paddingTop: insets.top,
+            backgroundColor: isDark ? "rgba(18, 18, 18, 0.85)" : "rgba(255, 255, 255, 0.85)",
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+            opacity: stickyHeaderOpacity,
+            transform: [{ translateY: stickyHeaderTranslateY }],
+          },
+        ]}
+      >
+        <View style={{ height: 60, flexDirection: "row", alignItems: "center", paddingHorizontal: 20, justifyContent: "space-between" }}>
+          <View>
+            <Text style={{ fontSize: 10, fontWeight: "800", color: colors.textSecondary, letterSpacing: 1 }}>PROGRESS</Text>
+            <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>Your Journey</Text>
+          </View>
+          {streak > 0 && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#f9731615", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+              <Text style={{ fontSize: 16 }}>🔥</Text>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: "#f97316" }}>{streak}</Text>
+            </View>
+          )}
+        </View>
+      </Animated.View>
+
+      <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+        bounces={true}
       >
-        <View style={[styles.header, { backgroundColor: colors.card, paddingTop: insets.top + 20 }]}>
+        <Animated.View style={[
+          styles.header, 
+          { 
+            backgroundColor: colors.card, 
+            paddingTop: insets.top + 20 + 500, 
+            marginTop: -500,
+            opacity: largeHeaderOpacity 
+          }
+        ]}>
           <View>
             <Text
               style={[styles.headerEyebrow, { color: colors.textSecondary }]}
@@ -448,7 +514,7 @@ export default function Progress() {
               </Text>
             </View>
           )}
-        </View>
+        </Animated.View>
 
         <Animated.View
           style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
@@ -1247,7 +1313,7 @@ export default function Progress() {
             </View>
           )}
         </Animated.View>
-      </ScrollView>
+      </Animated.ScrollView>
 
       <Modal visible={goalModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>

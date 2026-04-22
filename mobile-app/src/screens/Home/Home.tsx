@@ -50,7 +50,6 @@ export default function HomeScreen() {
   const [allWorkouts, setAllWorkouts] = useState<WorkoutOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
   // Streak calendar state
   const [calendarVisible, setCalendarVisible] = useState(false);
 
@@ -58,6 +57,27 @@ export default function HomeScreen() {
   const headerAnim = useRef(new Animated.Value(0)).current;
   const statsAnim = useRef(new Animated.Value(0)).current;
   const cardsAnim = useRef(new Animated.Value(0)).current;
+
+  // Scroll animation
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  const headerHeight = scrollY.interpolate({
+    inputRange: [0, 80],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [60, 100],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+
+  const largeHeaderOpacity = scrollY.interpolate({
+    inputRange: [0, 80],
+    outputRange: [1, 0],
+    extrapolate: "clamp",
+  });
 
   useFocusEffect(
     useCallback(() => {
@@ -162,30 +182,88 @@ export default function HomeScreen() {
   const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <StatusBar
-          barStyle={isDark ? "light-content" : "dark-content"}
-          backgroundColor="transparent"
-          translucent
-        />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle={isDark ? "light-content" : "dark-content"}
+        backgroundColor="transparent"
+        translucent
+      />
 
-        {/* Streak Calendar Modal */}
-        <StreakCalendar
-          visible={calendarVisible}
-          onClose={() => setCalendarVisible(false)}
-          logs={logs as any}
-          currentStreak={currentStreak}
-          longestStreak={longestStreak}
-        />
+      <Animated.View
+        style={[
+          {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 10,
+            paddingTop: insets.top,
+            backgroundColor: isDark ? "rgba(18, 18, 18, 0.85)" : "rgba(255, 255, 255, 0.85)",
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+            opacity: headerOpacity,
+            transform: [
+              {
+                translateY: headerHeight.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-insets.top - 60, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <View style={{ height: 60, flexDirection: "row", alignItems: "center", paddingHorizontal: 20, justifyContent: "space-between" }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Text style={{ fontSize: 24 }}>{emoji}</Text>
+            <Text style={{ fontSize: 18, fontWeight: "800", color: colors.text }}>
+              {userName || "Athlete"}
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => navigation.navigate("Profile")}
+            style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primary + "15", alignItems: "center", justifyContent: "center" }}
+          >
+            <Ionicons name="person" size={18} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
 
+      {/* Streak Calendar Modal */}
+      <StreakCalendar
+        visible={calendarVisible}
+        onClose={() => setCalendarVisible(false)}
+        logs={logs as any}
+        currentStreak={currentStreak}
+        longestStreak={longestStreak}
+      />
+
+      <Animated.ScrollView
+        style={{ flex: 1 }}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scroll, { paddingBottom: Math.max(insets.bottom, 20) + 100 }]}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
         <Animated.View
           style={[
             styles.headerSection,
             {
-              backgroundColor: colors.background, // Make it opaque so it covers things behind
-              paddingTop: Math.max(insets.top, 20) + 16,
-              opacity: headerAnim,
+              paddingTop: Math.max(insets.top, 20) + 16 + 500,
+              marginTop: -500,
+              backgroundColor: colors.background,
+              opacity: Animated.multiply(headerAnim, largeHeaderOpacity),
               transform: [
                 {
                   translateY: headerAnim.interpolate({
@@ -232,19 +310,6 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         </Animated.View>
-
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.scroll, { paddingBottom: Math.max(insets.bottom, 20) + 100 }]}
-          keyboardShouldPersistTaps="handled"
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-            />
-          }
-        >
           {/* Smart Recommendation OR fallback */}
           <Animated.View
             style={{
@@ -601,8 +666,7 @@ export default function HomeScreen() {
           )}
 
           <View style={{ height: 32 }} />
-        </ScrollView>
-      </View>
-    </TouchableWithoutFeedback>
+        </Animated.ScrollView>
+    </View>
   );
 }

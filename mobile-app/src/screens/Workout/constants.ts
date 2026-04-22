@@ -1,12 +1,18 @@
 export const POPULAR_STRENGTH_EXERCISES = [
-  "Bench Press",
-  "Squat",
-  "Deadlift",
-  "Overhead Press",
-  "Bicep Curl",
-  "Pull-up",
-  "Lunge",
+  "Push-ups",
+  "Sit-ups",
+  "Squats",
+  "Lunges",
   "Plank",
+  "Crunches",
+  "Glute Bridges",
+  "Tricep Dips",
+  "Bicep Curls",
+  "Overhead Press",
+  "Deadlifts",
+  "Bench Press",
+  "Pull-ups",
+  "Leg Raises",
 ];
 
 export const POPULAR_CARDIO_EXERCISES = [
