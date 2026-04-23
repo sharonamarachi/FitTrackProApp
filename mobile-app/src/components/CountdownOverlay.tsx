@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Animated, Platform } from 'react-native';
+import { View, Text, StyleSheet, Animated, Dimensions, Platform } from 'react-native';
 import * as Speech from 'expo-speech';
+import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width, height } = Dimensions.get('window');
 
 interface Props {
   onComplete: () => void;
@@ -12,7 +16,13 @@ interface Props {
   beepsEnabled?: boolean;
 }
 
-const STEP_DURATION = 900; // ms per step
+const STEP_DURATION = 1000; // ms per step
+const CIRCLE_SIZE = 180;
+const STROKE_WIDTH = 6;
+const RADIUS = (CIRCLE_SIZE - STROKE_WIDTH) / 2;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 export default function CountdownOverlay({
   onComplete,
@@ -24,9 +34,11 @@ export default function CountdownOverlay({
   beepsEnabled = true,
 }: Props) {
   const [step, setStep] = useState<number>(3); // 3 → 2 → 1 → 0 (GO!)
-  const scaleAnim = useRef(new Animated.Value(2)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
-  const ringAnim = useRef(new Animated.Value(0)).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const bgOpacity = useRef(new Animated.Value(0)).current;
+  
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const voiceConfig = {
@@ -42,48 +54,62 @@ export default function CountdownOverlay({
     Speech.speak(text, voiceConfig);
   };
 
-  const animateIn = () => {
-    scaleAnim.setValue(2.2);
+  const startStepAnimation = () => {
+    scaleAnim.setValue(0.8);
     opacityAnim.setValue(0);
-    ringAnim.setValue(0);
+    progressAnim.setValue(0);
 
     Animated.parallel([
       Animated.spring(scaleAnim, {
         toValue: 1,
-        friction: 5,
-        tension: 120,
+        friction: 7,
+        tension: 80,
         useNativeDriver: true,
       }),
       Animated.timing(opacityAnim, {
         toValue: 1,
-        duration: 150,
+        duration: 200,
         useNativeDriver: true,
       }),
-      Animated.timing(ringAnim, {
+      Animated.timing(progressAnim, {
         toValue: 1,
-        duration: STEP_DURATION - 100,
+        duration: STEP_DURATION,
         useNativeDriver: true,
       }),
     ]).start();
   };
 
   useEffect(() => {
-    animateIn();
+    Animated.timing(bgOpacity, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  useEffect(() => {
+    startStepAnimation();
     speakStep(step);
     if (beepsEnabled && playBeep && step > 0) playBeep();
 
     timeoutRef.current = setTimeout(() => {
-      Animated.timing(opacityAnim, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }).start(() => {
-        if (step > 0) {
+      if (step > 0) {
+        Animated.timing(opacityAnim, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }).start(() => {
           setStep(s => s - 1);
-        } else {
+        });
+      } else {
+        Animated.timing(bgOpacity, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }).start(() => {
           onComplete();
-        }
-      });
+        });
+      }
     }, STEP_DURATION);
 
     return () => {
@@ -91,129 +117,171 @@ export default function CountdownOverlay({
     };
   }, [step]);
 
-  // Removed Speech.stop() on unmount to prevent cutting off the initial workout announcement
-  useEffect(() => {
-    return () => {};
-  }, []);
-
-  const ringScale = ringAnim.interpolate({
+  const strokeDashoffset = progressAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.6, 1.6],
-  });
-  const ringOpacity = ringAnim.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0.7, 0.3, 0],
+    outputRange: [CIRCUMFERENCE, 0],
   });
 
   const isGo = step === 0;
   const displayText = isGo ? 'GO!' : String(step);
-  const circleColor = isGo ? primaryColor : '#ffffff';
-  const textColor = isGo ? '#ffffff' : '#000000';
+  const accentColor = isGo ? primaryColor : '#00e5ff'; // Electric Cyan for countdown
 
   return (
-    <View style={styles.overlay}>
-      {/* Pulsing ring */}
-      <Animated.View
-        style={[
-          styles.ring,
-          {
-            borderColor: isGo ? primaryColor : 'rgba(255,255,255,0.6)',
-            transform: [{ scale: ringScale }],
-            opacity: ringOpacity,
-          },
-        ]}
+    <Animated.View style={[styles.overlay, { opacity: bgOpacity }]}>
+      <LinearGradient
+        colors={['rgba(0,0,0,0.96)', 'rgba(10,20,30,0.92)']}
+        style={StyleSheet.absoluteFill}
       />
 
-      {/* Main circle */}
-      <Animated.View
-        style={[
-          styles.circle,
-          {
-            backgroundColor: circleColor,
-            shadowColor: isGo ? primaryColor : '#fff',
-            transform: [{ scale: scaleAnim }],
-            opacity: opacityAnim,
-          },
-        ]}
-      >
-        <Text style={[styles.countText, { color: textColor }]}>
-          {displayText}
-        </Text>
-      </Animated.View>
+      <View style={styles.content}>
+        <View style={styles.timerWrapper}>
+          <Svg width={CIRCLE_SIZE + 20} height={CIRCLE_SIZE + 20} style={styles.svg}>
+            <Defs>
+              <SvgGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <Stop offset="0%" stopColor={accentColor} stopOpacity="1" />
+                <Stop offset="100%" stopColor={isGo ? '#10b981' : '#3b82f6'} stopOpacity="0.8" />
+              </SvgGradient>
+            </Defs>
+            <Circle
+              cx={(CIRCLE_SIZE + 20) / 2}
+              cy={(CIRCLE_SIZE + 20) / 2}
+              r={RADIUS}
+              stroke="rgba(255,255,255,0.08)"
+              strokeWidth={STROKE_WIDTH}
+              fill="none"
+            />
+            <AnimatedCircle
+              cx={(CIRCLE_SIZE + 20) / 2}
+              cy={(CIRCLE_SIZE + 20) / 2}
+              r={RADIUS}
+              stroke="url(#grad)"
+              strokeWidth={STROKE_WIDTH + 2}
+              fill="none"
+              strokeDasharray={CIRCUMFERENCE}
+              strokeDashoffset={strokeDashoffset}
+              strokeLinecap="round"
+              transform={`rotate(-90 ${(CIRCLE_SIZE + 20) / 2} ${(CIRCLE_SIZE + 20) / 2})`}
+            />
+          </Svg>
 
-      {/* Label */}
-      <Animated.Text style={[styles.label, { opacity: opacityAnim }]}>
-        {isGo ? 'Let\'s go!' : 'Get ready…'}
-      </Animated.Text>
-
-      {/* Dots indicator */}
-      <View style={styles.dots}>
-        {[3, 2, 1].map(n => (
-          <View
-            key={n}
+          <Animated.View
             style={[
-              styles.dot,
+              styles.circle,
               {
-                backgroundColor:
-                  n >= step && step > 0
-                    ? primaryColor
-                    : 'rgba(255,255,255,0.3)',
-                transform: [{ scale: n === step ? 1.3 : 1 }],
+                borderColor: isGo ? 'transparent' : 'rgba(0,229,255,0.2)',
+                transform: [{ scale: scaleAnim }],
+                opacity: opacityAnim,
               },
             ]}
-          />
-        ))}
+          >
+            {isGo && (
+              <LinearGradient
+                colors={[primaryColor, '#0ea5e9']}
+                style={styles.goBackground}
+              />
+            )}
+            <Text style={[styles.countText, { color: '#FFFFFF', fontSize: isGo ? 64 : 84 }]}>
+              {displayText}
+            </Text>
+          </Animated.View>
+        </View>
+
+        <Animated.View style={[styles.labelContainer, { opacity: opacityAnim }]}>
+          <Text style={styles.mainLabel}>
+            {isGo ? 'LETS GO!' : 'READY'}
+          </Text>
+          <Text style={styles.subLabel}>
+            {isGo ? 'Session started' : `Starting in ${step}`}
+          </Text>
+        </Animated.View>
+
+        <View style={styles.dots}>
+          {[3, 2, 1].map(n => (
+            <View
+              key={n}
+              style={[
+                styles.dot,
+                {
+                  backgroundColor:
+                    n >= step && step > 0
+                      ? '#00e5ff'
+                      : 'rgba(255,255,255,0.15)',
+                  width: n === step ? 20 : 6,
+                },
+              ]}
+            />
+          ))}
+        </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.88)',
+    zIndex: 1000,
+  },
+  content: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 999,
   },
-  ring: {
+  timerWrapper: {
+    width: CIRCLE_SIZE + 20,
+    height: CIRCLE_SIZE + 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  svg: {
     position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 3,
   },
   circle: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
+    width: CIRCLE_SIZE - 20,
+    height: CIRCLE_SIZE - 20,
+    borderRadius: (CIRCLE_SIZE - 20) / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 12,
+    borderWidth: 1.5,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  goBackground: {
+    ...StyleSheet.absoluteFillObject,
   },
   countText: {
-    fontSize: 72,
     fontWeight: '900',
-    letterSpacing: -2,
+    fontVariant: ['tabular-nums'],
+    textShadowColor: 'rgba(0,0,0,0.2)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
   },
-  label: {
-    marginTop: 32,
-    fontSize: 18,
+  labelContainer: {
+    marginTop: 30,
+    alignItems: 'center',
+  },
+  mainLabel: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 4,
+    textTransform: 'uppercase',
+  },
+  subLabel: {
+    marginTop: 6,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.4)',
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.7)',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
   dots: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 32,
+    gap: 8,
+    marginTop: 50,
+    height: 6,
   },
   dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    height: 6,
+    borderRadius: 3,
   },
 });
