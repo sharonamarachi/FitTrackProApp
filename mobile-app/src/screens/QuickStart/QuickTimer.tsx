@@ -190,11 +190,9 @@ function CustomSlider({
 
   return (
     <View style={sliderStyles.wrapper}>
-      {/* The hit area is generous (44pt tall) but visually thin */}
       <View
         style={sliderStyles.hitArea}
         onLayout={(e) => {
-          // Capture the absolute X of the track so grant handler is accurate
           e.target.measure((_x, _y, _width, _height, pageX) => {
             trackStartXRef.current = pageX;
           });
@@ -263,21 +261,20 @@ const sliderStyles = StyleSheet.create({
     paddingHorizontal: SLIDER_TRACK_HORIZONTAL_PADDING,
     marginBottom: 32,
   },
-  // Tall hit area prevents "mis-tap starts ScrollView scroll instead"
   hitArea: {
     height: 44,
     justifyContent: "center",
   },
   track: {
-    height: 8,
-    borderRadius: 4,
+    height: 10,
+    borderRadius: 10,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.05)",
   },
   fill: {
     height: "100%",
-    borderRadius: 4,
+    borderRadius: 10,
   },
   thumb: {
     position: "absolute",
