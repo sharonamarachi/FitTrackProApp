@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingBottom: 40,
+    paddingBottom: 100,
     paddingTop: 20,
   },
   circularContainer: {
