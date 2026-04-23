@@ -720,15 +720,12 @@ function WorkoutCard({
   const isMixed = (hasTimer && hasReps) || workout.category === "mixed";
 
   const detectedType = isMixed ? "mixed" : hasTimer ? "cardio" : "strength";
-  // Prioritize "mixed" detection even if the DB says "cardio"
   const displayCategory =
-    isMixed && workout.category !== "mixed"
-      ? "mixed"
-      : workout.category === "mixed" ||
-          workout.category === "strength" ||
-          workout.category === "cardio"
-        ? workout.category
-        : detectedType;
+    workout.category === "mixed" ||
+    workout.category === "strength" ||
+    workout.category === "cardio"
+      ? workout.category
+      : detectedType;
 
   const visibleTags = [
     ...(displayCategory ? [displayCategory] : []),
@@ -783,25 +780,30 @@ function WorkoutCard({
           style={[
             styles.typeIconWrap,
             {
-              backgroundColor: isMixed
-                ? "#8b5cf6" + "22"
-                : hasTimer
-                  ? "#f97316" + "22"
-                  : colors.primary + "18",
+              backgroundColor:
+                displayCategory === "mixed"
+                  ? "#8b5cf6" + "22"
+                  : displayCategory === "cardio"
+                    ? "#f97316" + "22"
+                    : colors.primary + "18",
             },
           ]}
         >
           <Ionicons
             name={
-              isMixed
+              displayCategory === "mixed"
                 ? "layers-outline"
-                : hasTimer
+                : displayCategory === "cardio"
                   ? "timer-outline"
                   : "barbell-outline"
             }
             size={18}
             color={
-              isMixed ? "#8b5cf6" : hasTimer ? "#f97316" : colors.primary
+              displayCategory === "mixed"
+                ? "#8b5cf6"
+                : displayCategory === "cardio"
+                  ? "#f97316"
+                  : colors.primary
             }
           />
         </View>

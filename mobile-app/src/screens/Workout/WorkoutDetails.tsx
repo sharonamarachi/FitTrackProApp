@@ -176,13 +176,18 @@ export default function WorkoutDetails({ route, navigation }: Props) {
       const hasTimer = data.exercises.some((e: Exercise) => e.duration);
       const hasReps = data.exercises.some((e: Exercise) => e.reps || e.sets);
 
-      setWorkoutType(
-        hasTimer && hasReps
-          ? "mixed"
-          : hasTimer || data.category === "cardio"
-            ? "cardio"
-            : "strength",
-      );
+      const finalType =
+        data.category === "mixed" ||
+        data.category === "strength" ||
+        data.category === "cardio"
+          ? data.category
+          : hasTimer && hasReps
+            ? "mixed"
+            : hasTimer
+              ? "cardio"
+              : "strength";
+
+      setWorkoutType(finalType);
       const initialCompletions: ExerciseCompletion = {};
       data.exercises.forEach((ex: Exercise) => {
         initialCompletions[ex.id] = false;
@@ -373,13 +378,13 @@ export default function WorkoutDetails({ route, navigation }: Props) {
     workoutType === "mixed"
       ? "layers"
       : workoutType === "cardio"
-        ? "flash"
+        ? "timer"
         : "barbell";
   const workoutTypeColor =
     workoutType === "mixed"
       ? "#8b5cf6"
       : workoutType === "cardio"
-        ? "#4876ec"
+        ? "#f97316"
         : "#428df7";
   const isFullyCompleted = completionPercentage === 100;
 

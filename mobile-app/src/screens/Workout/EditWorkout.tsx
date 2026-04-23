@@ -229,7 +229,7 @@ export default function EditWorkout({ route, navigation }: Props) {
     try {
       const { error } = await updateWorkout(workoutId!, {
         title: title.trim(),
-        category: category || workoutType,
+        category: workoutType,
         exercises: exercises,
         tags: selectedTags,
       });
