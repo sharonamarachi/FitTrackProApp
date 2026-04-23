@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -15,9 +15,12 @@ import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 import { QuickTimerScreenProps } from "../../navigation/types";
 import Header from "../../components/Header";
 import { useTheme } from "../../context/ThemeContext";
+import * as Haptics from "expo-haptics";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const SLIDER_WIDTH = SCREEN_WIDTH - 48;
+const SLIDER_TRACK_HORIZONTAL_PADDING = 24;
+const THUMB_RADIUS = 14;
+const SLIDER_TRACK_WIDTH = SCREEN_WIDTH - SLIDER_TRACK_HORIZONTAL_PADDING * 2;
 
 type MetricKey = "work" | "rest" | "rounds" | "exercises";
 
@@ -32,6 +35,286 @@ interface Metric {
   icon: string;
 }
 
+interface CustomSliderProps {
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  trackColor: string;
+  onValueChange: (val: number) => void;
+  onSlidingStart?: () => void;
+  onSlidingComplete?: (val: number) => void;
+  setScrollEnabled: (enabled: boolean) => void;
+  formatValue: (val: number) => string;
+}
+
+function CustomSlider({
+  min,
+  max,
+  step,
+  value,
+  trackColor,
+  onValueChange,
+  onSlidingStart,
+  onSlidingComplete,
+  setScrollEnabled,
+  formatValue,
+}: CustomSliderProps) {
+  const { colors } = useTheme();
+
+  const initialFraction = (value - min) / (max - min);
+  const fillAnim = useRef(new Animated.Value(initialFraction)).current;
+  const thumbScale = useRef(new Animated.Value(1)).current;
+
+  const valueRef = useRef(value);
+  const lastHapticValueRef = useRef(value);
+  const isDraggingRef = useRef(false);
+  const trackStartXRef = useRef(0);
+  const minRef = useRef(min);
+  const maxRef = useRef(max);
+  const stepRef = useRef(step);
+
+  useEffect(() => {
+    minRef.current = min;
+    maxRef.current = max;
+    stepRef.current = step;
+  }, [min, max, step]);
+
+  const onValueChangeRef = useRef(onValueChange);
+  const onSlidingStartRef = useRef(onSlidingStart);
+  const onSlidingCompleteRef = useRef(onSlidingComplete);
+
+  useEffect(() => {
+    onValueChangeRef.current = onValueChange;
+    onSlidingStartRef.current = onSlidingStart;
+    onSlidingCompleteRef.current = onSlidingComplete;
+  }, [onValueChange, onSlidingStart, onSlidingComplete]);
+
+  // Keep valueRef in sync when parent changes value externally
+  useEffect(() => {
+    if (!isDraggingRef.current) {
+      valueRef.current = value;
+      const fraction = (value - min) / (max - min);
+      fillAnim.setValue(fraction);
+    }
+  }, [value, min, max]);
+
+  const clampAndSnap = useCallback((rawFraction: number): number => {
+    const clamped = Math.max(0, Math.min(1, rawFraction));
+    const rawMin = minRef.current;
+    const rawMax = maxRef.current;
+    const rawStep = stepRef.current;
+    const rawValue = rawMin + clamped * (rawMax - rawMin);
+    const stepped = Math.round((rawValue - rawMin) / rawStep) * rawStep + rawMin;
+    return Math.max(rawMin, Math.min(rawMax, stepped));
+  }, []);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      // Claim the gesture immediately and prevent ScrollView from stealing it
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false, // don't give it up mid-drag
+
+      onPanResponderGrant: (evt) => {
+        isDraggingRef.current = true;
+        setScrollEnabled(false);
+        onSlidingStartRef.current?.();
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+        Animated.spring(thumbScale, {
+          toValue: 1.3,
+          useNativeDriver: true,
+          friction: 8,
+        }).start();
+
+        const touchX = evt.nativeEvent.pageX;
+        const fraction = (touchX - trackStartXRef.current) / SLIDER_TRACK_WIDTH;
+        const snapped = clampAndSnap(fraction);
+
+        valueRef.current = snapped;
+        lastHapticValueRef.current = snapped;
+        const currentMin = minRef.current;
+        const currentMax = maxRef.current;
+        fillAnim.setValue((snapped - currentMin) / (currentMax - currentMin));
+        onValueChangeRef.current(snapped);
+      },
+
+      onPanResponderMove: (_, gestureState) => {
+        const fraction =
+          (gestureState.moveX - trackStartXRef.current) / SLIDER_TRACK_WIDTH;
+        const snapped = clampAndSnap(fraction);
+
+        if (snapped !== valueRef.current) {
+          valueRef.current = snapped;
+          const currentMin = minRef.current;
+          const currentMax = maxRef.current;
+          fillAnim.setValue((snapped - currentMin) / (currentMax - currentMin));
+          onValueChangeRef.current(snapped);
+
+          // Haptic only fires when crossing a step boundary, not every frame
+          if (snapped !== lastHapticValueRef.current) {
+            lastHapticValueRef.current = snapped;
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }
+        }
+      },
+
+      onPanResponderRelease: () => {
+        isDraggingRef.current = false;
+        setScrollEnabled(true);
+        onSlidingCompleteRef.current?.(valueRef.current);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        Animated.spring(thumbScale, {
+          toValue: 1,
+          useNativeDriver: true,
+          friction: 8,
+        }).start();
+      },
+
+      onPanResponderTerminate: () => {
+        // ScrollView or another gesture stole the responder
+        isDraggingRef.current = false;
+        setScrollEnabled(true);
+      },
+    }),
+  ).current;
+
+  const thumbPosition = fillAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, SLIDER_TRACK_WIDTH - THUMB_RADIUS * 2],
+    extrapolate: "clamp",
+  });
+
+
+  return (
+    <View style={sliderStyles.wrapper}>
+      {/* The hit area is generous (44pt tall) but visually thin */}
+      <View
+        style={sliderStyles.hitArea}
+        onLayout={(e) => {
+          // Capture the absolute X of the track so grant handler is accurate
+          e.target.measure((_x, _y, _width, _height, pageX) => {
+            trackStartXRef.current = pageX;
+          });
+        }}
+        {...panResponder.panHandlers}
+      >
+        {/* Track background */}
+        <View style={[sliderStyles.track, { backgroundColor: colors.border }]}>
+          {/* Filled portion */}
+          <Animated.View
+            style={[
+              sliderStyles.fill,
+              { 
+                backgroundColor: trackColor, 
+                width: SLIDER_TRACK_WIDTH,
+                transform: [
+                  { translateX: -SLIDER_TRACK_WIDTH / 2 },
+                  { scaleX: fillAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.0001, 1], // Avoid 0 for scale
+                      extrapolate: "clamp",
+                    }) 
+                  },
+                  { translateX: SLIDER_TRACK_WIDTH / 2 },
+                ],
+              },
+            ]}
+          />
+        </View>
+
+        {/* Thumb */}
+        <Animated.View
+          style={[
+            sliderStyles.thumb,
+            {
+              backgroundColor: "#fff",
+              borderWidth: 4,
+              borderColor: trackColor,
+              transform: [
+                { translateX: thumbPosition },
+                { scale: thumbScale }
+              ],
+              shadowColor: trackColor,
+            },
+          ]}
+        >
+          <View style={[sliderStyles.thumbInner, { backgroundColor: trackColor }]} />
+        </Animated.View>
+      </View>
+
+      {/* Min / max labels */}
+      <View style={sliderStyles.labels}>
+        <Text style={[sliderStyles.labelText, { color: colors.textSecondary }]}>
+          {formatValue(min)}
+        </Text>
+        <Text style={[sliderStyles.labelText, { color: colors.textSecondary }]}>
+          {formatValue(max)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+const sliderStyles = StyleSheet.create({
+  wrapper: {
+    paddingHorizontal: SLIDER_TRACK_HORIZONTAL_PADDING,
+    marginBottom: 32,
+  },
+  // Tall hit area prevents "mis-tap starts ScrollView scroll instead"
+  hitArea: {
+    height: 44,
+    justifyContent: "center",
+  },
+  track: {
+    height: 8,
+    borderRadius: 4,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.05)",
+  },
+  fill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  thumb: {
+    position: "absolute",
+    width: THUMB_RADIUS * 2.2,
+    height: THUMB_RADIUS * 2.2,
+    borderRadius: THUMB_RADIUS * 1.1,
+    top: "50%",
+    marginTop: -(THUMB_RADIUS * 1.1),
+    alignItems: "center",
+    justifyContent: "center",
+    // Visual elevation / glow
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  thumbInner: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  labels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  labelText: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+});
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
+
 export default function CircularTimerSetup({
   navigation,
 }: QuickTimerScreenProps) {
@@ -40,6 +323,7 @@ export default function CircularTimerSetup({
   const [rest, setRest] = useState(15);
   const [rounds, setRounds] = useState(8);
   const [exercises, setExercises] = useState(4);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
   const { theme, colors } = useTheme();
 
   const metrics: Record<MetricKey, Metric> = {
@@ -86,8 +370,10 @@ export default function CircularTimerSetup({
   };
 
   const currentMetric = metrics[selectedMetric];
-  const percentage = (currentMetric.value / currentMetric.max) * 100;
-
+  const percentage = Math.max(
+    0,
+    Math.min(100, (currentMetric.value / currentMetric.max) * 100),
+  );
   const formatTime = (seconds: number): string => {
     if (seconds < 60) return `${seconds}s`;
     const mins = Math.floor(seconds / 60);
@@ -172,96 +458,6 @@ export default function CircularTimerSetup({
     );
   };
 
-  const SmoothSlider = () => {
-    const sliderPosition = useRef(
-      new Animated.Value(
-        (currentMetric.value / currentMetric.max) * SLIDER_WIDTH,
-      ),
-    ).current;
-    const startX = useRef(0);
-
-    useEffect(() => {
-      const targetX = (currentMetric.value / currentMetric.max) * SLIDER_WIDTH;
-      Animated.timing(sliderPosition, {
-        toValue: targetX,
-        duration: 150,
-        useNativeDriver: false,
-      }).start();
-    }, [currentMetric.value, currentMetric.max, sliderPosition]);
-
-    const panResponder = PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        startX.current =
-          (currentMetric.value / currentMetric.max) * SLIDER_WIDTH;
-      },
-      onPanResponderMove: (_, gestureState) => {
-        const newX = Math.max(
-          0,
-          Math.min(SLIDER_WIDTH, startX.current + gestureState.dx),
-        );
-        sliderPosition.setValue(newX);
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        const newX = Math.max(
-          0,
-          Math.min(SLIDER_WIDTH, startX.current + gestureState.dx),
-        );
-        const newPercentage = (newX / SLIDER_WIDTH) * 100;
-        const rawValue = (newPercentage / 100) * currentMetric.max;
-        const steppedValue =
-          Math.round(rawValue / currentMetric.step) * currentMetric.step;
-        const finalValue = Math.max(
-          currentMetric.step,
-          Math.min(currentMetric.max, steppedValue),
-        );
-
-        currentMetric.setter(finalValue);
-
-        Animated.spring(sliderPosition, {
-          toValue: (finalValue / currentMetric.max) * SLIDER_WIDTH,
-          useNativeDriver: false,
-          friction: 7,
-          tension: 40,
-        }).start();
-      },
-    });
-
-    const thumbPosition = sliderPosition.interpolate({
-      inputRange: [0, SLIDER_WIDTH],
-      outputRange: [0, SLIDER_WIDTH],
-      extrapolate: "clamp",
-    });
-
-    return (
-      <View style={styles.sliderContainer}>
-        <View style={[styles.sliderTrack, { backgroundColor: colors.border }]}>
-          <Animated.View
-            style={[
-              styles.sliderFill,
-              {
-                width: thumbPosition,
-                backgroundColor: currentMetric.startColor,
-              },
-            ]}
-          />
-          <Animated.View
-            style={[
-              styles.sliderThumb,
-              {
-                left: thumbPosition,
-                backgroundColor: currentMetric.startColor,
-                shadowColor: currentMetric.startColor,
-              },
-            ]}
-            {...panResponder.panHandlers}
-          />
-        </View>
-      </View>
-    );
-  };
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar
@@ -270,6 +466,7 @@ export default function CircularTimerSetup({
       <Header title="Interval Setup" subtitle="Select and adjust each metric" />
 
       <ScrollView
+        scrollEnabled={scrollEnabled}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
       >
@@ -321,7 +518,23 @@ export default function CircularTimerSetup({
           })}
         </View>
 
-        <SmoothSlider />
+        {/* Custom slider — replaces @react-native-community/slider */}
+        <CustomSlider
+          min={currentMetric.step}
+          max={currentMetric.max}
+          step={currentMetric.step}
+          value={currentMetric.value}
+          trackColor={currentMetric.startColor}
+          onValueChange={currentMetric.setter}
+          onSlidingStart={() =>
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+          }
+          onSlidingComplete={() =>
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+          }
+          setScrollEnabled={setScrollEnabled}
+          formatValue={(val) => formatValue(selectedMetric, val)}
+        />
 
         <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
           <View style={styles.summaryHeader}>
@@ -461,32 +674,6 @@ const styles = StyleSheet.create({
   },
   pillValueActive: {
     color: "#fff",
-  },
-  sliderContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 32,
-  },
-  sliderTrack: {
-    height: 12,
-    borderRadius: 6,
-    position: "relative",
-  },
-  sliderFill: {
-    height: "100%",
-    borderRadius: 6,
-    position: "absolute",
-  },
-  sliderThumb: {
-    position: "absolute",
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    top: -10,
-    marginLeft: -16,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
   summaryCard: {
     borderRadius: 24,
