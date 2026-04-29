@@ -15,7 +15,48 @@ const router = Router();
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// Existing parse-transcript endpoint
+// ── Transcript Fetching ──────────────────────────────────────────────────────
+router.post('/transcript', async (req: Request, res: Response) => {
+  const { url } = req.body;
+  if (!url || typeof url !== 'string') {
+    return res.status(400).json({ error: 'Missing or invalid URL' });
+  }
+  if (WEBSHARE_PROXIES.length === 0) {
+    return res.status(503).json({ error: 'Transcript service not configured.' });
+  }
+  try {
+    const segments = await fetchTranscriptWithProxyRetry(url);
+    if (!segments?.length) {
+      return res.status(404).json({ error: 'No transcript found for this video.' });
+    }
+    const transcript = segments.map((s) => s.text).join(' ');
+    const videoId = url.match(/(?:v=|youtu\.be\/|\/embed\/|\/v\/)([a-zA-Z0-9_-]{11})/)?.[1] ?? url;
+    return res.json({
+      videoId,
+      transcript,
+      segments: segments.map((s) => ({ text: s.text, offset: s.offset, duration: s.duration })),
+    });
+  } catch (err: any) {
+    if (err instanceof YoutubeTranscriptDisabledError) {
+      return res.status(422).json({ error: 'Captions are disabled for this video.' });
+    }
+    if (err instanceof YoutubeTranscriptNotAvailableLanguageError) {
+      return res.status(422).json({ error: 'Transcript not available in English.' });
+    }
+    if (err instanceof YoutubeTranscriptNotAvailableError) {
+      return res.status(404).json({ error: 'No transcript found.' });
+    }
+    if (err instanceof YoutubeTranscriptTooManyRequestError) {
+      return res.status(429).json({ error: 'Rate limited by YouTube.' });
+    }
+    if (err instanceof YoutubeTranscriptVideoUnavailableError || err instanceof YoutubeTranscriptInvalidVideoIdError) {
+      return res.status(404).json({ error: 'Video unavailable or removed.' });
+    }
+    return res.status(500).json({ error: `Failed to fetch transcript. ${err instanceof Error ? err.message : 'Unknown error'}` });
+  }
+});
+
+// ── Transcript Parsing (AI) ──────────────────────────────────────────────────
 router.post('/parse-transcript', async (req: Request, res: Response) => {
   const { transcript } = req.body;
 
@@ -86,7 +127,7 @@ ${transcript.slice(0, 3500)}`;
       ],
     });
 
-    const raw   = completion.choices?.[0]?.message?.content ?? '';
+    const raw = completion.choices?.[0]?.message?.content ?? '';
     const clean = raw.replace(/```json|```/g, '').trim();
 
     let parsed: any;
