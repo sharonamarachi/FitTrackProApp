@@ -1,10 +1,21 @@
 import { Router, Request, Response } from 'express';
 import Groq from 'groq-sdk';
+import { 
+  fetchTranscriptWithProxyRetry, 
+  WEBSHARE_PROXIES,
+  YoutubeTranscriptDisabledError,
+  YoutubeTranscriptNotAvailableLanguageError,
+  YoutubeTranscriptNotAvailableError,
+  YoutubeTranscriptTooManyRequestError,
+  YoutubeTranscriptVideoUnavailableError,
+  YoutubeTranscriptInvalidVideoIdError
+} from '../utils/youtube';
 
 const router = Router();
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
+// Existing parse-transcript endpoint
 router.post('/parse-transcript', async (req: Request, res: Response) => {
   const { transcript } = req.body;
 

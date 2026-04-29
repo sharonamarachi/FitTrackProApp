@@ -74,7 +74,14 @@ interface TranscriptResult {
         body: JSON.stringify({ url: trimmed }),
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get("content-type");
+      let data;
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(text.slice(0, 100) || `HTTP ${response.status}`);
+      }
 
       if (!response.ok) {
         throw new Error(data.error ?? `HTTP ${response.status}`);
